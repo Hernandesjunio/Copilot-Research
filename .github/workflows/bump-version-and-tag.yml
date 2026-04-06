@@ -1,0 +1,74 @@
+# OPCIONAL — bump automático da versão em pyproject.toml. Depois corre manualmente o workflow Release (Actions) para tag + GitHub Release.
+#
+# Bump semver, commit e push na branch escolhida. Para o Release correr após o push, usa PAT (ver abaixo); em qualquer caso podes sempre correr Release à mão.
+#
+# Secret obrigatório: BUMP_TAG_PUSH_TOKEN — PAT (classic: scope repo ou fine-grained Contents: write).
+# Pushes feitos só com GITHUB_TOKEN não disparam outros workflows; sem PAT o Release não corre após este job.
+#
+# Mapeamento: build = patch (0.0.X), minor = 0.X.0, major = X.0.0
+name: Bump version
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Tipo de release (build = patch semver)"
+        type: choice
+        options:
+          - build
+          - minor
+          - major
+        default: build
+        required: true
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check PAT secret
+        env:
+          PAT: ${{ secrets.BUMP_TAG_PUSH_TOKEN }}
+        run: |
+          if [ -z "${PAT}" ]; then
+            echo "::error::Configure o secret do repositório BUMP_TAG_PUSH_TOKEN (PAT com permissão de push) para que o push da tag dispare o workflow Release. Ver comentário no topo deste ficheiro."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.BUMP_TAG_PUSH_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump pyproject version
+        id: bump
+        run: |
+          set -euo pipefail
+          PYPROJECT="mcp-instructions-server/pyproject.toml"
+          NEW_VER="$(python3 .github/scripts/bump_pyproject_version.py "${PYPROJECT}" "${{ inputs.bump }}")"
+          echo "new_version=${NEW_VER}" >> "${GITHUB_OUTPUT}"
+          echo "Bumped to ${NEW_VER}"
+
+      - name: Commit and push
+        env:
+          NEW_VER: ${{ steps.bump.outputs.new_version }}
+        run: |
+          set -euo pipefail
+          TAG="v${NEW_VER}"
+          if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q .; then
+            echo "::error::Tag ${TAG} já existe no remoto (release já publicada?)."
+            exit 1
+          fi
+          git add mcp-instructions-server/pyproject.toml
+          if git diff --cached --quiet; then
+            echo "::error::Nada para commitar."
+            exit 1
+          fi
+          git commit -m "chore: bump version to ${NEW_VER}"
+          git push origin "${{ github.ref_name }}"
