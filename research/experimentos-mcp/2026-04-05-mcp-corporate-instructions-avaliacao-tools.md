@@ -2,9 +2,9 @@
 
 - **Data:** 2026-04-05
 - **Autor:** —
-- **Objetivo:** Validar o servidor MCP `corporate-instructions` num projeto .NET 8 real (ClientesAPI), com corpus em `fixtures/instructions`, e produzir uma avaliação sobre **tools adicionais** que melhorem a integração com o Copilot; além disso, documentar **impacto agêntico** das propostas, **métrica de janela de contexto** via `copilot-instructions.md`, e o padrão **pseudo-hook orchestrator**.
+- **Objetivo:** Validar o servidor MCP `corporate-instructions` em um projeto .NET 8 real (ClientesAPI), com corpus em `fixtures/instructions`, e produzir uma avaliação sobre **tools adicionais** que melhorem a integração com o Copilot; além disso, documentar **impacto agêntico** das propostas, **métrica de janela de contexto** via `copilot-instructions.md`, e o padrão **pseudo-hook orchestrator**.
 
-_Notas: o rascunho original indicava **Data: 2025** (ano) na metadata; o registo no repositório segue a convenção `YYYY-MM-DD`._
+_Notas: o rascunho original indicava **Data: 2025** (ano) na metadata; o registro no repositório segue a convenção `YYYY-MM-DD`._
 
 ## Setup
 
@@ -19,7 +19,7 @@ _Notas: o rascunho original indicava **Data: 2025** (ano) na metadata; o registo
 | **MCP Server** | `corporate-instructions` (Python, stdio) |
 | **INSTRUCTIONS_ROOT** | `C:\_projeto\Copilot\fixtures\instructions` |
 
-### Escopo deste registo
+### Escopo deste registro
 
 Foram documentados **3 experimentos** no mesmo contexto de pesquisa:
 
@@ -65,7 +65,7 @@ Com mais de **100 microservices**, cada um em repositório separado, manter inst
 
 #### Solução implementada
 
-Foi construído um **MCP Server** (`corporate-instructions`) que centraliza instruções organizacionais num diretório único (`INSTRUCTIONS_ROOT`) e as expõe ao Copilot via MCP (stdio). Cada instrução é um ficheiro `.md` com frontmatter YAML.
+Foi construído um **MCP Server** (`corporate-instructions`) que centraliza instruções organizacionais em um diretório único (`INSTRUCTIONS_ROOT`) e as expõe ao Copilot via MCP (stdio). Cada instrução é um arquivo `.md` com frontmatter YAML.
 
 ### Tools existentes no MCP (referência)
 
@@ -118,7 +118,7 @@ Metodologia:
 1. Fluxo de raciocínio do Copilot (system prompt → tool selection → execution → response).
 2. Gaps entre as 3 tools atuais e o que o Copilot precisa para decidir melhor.
 3. Exploração de metadados existentes (scope, priority, tags, sha256).
-4. Contexto de 100+ microservices com padrões partilhados.
+4. Contexto de 100+ microservices com padrões compartilhados.
 
 ### Experimento 2 — Pergunta e definição de “agêntico”
 
@@ -127,7 +127,7 @@ Metodologia:
 Para fins desta pesquisa, **agêntico** significa:
 
 1. **Tomar decisões autónomas** sobre quais tools chamar e quando.
-2. **Encadear ações** sem intervenção do utilizador (tool chaining).
+2. **Encadear ações** sem intervenção do usuário (tool chaining).
 3. **Auto-corrigir** resultados via feedback loops (generate → evaluate → fix).
 4. **Carregar contexto proativamente** antes de executar tarefas.
 
@@ -145,7 +145,7 @@ Contexto adicional: durante a execução de um `implementation_plan.md` (12 fase
 
 > "O resultado foi sensacional, muito além do que eu esperava, funcionou perfeitamente e com uma velocidade incrível."
 
-O MCP funcionou de forma análoga às custom instructions nativas da pasta `.github/copilot`, com vantagem de ser **centralizado e partilhado** entre repositórios.
+O MCP funcionou de forma análoga às custom instructions nativas da pasta `.github/copilot`, com vantagem de ser **centralizado e compartilhado** entre repositórios.
 
 ### Seis tools adicionais recomendadas
 
@@ -153,7 +153,7 @@ O MCP funcionou de forma análoga às custom instructions nativas da pasta `.git
 
 **Gap**: Cada instrução tem `scope` com globs; o Copilot precisa de `list_instructions_index` e matching mental — gasta tokens e erra.
 
-**Solução**: Caminho de ficheiro → instruções cujo `scope` faz match, ordenadas por `priority`.
+**Solução**: Caminho de arquivo → instruções cujo `scope` faz match, ordenadas por `priority`.
 
 ```python
 def resolve_instructions_for_file(file_path: str) -> list[InstructionMeta]:
@@ -376,11 +376,11 @@ O **feedback loop** de `validate_compliance` implementa **generate → evaluate 
 
 O Copilot **não tem hooks proativos**. Não pode, por si só:
 
-- Ao abrir um ficheiro, chamar automaticamente `resolve_instructions_for_file`.
+- Ao abrir um arquivo, chamar automaticamente `resolve_instructions_for_file`.
 - No início da sessão, chamar automaticamente `get_project_profile`.
 - Periodicamente chamar `check_instruction_updates`.
 
-O Copilot é **reativo** — a **iniciação** é sempre do utilizador, mesmo em Agent mode.
+O Copilot é **reativo** — a **inicialização** é sempre do usuário, mesmo em Agent mode.
 
 **Limitações identificadas:**
 
@@ -413,7 +413,7 @@ O Copilot é **reativo** — a **iniciação** é sempre do utilizador, mesmo em
 
 O `.github/copilot-instructions.md` é injetado no **system prompt** de cada interação — o **único mecanismo de “pró-atividade”** disponível na arquitetura atual, funcionando como pseudo-hook de inicialização.
 
-**Padrão recomendado** (ficheiro mínimo por repo que orquestra o MCP):
+**Padrão recomendado** (arquivo mínimo por repo que orquestra o MCP):
 
 ```markdown
 # Copilot Instructions
@@ -435,7 +435,7 @@ O `.github/copilot-instructions.md` é injetado no **system prompt** de cada int
 | **Consistência** | Drift provável | Centralizada pelo MCP |
 | **Tipo de projeto** | Mesmas regras para todos | Perfis (`api-microservice`, `worker-service`, …) |
 
-**Fluxo resultante (conceitual):** utilizador envia prompt → system prompt inclui `copilot-instructions.md` → Copilot chama tools conforme orquestrado → gera/modifica código → opcionalmente `validate_compliance` e correção.
+**Fluxo resultante (conceitual):** usuário envia prompt → system prompt inclui `copilot-instructions.md` → Copilot chama tools conforme orquestrado → gera/modifica código → opcionalmente `validate_compliance` e correção.
 
 ### Experimento 3 — Métrica de janela de contexto
 
@@ -471,7 +471,7 @@ O Copilot **não expõe API interna** de contagem de tokens. Qualquer “percent
 
 **Implicação:** o pseudo-hook não orquestra só **quais tools chamar**, mas também **como gerir a sessão** (incluindo marcos de contexto).
 
-### Ficheiros do workspace no momento dos experimentos
+### Arquivos do workspace no momento dos experimentos
 
 ```
 C:\Users\herna\source\repos\TestClientCorporateInstructions\
@@ -538,10 +538,10 @@ ClientesAPI.Dominio\Entidades\Cliente.cs
 
 ## Conclusões e próximos passos
 
-- **Experimento 1 (tools):** O MCP centraliza bem instruções multi-repo. As 3 tools cobrem **descobrir → buscar → ler**; as 6 propostas reforçam auto-contexto por ficheiro/projeto, scaffolding, glossário, deteção de mudanças e verificação leve de conformidade.
+- **Experimento 1 (tools):** O MCP centraliza bem instruções multi-repo. As 3 tools cobrem **descobrir → buscar → ler**; as 6 propostas reforçam auto-contexto por arquivo/projeto, scaffolding, glossário, detecção de mudanças e verificação leve de conformidade.
 - **Experimento 2 (agêntico):** As propostas aumentam **eficiência e encadeamento** quando já há tarefa em curso; **proatividade verdadeira** continua limitada pela arquitetura (sem hooks, sem estado persistente). O **MCP + `copilot-instructions.md` como orchestrator** aproxima o máximo de comportamento agêntico extraível sem APIs internas do IDE.
 - **Experimento 3 (janela de contexto):** Meta-instruções **qualitativas** em `copilot-instructions.md` (low/medium/high por fase) equilibram custo de tokens e utilidade; percentuais “exatos” tendem a **falsa precisão**. Localização escolhida: **per-repo** no `copilot-instructions.md`; MCP com `kind: meta` fica como evolução futura opcional.
 - **Alterações propostas ao corpus / template / servidor:** Roadmap por fases — `resolve_instructions_for_file` e `get_project_profile` primeiro; depois templates e glossário; por fim diff por hash e `validate_compliance` incremental. Ao adicionar tools, alinhar **descriptions** ao padrão “when to use”.
-- **Decisão:** **Iterar** — adotar roadmap por fases; o desenho atual do MCP é viável e performático face às instructions nativas; o papel do orchestrator no repo foi validado como complemento essencial às limitações de hooks.
+- **Decisão:** **Iterar** — adotar roadmap por fases; o design atual do MCP é viável e performático face às instructions nativas; o papel do orchestrator no repo foi validado como complemento essencial às limitações de hooks.
 
 

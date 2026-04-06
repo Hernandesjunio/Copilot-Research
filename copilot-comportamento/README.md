@@ -1,12 +1,12 @@
 # Comportamento do Copilot (governança local)
 
-Este diretório agrupa **política e checklists** sobre como o Copilot e o MCP devem ser usados nesta iniciativa. O conteúdo **canónico** de arquitetura continua no corpus servido pelo MCP (`fixtures/instructions` neste repo de desenvolvimento; repositório canónico em produção).
+Este diretório agrupa **política e checklists** sobre como o Copilot e o MCP devem ser usados nesta iniciativa. O conteúdo **canônico** de arquitetura continua no corpus servido pelo MCP (`fixtures/instructions` neste repo de desenvolvimento; repositório canônico em produção).
 
 ## Árvore recomendada
 
 ```text
 copilot-comportamento/
-├── README.md                 ← este ficheiro (índice)
+├── README.md                 ← este arquivo (índice)
 ├── politica-camadas.md       ← nativo vs MCP, precedência
 ├── checklist-novo-repo.md    ← ao criar/adotar um serviço
 └── convenções-prompts.md     ← frases e fluxos no chat
@@ -35,6 +35,6 @@ research/
 
 ## Anti-padrões (resumo)
 
-- Duplicar no nativo ficheiros longos que já estão no corpus MCP.
+- Duplicar no nativo arquivos longos que já estão no corpus MCP.
 - Colocar segredos, tokens ou dados pessoais em exemplos ou instruções.
 - Ignorar a precedência: **instructions nativas do repo atual** prevalecem sobre o MCP.

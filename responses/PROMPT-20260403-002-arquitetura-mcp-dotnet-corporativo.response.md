@@ -3,7 +3,7 @@
 ## Metadados
 - **Prompt ID:** PROMPT-20260403-002
 - **Data da resposta:** 2026-04-03
-- **Fonte:** Copilot Chat no Visual Studio (modo agente) — conforme indicado pelo utilizador
+- **Fonte:** Copilot Chat no Visual Studio (modo agente) — conforme indicado pelo usuário
 
 > **Nota:** A resposta original incluía um preâmbulo repetido e parcialmente truncado (segunda versão de tabelas e JSON incompleto). Abaixo fica o corpo consolidado e completo fornecido pelo Copilot.
 

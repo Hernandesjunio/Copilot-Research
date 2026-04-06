@@ -8,21 +8,21 @@
 
 ## Regras sempre ativas
 
-- Responda em **português** (ou o idioma acordado pela equipa).
+- Responda em **português** (ou o idioma acordado pela equipe).
 - **Nunca** inclua segredos, tokens ou dados pessoais em exemplos ou commits.
 - Respeite os limites deste repo: não assuma código de outros microserviços como disponível aqui.
 
 ## Padrões organizacionais (via MCP)
 
-Para **padrões de arquitetura**, convenções partilhadas, exemplos de handlers, resiliência, segurança transversal ou ADRs da organização:
+Para **padrões de arquitetura**, convenções compartilhadas, exemplos de handlers, resiliência, segurança transversal ou ADRs da organização:
 
 1. Chame o servidor MCP **corporate-instructions** (ou o nome que configurou).
-2. Use **`search_instructions`** com uma query clara sobre o tópico **antes** de propor desenho ou refatoração grande.
+2. Use **`search_instructions`** com uma query clara sobre o tópico **antes** de propor design ou refatoração grande.
 3. Se precisar do texto completo, use **`get_instruction`** com o `id` devolvido na busca.
 
-As regras **deste ficheiro** prevalecem se houver conflito com o catálogo MCP.
+As regras **deste arquivo** prevalecem se houver conflito com o catálogo MCP.
 
 ## Fluxo de trabalho sugerido
 
-- Antes de editar ficheiros críticos, leia o ficheiro alvo (ou use as ferramentas do IDE).
+- Antes de editar arquivos críticos, leia o arquivo alvo (ou use as ferramentas do IDE).
 - Após alterações substanciais, valide com build/testes do projeto.

@@ -2,12 +2,12 @@
 
 ## Entregável
 
-Implementação em Python com **stdio**, três tools (`list_instructions_index`, `search_instructions`, `get_instruction`), índice em memória ao arranque e leitura de `INSTRUCTIONS_ROOT`.
+Implementação em Python com **stdio**, três tools (`list_instructions_index`, `search_instructions`, `get_instruction`), índice em memória na inicialização e leitura de `INSTRUCTIONS_ROOT`.
 
 ## Documentação e código
 
 - Código: [`mcp-instructions-server`](../../mcp-instructions-server/)
-- Configuração do VS: secção “Registar no Visual Studio” no README do servidor.
+- Configuração do VS: seção “Registrar no Visual Studio” no README do servidor.
 
 ## Aceite (checklist)
 

@@ -3,7 +3,7 @@
 ## Metadados
 - **Prompt ID:** PROMPT-20260403-002
 - **Data da resposta:** 2026-04-03
-- **Fonte:** Copilot Chat no Visual Studio — resposta colada pelo utilizador
+- **Fonte:** Copilot Chat no Visual Studio — resposta colada pelo usuário
 
 ## Resposta (cole integral ou trechos relevantes)
 

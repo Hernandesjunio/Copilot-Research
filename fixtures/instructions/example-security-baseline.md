@@ -8,7 +8,7 @@ kind: policy
 
 # Segredos e dados sensíveis
 
-- Nunca commitar tokens, passwords ou connection strings; usar cofre ou variáveis de pipeline.
+- Nunca commitar tokens, senhas ou connection strings; usar cofre ou variáveis de pipeline.
 - Não ecoar valores de cabeçalhos de autorização em logs.
 - Rotacionar credenciais quando houver suspeita de vazamento.
 

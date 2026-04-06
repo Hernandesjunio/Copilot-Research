@@ -1,6 +1,6 @@
 ---
 id: microservice-di-options-extensions
-title: "DI e configuracoes — Options e extension methods"
+title: "DI e configurações — Options e extension methods"
 tags: [microservice, dotnet, dependency-injection, ioptions, configuration]
 scope: "**/*.cs"
 priority: medium

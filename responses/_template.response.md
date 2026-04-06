@@ -12,7 +12,7 @@
 ```
 
 ## Extração rápida (preencher depois)
-- **Ferramentas citadas:** (ex.: leitura de ficheiros, terminal, MCP)
+- **Ferramentas citadas:** (ex.: leitura de arquivos, terminal, MCP)
 - **Limitações mencionadas:**
 - **Insights para MCP / extensões:**
 - **Follow-up sugerido (próximo prompt):**

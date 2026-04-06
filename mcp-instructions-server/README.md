@@ -1,6 +1,6 @@
 # Corporate Instructions MCP (read-only)
 
-Servidor [Model Context Protocol](https://modelcontextprotocol.io/) em **stdio** que expõe o corpus canónico de instructions (Markdown com frontmatter) para o GitHub Copilot no Visual Studio — alinhado ao plano híbrido: poucas instructions nativas no repo + recuperação sob demanda.
+Servidor [Model Context Protocol](https://modelcontextprotocol.io/) em **stdio** que expõe o corpus canônico de instructions (Markdown com frontmatter) para o GitHub Copilot no Visual Studio — alinhado ao plano híbrido: poucas instructions nativas no repo + recuperação sob demanda.
 
 ## Requisitos
 
@@ -36,7 +36,7 @@ corporate-instructions-mcp
 
 Também: `python -m corporate_instructions_mcp` com o mesmo `INSTRUCTIONS_ROOT`.
 
-## Registar no Visual Studio (MCP)
+## Registrar no Visual Studio (MCP)
 
 Adicione o servidor na configuração de MCP do VS (JSON), apontando o comando para o interpretador e módulo instalados, por exemplo:
 
@@ -67,9 +67,9 @@ Ajuste `command` para o Python do venv se necessário: `"command": "C:\\path\\to
 | `search_instructions` | Busca por palavras-chave; `tags` opcional (lista separada por vírgulas); `max_results` 1–10 (default 5). |
 | `get_instruction` | Conteúdo completo por `id` ou `path` relativo; `max_chars` para truncar. |
 
-**Reindexação:** o índice é reconstruído quando o processo arranca ou quando `INSTRUCTIONS_ROOT` muda. Reinicie o servidor após atualizar ficheiros no corpus.
+**Reindexação:** o índice é reconstruído quando o processo inicia ou quando `INSTRUCTIONS_ROOT` muda. Reinicie o servidor após atualizar arquivos no corpus.
 
-## Formato dos ficheiros
+## Formato dos arquivos
 
 Ver [EPIC-01-inventory-governance.md](../planning/bmad/EPIC-01-inventory-governance.md) para o frontmatter esperado (`id`, `title`, `tags`, `scope`, `priority`, `kind`).
 

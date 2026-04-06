@@ -9,7 +9,7 @@ kind: reference
 
 # Objetivo
 
-Definir a organização padrão de microservices .NET por camadas para manter baixo acoplamento, evolução segura e código previsível entre times.
+Definir a organização padrão de microservices .NET por camadas para manter baixo acoplamento, evolução segura e código previsível entre equipes.
 
 ## TL;DR
 

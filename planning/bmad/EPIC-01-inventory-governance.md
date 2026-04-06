@@ -9,7 +9,7 @@ Reduzir duplicação em 100+ repositórios mantendo **uma fonte da verdade** par
 | Tipo | Definição | Onde vive |
 |------|-----------|-----------|
 | **Regra sempre-ativa** | Deve influenciar **toda** interação (idioma, segurança, estilo, boundaries do repo). | `.github/instructions/` ou `copilot-instructions.md` (mínimo, 5–15 temas) |
-| **Referência on-demand** | Volumosa, condicional à tarefa, exemplos por domínio, ADRs, catálogos. | Repositório canónico + MCP (`search_instructions` / `get_instruction`) |
+| **Referência on-demand** | Volumosa, condicional à tarefa, exemplos por domínio, ADRs, catálogos. | Repositório canônico + MCP (`search_instructions` / `get_instruction`) |
 
 ## Hierarquia em caso de conflito
 
@@ -17,9 +17,9 @@ Reduzir duplicação em 100+ repositórios mantendo **uma fonte da verdade** par
 2. **Conteúdo do MCP** é orientação; se contradizer a nativa, a nativa vence.
 3. O servidor MCP deve poder marcar documentos como `kind: reference` para deixar explícito que não substituem políticas locais.
 
-## Frontmatter obrigatório (repositório canónico)
+## Frontmatter obrigatório (repositório canônico)
 
-Cada ficheiro `.md` do corpus deve começar por:
+Cada arquivo `.md` do corpus deve começar por:
 
 ```yaml
 ---
@@ -41,17 +41,17 @@ kind: reference | policy
 | `priority` | Opcional | Desempate na ordenação de resultados. |
 | `kind` | Opcional | `policy` se for norma organizacional; `reference` (default) para guias. |
 
-Se `id` estiver ausente, o MCP deriva um id a partir do nome do ficheiro (avisar na pipeline de qualidade).
+Se `id` estiver ausente, o MCP deriva um id a partir do nome do arquivo (avisar na pipeline de qualidade).
 
 ## Inventário (template)
 
-Use uma folha de cálculo ou tabela Git com colunas:
+Use uma planilha ou tabela Git com colunas:
 
 | path | id | classificação (regra / referência) | ação (manter nativo / só MCP / dividir) | owner | notas |
 |------|----|------------------------------------|----------------------------------------|-------|-------|
 
-**Aceite deste épico:** política acordada + lista priorizada dos 5–15 temas que **cada** repo mantém em nativo + corpus canónico com frontmatter nos novos/ migrados ficheiros.
+**Aceite deste épico:** política acordada + lista priorizada dos 5–15 temas que **cada** repo mantém em nativo + corpus canônico com frontmatter nos arquivos novos ou migrados.
 
 ## Próximo passo
 
-Implementar o servidor MCP ([`mcp-instructions-server`](../../mcp-instructions-server/README.md)) apontando `INSTRUCTIONS_ROOT` para o clone do repositório canónico.
+Implementar o servidor MCP ([`mcp-instructions-server`](../../mcp-instructions-server/README.md)) apontando `INSTRUCTIONS_ROOT` para o clone do repositório canônico.

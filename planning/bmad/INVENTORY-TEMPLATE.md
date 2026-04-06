@@ -1,8 +1,8 @@
 # Template de inventário do corpus (EPIC-01)
 
-Copie para folha de cálculo ou mantenha como tabela Markdown durante a migração.
+Copie para uma planilha ou mantenha como tabela Markdown durante a migração.
 
-| path (relativo ao repo canónico) | id (frontmatter) | classificação (regra / referência) | ação (nativo mínimo / só MCP / dividir) | owner | notas |
+| path (relativo ao repo canônico) | id (frontmatter) | classificação (regra / referência) | ação (nativo mínimo / só MCP / dividir) | owner | notas |
 |----------------------------------|------------------|------------------------------------|----------------------------------------|-------|-------|
 | | | | | | |
 

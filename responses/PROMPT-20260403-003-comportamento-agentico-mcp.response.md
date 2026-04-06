@@ -3,7 +3,7 @@
 ## Metadados
 - **Prompt ID:** PROMPT-20260403-003
 - **Data da resposta:** 2026-04-03
-- **Fonte:** Copilot Chat no Visual Studio (modo agente) — conforme indicado pelo utilizador
+- **Fonte:** Copilot Chat no Visual Studio (modo agente) — conforme indicado pelo usuário
 
 ## Resposta (cole integral ou trechos relevantes)
 
@@ -166,6 +166,6 @@ O MCP já oferece capacidade agêntica significativa — iteração, busca dinâ
 
 ## Extração rápida
 - **Ferramentas citadas:** `get_projects_in_solution`, `get_files_in_project`, `get_file`, `find_symbol`, `get_symbols_by_name`, `code_search`, `replace_string_in_file`, `create_file`, `run_build`, `run_tests` (nomes ilustrativos do ecossistema VS/Copilot)
-- **Limitações mencionadas:** sem memória entre conversas; só age com mensagem do utilizador; sem observação contínua; janela de contexto finita; backtracking informal; plano não persistente entre turnos; dependência do que as tools expõem
+- **Limitações mencionadas:** sem memória entre conversas; só age com mensagem do usuário; sem observação contínua; janela de contexto finita; backtracking informal; plano não persistente entre turnos; dependência do que as tools expõem
 - **Insights para MCP / extensões:** prompts explícitos com fases; `copilot-instructions.md` com workflow; tarefas por objetivo (não micro-gestão) para forçar iteração análise → contexto → implementação → validação
-- **Follow-up sugerido (próximo prompt):** medir na prática (mesmo repo) se instruções persistentes alteram taxa de build/teste após edição; ou desenhar MCP que exponha apenas operações de alto nível vs. granularidade atual
+- **Follow-up sugerido (próximo prompt):** medir na prática (mesmo repo) se instruções persistentes alteram taxa de build/teste após edição; ou projetar um MCP que exponha apenas operações de alto nível vs. granularidade atual

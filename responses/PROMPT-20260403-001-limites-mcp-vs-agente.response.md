@@ -3,7 +3,7 @@
 ## Metadados
 - **Prompt ID:** PROMPT-20260403-001
 - **Data da resposta:** 2026-04-03
-- **Fonte:** Copilot Chat no Visual Studio (modo agente) — conforme indicado pelo utilizador
+- **Fonte:** Copilot Chat no Visual Studio (modo agente) — conforme indicado pelo usuário
 
 ## Resposta (cole integral ou trechos relevantes)
 
@@ -132,7 +132,7 @@ não controla como o modelo pondera as informações recebidas.
 | ❌ | Comportamento não controlável via MCP |
 
 ## Extração rápida (preencher depois)
-- **Ferramentas citadas:** MCP — tools, resources, prompts pré-construídos; exemplos: ficheiros, compilação, símbolos, Azure Resource Graph
+- **Ferramentas citadas:** MCP — tools, resources, prompts pré-construídos; exemplos: arquivos, compilação, símbolos, Azure Resource Graph
 - **Limitações mencionadas:** MCP não aumenta raciocínio, janela de atenção nem velocidade de inferência; não força decisões nem altera safety; ponderação entre fontes não é configurável; heurística de invocação de tools não parametrizável via MCP; prioridade de resource vs system prompt / histórico não controlável
 - **Insights para MCP / extensões:** MCP amplia o “menu” de ações e o contexto acessível; o modelo continua a decidir invocação, interpretação e síntese; investir em tools com retorno claro e prompts bem estruturados; aceitar limites em políticas e ordenação interna de contexto
 - **Follow-up sugerido (próximo prompt):** Testar no VS uma tool MCP concreta e documentar quando o agente a invoca vs. ignora; ou pedir ao Copilot para distinguir o que é específico do produto GitHub Copilot vs. genérico sobre LLMs

@@ -3,7 +3,7 @@
 ## Metadados
 - **Prompt ID:** PROMPT-20260403-002
 - **Data da resposta:** 2026-04-03
-- **Fonte:** Copilot Chat (conforme indicado pelo utilizador)
+- **Fonte:** Copilot Chat (conforme indicado pelo usuário)
 
 ## Resposta (cole integral ou trechos relevantes)
 

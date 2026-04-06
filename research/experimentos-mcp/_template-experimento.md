@@ -7,14 +7,14 @@
 ## Setup
 
 - IDE / extensão Copilot:
-- Modelo (se souberes):
+- Modelo (se souber):
 - `INSTRUCTIONS_ROOT` ou corpus usado:
 - Tools MCP invocadas (ex.: `search_instructions`, `get_instruction`):
 
 ## Procedimento
 
 1. Prompt ou sequência de prompts (resumo ou colar):
-2. Ficheiros de instructions relevantes (paths ou `id`):
+2. Arquivos de instructions relevantes (paths ou `id`):
 
 ## Resultado
 

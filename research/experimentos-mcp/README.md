@@ -1,10 +1,10 @@
 # Experimentos MCP
 
-Registo de ensaios (prompts, setup, resultados) para evoluir o corpus, o template fino ou o servidor MCP sem misturar com conteúdo canónico.
+Registro de experimentos (prompts, setup, resultados) para evoluir o corpus, o template fino ou o servidor MCP sem misturar com conteúdo canônico.
 
 ## Árvore por experiência
 
-**Opção A — ficheiro único na raiz desta pasta**
+**Opção A — arquivo único na raiz desta pasta**
 
 ```text
 experimentos-mcp/
