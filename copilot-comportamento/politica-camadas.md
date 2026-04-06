@@ -1,6 +1,6 @@
 # Política: camadas (nativo vs MCP)
 
-Resumo alinhado ao épico de inventário. Detalhe e critérios: [`../planning/bmad/EPIC-01-inventory-governance.md`](../planning/bmad/EPIC-01-inventory-governance.md).
+Resumo alinhado ao épico de inventário. Detalhe e critérios: [`../planning/bmad/epicos/EPIC-01-inventory-governance.md`](../planning/bmad/epicos/EPIC-01-inventory-governance.md).
 
 ## Onde vive cada tipo de conhecimento
 

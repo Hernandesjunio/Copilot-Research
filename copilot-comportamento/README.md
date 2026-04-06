@@ -30,7 +30,7 @@ research/
 
 - Template fino por repo: [`../templates/copilot-instructions.thin.md`](../templates/copilot-instructions.thin.md)
 - Experimentos: [`../research/experimentos-mcp/`](../research/experimentos-mcp/)
-- Governança do corpus: [`../planning/bmad/EPIC-01-inventory-governance.md`](../planning/bmad/EPIC-01-inventory-governance.md)
+- Governança do corpus: [`../planning/bmad/epicos/EPIC-01-inventory-governance.md`](../planning/bmad/epicos/EPIC-01-inventory-governance.md)
 - Servidor MCP: [`../mcp-instructions-server/README.md`](../mcp-instructions-server/README.md)
 
 ## Anti-padrões (resumo)

@@ -6,11 +6,11 @@ Implementação em Python com **stdio**, três tools (`list_instructions_index`,
 
 ## Documentação e código
 
-- Código: [`mcp-instructions-server`](../../mcp-instructions-server/)
+- Código: [`mcp-instructions-server`](../../../mcp-instructions-server/)
 - Configuração do VS: seção “Registrar no Visual Studio” no README do servidor.
 
 ## Aceite (checklist)
 
 - [ ] `pip install -e .` com sucesso.
-- [ ] Com `INSTRUCTIONS_ROOT` apontando para [`fixtures/instructions`](../../fixtures/instructions), as três tools devolvem JSON esperado.
+- [ ] Com `INSTRUCTIONS_ROOT` apontando para [`fixtures/instructions`](../../../fixtures/instructions), as três tools devolvem JSON esperado.
 - [ ] `pytest` (extra `dev`) passa em `tests/smoke_test.py`.

@@ -19,7 +19,7 @@ Recomendação inicial: **A + D** (repo central + variável de ambiente no regis
 
 1. Criar `.github/instructions/` (ou arquivo único `copilot-instructions.md`) com **apenas** regras locais: idioma, segredos, boundaries do serviço, convenções que não podem falhar.
 2. Incluir um parágrafo explícito: para padrões de arquitetura compartilhados, **usar o MCP `corporate-instructions`** (`search_instructions` antes de planejar soluções transversais).
-3. Registrar o servidor MCP no Visual Studio (ver [README do servidor](../../mcp-instructions-server/README.md)) com `INSTRUCTIONS_ROOT` correto.
+3. Registrar o servidor MCP no Visual Studio (ver [README do servidor](../../../mcp-instructions-server/README.md)) com `INSTRUCTIONS_ROOT` correto.
 4. (Opcional) Script `tools/sync-instructions.ps1` que faz `git pull` no repo canônico — para quem usa clone único.
 
 ## Piloto (2–3 repos)
@@ -36,6 +36,6 @@ Recomendação inicial: **A + D** (repo central + variável de ambiente no regis
 
 ## Template de instructions nativas “finas”
 
-Ver [`templates/copilot-instructions.thin.md`](../../templates/copilot-instructions.thin.md).
+Ver [`templates/copilot-instructions.thin.md`](../../../templates/copilot-instructions.thin.md).
 
 **Aceite deste épico:** playbook acordado pela equipe + 2–3 repos piloto migrados + instruções de onboarding para novos projetos.

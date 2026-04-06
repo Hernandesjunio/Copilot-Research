@@ -54,4 +54,4 @@ Use uma planilha ou tabela Git com colunas:
 
 ## Próximo passo
 
-Implementar o servidor MCP ([`mcp-instructions-server`](../../mcp-instructions-server/README.md)) apontando `INSTRUCTIONS_ROOT` para o clone do repositório canônico.
+Implementar o servidor MCP ([`mcp-instructions-server`](../../../mcp-instructions-server/README.md)) apontando `INSTRUCTIONS_ROOT` para o clone do repositório canônico.

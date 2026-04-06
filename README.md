@@ -14,7 +14,7 @@ Repositório da iniciativa de **uso disciplinado do GitHub Copilot** com **instr
 
 ## Sobre o projeto
 
-Este projeto organiza **governança**, **planejamento** (incluindo épicos BMAD) e **pesquisa aplicada** ao ecossistema Copilot: políticas de camadas (nativo versus MCP), templates reutilizáveis por repositório, prompts datados, respostas alinhadas e um servidor MCP read-only para servir um corpus de instruções de forma controlada.
+Este projeto organiza **governança**, **planejamento BMAD** (plano de execução entregue e épicos por tema) e **pesquisa aplicada** ao ecossistema Copilot: políticas de camadas (nativo versus MCP), templates reutilizáveis por repositório, prompts datados, respostas alinhadas e um servidor MCP read-only para servir um corpus de instruções de forma controlada.
 
 **Objetivos principais**
 
@@ -28,7 +28,7 @@ Este projeto organiza **governança**, **planejamento** (incluindo épicos BMAD)
 |------|-----------|------------|
 | Governança local | Política de camadas (nativo vs MCP), checklists e convenções de chat | [`copilot-comportamento/README.md`](copilot-comportamento/README.md) |
 | Template por repo | Instruções “finas” para colar em cada repositório de aplicação | [`templates/copilot-instructions.thin.md`](templates/copilot-instructions.thin.md) |
-| Planejamento | Épicos BMAD (inventário, servidor MCP, rollout, protocolo de experimentos) | [`planning/bmad/`](planning/bmad/) |
+| Planejamento BMAD | Índice, [plano de execução](planning/bmad/execucao/plano-execucao-bmad.md) e [épicos](planning/bmad/epicos/) (inventário, servidor MCP, rollout, experimentos) | [`planning/bmad/README.md`](planning/bmad/README.md) |
 | Perguntas de pesquisa | Prompts datados usados para explorar temas (MCP, agente, arquitetura) | [`prompts/`](prompts/) |
 | Respostas | Respostas alinhadas a cada prompt em `prompts/` | [`responses/`](responses/) |
 | Pesquisa e experimentos | Índice de research e relatórios em `experimentos-mcp/` | [`research/README.md`](research/README.md) |
@@ -38,7 +38,8 @@ Este projeto organiza **governança**, **planejamento** (incluindo épicos BMAD)
 ## Documentos de apoio (links diretos)
 
 - [Política de camadas](copilot-comportamento/politica-camadas.md) · [Convenções de prompts](copilot-comportamento/convenções-prompts.md) · [Checklist novo repo](copilot-comportamento/checklist-novo-repo.md)
-- [EPIC-01 — inventário e governança](planning/bmad/EPIC-01-inventory-governance.md) · [EPIC-02 — servidor MCP](planning/bmad/EPIC-02-mcp-server.md)
+- [Plano de execução BMAD (modelo híbrido nativas + MCP)](planning/bmad/execucao/plano-execucao-bmad.md)
+- [EPIC-01 — inventário e governança](planning/bmad/epicos/EPIC-01-inventory-governance.md) · [EPIC-02 — servidor MCP](planning/bmad/epicos/EPIC-02-mcp-server.md)
 - [Template de experimento](research/experimentos-mcp/_template-experimento.md)
 
 ## Desenvolvimento do servidor MCP

@@ -71,7 +71,7 @@ Ajuste `command` para o Python do venv se necessário: `"command": "C:\\path\\to
 
 ## Formato dos arquivos
 
-Ver [EPIC-01-inventory-governance.md](../planning/bmad/EPIC-01-inventory-governance.md) para o frontmatter esperado (`id`, `title`, `tags`, `scope`, `priority`, `kind`).
+Ver [EPIC-01-inventory-governance.md](../planning/bmad/epicos/EPIC-01-inventory-governance.md) para o frontmatter esperado (`id`, `title`, `tags`, `scope`, `priority`, `kind`).
 
 ## Corpus de exemplo
 

@@ -29,5 +29,5 @@ Exemplo preenchido: [`2026-04-05-mcp-corporate-instructions-avaliacao-tools.md`]
 ## Ligações
 
 - Comportamento e prompts: [`../../copilot-comportamento/convenções-prompts.md`](../../copilot-comportamento/convenções-prompts.md)
-- Governança: [`../../planning/bmad/EPIC-01-inventory-governance.md`](../../planning/bmad/EPIC-01-inventory-governance.md)
+- Governança: [`../../planning/bmad/epicos/EPIC-01-inventory-governance.md`](../../planning/bmad/epicos/EPIC-01-inventory-governance.md)
 - Servidor: [`../../mcp-instructions-server/README.md`](../../mcp-instructions-server/README.md)
