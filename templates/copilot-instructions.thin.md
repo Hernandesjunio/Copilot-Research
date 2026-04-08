@@ -1,28 +1,27 @@
 # Instruções locais (camada mínima)
 
-<!-- Ajuste ao repositório: idioma, segurança, limites do serviço. Mantenha curto (5–15 temas). -->
+- **Idioma**: português.
+- **Segurança**: nunca inclua segredos/tokens/dados pessoais.
+- **Escopo**: não assuma código/infra de outros serviços.
+- **Limites**: se faltar dado decisivo, explicite a inferência e ofereça 2–3 opções.
 
 ## Contexto do repositório
 
-- Descreva em 2–3 linhas o propósito deste serviço e o stack relevante (ex.: .NET 8, ASP.NET Core).
-
-## Regras sempre ativas
-
-- Responda em **português** (ou o idioma acordado pela equipe).
-- **Nunca** inclua segredos, tokens ou dados pessoais em exemplos ou commits.
-- Respeite os limites deste repo: não assuma código de outros microserviços como disponível aqui.
+- **Descrição:** (descrição do projeto)
+- **Stack:** (stack completa)
 
 ## Padrões organizacionais (via MCP)
 
-Para **padrões de arquitetura**, convenções compartilhadas, exemplos de handlers, resiliência, segurança transversal ou ADRs da organização:
+Para padrões de arquitetura, convenções, segurança, resiliência, ADRs, exemplos de domínio ou catálogo de erros:
 
-1. Chame o servidor MCP **corporate-instructions** (ou o nome que configurou).
-2. Use **`search_instructions`** com uma query clara sobre o tópico **antes** de propor design ou refatoração grande.
-3. Se precisar do texto completo, use **`get_instruction`** com o `id` devolvido na busca.
+1. Use o MCP `corporate-instructions`.
+2. Em qualquer tarefa que envolva design, implementação de padrões, tratamento de erros ou dúvida sobre convenções: `search_instructions` com query descritiva.
+3. Para o texto completo: `get_instruction` com o `id` retornado.
+4. Para tarefas cross-cutting que combinam múltiplas referências: `compose_context`.
 
-As regras **deste arquivo** prevalecem se houver conflito com o catálogo MCP.
+As regras **deste arquivo** prevalecem se houver conflito com o MCP.
 
-## Fluxo de trabalho sugerido
+## Fluxo de trabalho
 
-- Antes de editar arquivos críticos, leia o arquivo alvo (ou use as ferramentas do IDE).
-- Após alterações substanciais, valide com build/testes do projeto.
+- Antes de editar arquivos críticos: leia o arquivo alvo.
+- Após mudanças substanciais: rode build/testes.
