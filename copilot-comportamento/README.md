@@ -25,6 +25,9 @@ research/
 - [Política de camadas](politica-camadas.md)
 - [Checklist novo repo](checklist-novo-repo.md)
 - [Convenções de prompts](convenções-prompts.md)
+- [Orquestração MCP (pseudo-hook)](orquestracao-mcp-pseudo-hook.md)
+- [Gestão de sessão (janela de contexto)](gestao-sessao-janela-contexto.md)
+- [Roadmap de tools MCP](roadmap-tools-mcp.md)
 
 ## Ligações no repositório
 

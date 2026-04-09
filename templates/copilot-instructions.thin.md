@@ -7,8 +7,8 @@
 
 ## Contexto do repositório
 
-- **Descrição:** (descrição do projeto)
-- **Stack:** (stack completa)
+- **Descrição:** {{DESCRIÇÃO_DO_PROJETO}}
+- **Stack:** {{STACK_COMPLETA}}
 
 ## Padrões organizacionais (via MCP)
 
@@ -17,7 +17,7 @@ Para padrões de arquitetura, convenções, segurança, resiliência, ADRs, exem
 1. Use o MCP `corporate-instructions`.
 2. Em qualquer tarefa que envolva design, implementação de padrões, tratamento de erros ou dúvida sobre convenções: `search_instructions` com query descritiva.
 3. Para o texto completo: `get_instruction` com o `id` retornado.
-4. Para tarefas cross-cutting que combinam múltiplas referências: `compose_context`.
+4. Se precisar combinar múltiplas referências, faça `search_instructions` para selecionar os `id` relevantes e então use `get_instruction` para ler só os documentos necessários (evite carregar conteúdo desnecessário).
 
 As regras **deste arquivo** prevalecem se houver conflito com o MCP.
 
