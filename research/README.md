@@ -11,4 +11,4 @@ Notas e experimentos que **não** são conteúdo canônico do corpus MCP.
 - [`analises/2026-04-09-analise-tecnica-mcp-copilot.md`](analises/2026-04-09-analise-tecnica-mcp-copilot.md) — análise comparativa (STDIO vs HTTP vs híbrido; tools/resources/prompts).
 - [`analises/2026-04-09-distribuicao-central-cache-local-stdio.md`](analises/2026-04-09-distribuicao-central-cache-local-stdio.md) — desenho prescritivo do modelo híbrido: **distribuição central** do corpus + **cache local** + retrieval via **MCP STDIO**.
 
-Documentação de produto e planejamento: [`../planning/`](../planning/).
+Documentação de produto e planejamento: [`../planning/README.md`](../planning/README.md).
