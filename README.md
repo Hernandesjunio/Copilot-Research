@@ -7,6 +7,7 @@ Repositório da iniciativa de **uso disciplinado do GitHub Copilot** com **instr
 ## Sumário
 
 - [Sobre o projeto](#sobre-o-projeto)
+- [Comece por aqui (navegação rápida)](#comece-por-aqui-navegação-rápida)
 - [Estrutura do repositório](#estrutura-do-repositório)
 - [Documentos de apoio](#documentos-de-apoio-links-diretos)
 - [Desenvolvimento do servidor MCP](#desenvolvimento-do-servidor-mcp)
@@ -21,6 +22,25 @@ Este projeto organiza **governança**, **planejamento BMAD** (plano de execuçã
 - Reduzir instruções nativas ao essencial e mover contexto estável para MCP.
 - Documentar decisões, experimentos e convenções de forma rastreável.
 - Disponibilizar um servidor MCP de exemplo (`mcp-instructions-server`) com ferramentas read-only.
+
+## Comece por aqui (navegação rápida)
+
+Se você está chegando agora (ou quer se localizar rápido), siga este mapa. A ideia é sempre saber **o que será tratado** em cada área e para onde ir em seguida.
+
+- **Como o Copilot deve se comportar (políticas/checklists)**: índice em [`copilot-comportamento/README.md`](copilot-comportamento/README.md).  
+  Use quando estiver definindo “regras do jogo”: camadas (nativo vs MCP), precedência, como orquestrar MCP, e checklists de adoção.
+- **Template mínimo para colar em cada repo de serviço (thin)**: [`templates/copilot-instructions.thin.md`](templates/copilot-instructions.thin.md).  
+  Use quando for criar/adotar um repositório e precisar da camada nativa mínima.
+- **Pesquisa aplicada e experimentos (não-canônico)**: índice em [`research/README.md`](research/README.md) e, para execuções, [`research/experimentos-mcp/README.md`](research/experimentos-mcp/README.md).  
+  Use quando quiser ver “o que já foi testado”, setup, resultados e próximos passos.
+- **Planejamento/roadmap (BMAD)**: índice em [`planning/bmad/README.md`](planning/bmad/README.md).  
+  Use quando quiser entender critérios de aceite, épicos e o plano de execução do modelo híbrido.
+- **Servidor MCP (como instalar/rodar e quais tools existem)**: [`mcp-instructions-server/README.md`](mcp-instructions-server/README.md).  
+  Use quando for configurar o MCP no IDE ou entender as tools disponíveis.
+
+Leituras recomendadas (para contexto mais “arquitetural”):
+
+- [`research/analises/2026-04-09-analise-tecnica-mcp-copilot.md`](research/analises/2026-04-09-analise-tecnica-mcp-copilot.md) — análise técnica comparativa (STDIO vs HTTP vs híbrido, tools/resources/prompts).
 
 ## Estrutura do repositório
 
