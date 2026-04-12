@@ -52,6 +52,15 @@ def _parse_tags(tags: str | None) -> set[str] | None:
     return {t.strip().lower() for t in str(tags).split(",") if t.strip()}
 
 
+def _clamp_int(value: object, default: int, lo: int, hi: int) -> int:
+    """Coerce MCP tool arguments to int; fall back to default on invalid input."""
+    try:
+        n = int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return default
+    return max(lo, min(n, hi))
+
+
 @mcp.tool()
 def list_instructions_index() -> str:
     """Use when you need an overview of all available organizational instruction documents (ids, titles, tags).
@@ -91,7 +100,7 @@ def search_instructions(
     idx = _ensure_index()
     tokens = tokenize_query(query)
     tag_filter = _parse_tags(tags)
-    cap = max(1, min(int(max_results), 10))
+    cap = _clamp_int(max_results, default=5, lo=1, hi=10)
 
     if not tokens:
         if not tag_filter:
@@ -184,7 +193,7 @@ def get_instruction(
             ensure_ascii=False,
         )
 
-    limit = max(500, min(int(max_chars), 200_000))
+    limit = _clamp_int(max_chars, default=12000, lo=500, hi=200_000)
     body = rec.body
     truncated = len(body) > limit
     if truncated:

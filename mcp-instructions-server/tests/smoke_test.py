@@ -51,3 +51,22 @@ def test_search_tags_only():
 
     data = json.loads(search_instructions(query="", tags="security", max_results=5))
     assert any(r["id"] == "security-baseline-secrets" for r in data["results"])
+
+
+def test_search_instructions_invalid_max_results_uses_default():
+    from corporate_instructions_mcp.server import search_instructions
+
+    data = json.loads(
+        search_instructions(query="security secrets", max_results="not-a-number")
+    )
+    assert data["results"]
+
+
+def test_get_instruction_errors():
+    from corporate_instructions_mcp.server import get_instruction
+
+    err = json.loads(get_instruction())
+    assert err.get("error")
+
+    missing = json.loads(get_instruction(id="does-not-exist"))
+    assert "not found" in missing["error"].lower()
