@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "corporate-instructions-mcp"
-version = "0.1.0"
+version = "0.2.0"
 description = "MCP read-only server for centralized Copilot/GitHub instructions corpus"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -14,7 +14,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
+    "types-PyYAML>=6.0.12.20240917",
+]
 
 [project.scripts]
 corporate-instructions-mcp = "corporate_instructions_mcp.server:main"
@@ -25,3 +30,35 @@ packages = ["corporate_instructions_mcp"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+src = ["corporate_instructions_mcp", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.10"
+packages = ["corporate_instructions_mcp"]
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = ["mcp.*", "mcp.server.fastmcp"]
+ignore_missing_imports = true
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = ["B104"]  # binding to all interfaces — not used; keep file minimal for future HTTP entrypoint

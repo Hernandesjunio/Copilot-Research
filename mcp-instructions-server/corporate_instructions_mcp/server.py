@@ -1,7 +1,11 @@
+"""MCP stdio server exposing read-only tools over the instruction corpus."""
+
 from __future__ import annotations
 
 import json
+import logging
 import os
+import sys
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
@@ -15,6 +19,7 @@ from corporate_instructions_mcp.indexing import (
     summarize_body,
     tokenize_query,
 )
+from corporate_instructions_mcp.paths import instruction_path_needle_is_safe, require_existing_dir
 
 mcp = FastMCP(
     "corporate-instructions",
@@ -27,20 +32,38 @@ mcp = FastMCP(
 _index: dict[str, InstructionRecord] = {}
 _index_root: Path | None = None
 
+log = logging.getLogger(__name__)
+
+
+def _configure_logging() -> None:
+    """Emit operational messages to stderr so stdio JSON-RPC on stdout stays clean."""
+    pkg = logging.getLogger("corporate_instructions_mcp")
+    if pkg.handlers:
+        return
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(logging.Formatter("%(levelname)s %(name)s %(message)s"))
+    pkg.addHandler(handler)
+    pkg.setLevel(logging.INFO)
+
 
 def _root() -> Path:
     raw = os.environ.get("INSTRUCTIONS_ROOT", "").strip()
     if not raw:
-        raise RuntimeError(
-            "INSTRUCTIONS_ROOT is not set. Point it to the canonical folder of .md instructions."
-        )
-    return Path(raw).expanduser().resolve()
+        msg = "INSTRUCTIONS_ROOT is not set. Point it to the canonical folder of .md instructions."
+        raise RuntimeError(msg)
+    try:
+        root = require_existing_dir(raw)
+    except ValueError as exc:
+        msg = str(exc)
+        raise RuntimeError(msg) from exc
+    return root
 
 
 def _ensure_index() -> dict[str, InstructionRecord]:
     global _index, _index_root
     root = _root()
     if _index_root != root or not _index:
+        log.info("rebuilding_index root=%s", root)
         _index = build_index(root)
         _index_root = root
     return _index
@@ -54,10 +77,17 @@ def _parse_tags(tags: str | None) -> set[str] | None:
 
 def _clamp_int(value: object, default: int, lo: int, hi: int) -> int:
     """Coerce MCP tool arguments to int; fall back to default on invalid input."""
-    try:
-        n = int(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
+    if isinstance(value, bool):
         return default
+    if isinstance(value, int):
+        n = value
+    elif isinstance(value, float):
+        n = int(value)
+    else:
+        try:
+            n = int(str(value).strip(), 10)
+        except (TypeError, ValueError):
+            return default
     return max(lo, min(n, hi))
 
 
@@ -94,8 +124,9 @@ def search_instructions(
 ) -> str:
     """Use when the user asks about architecture, patterns, DNS, security, style, or any org-specific guideline.
 
-    Full-text style search (keyword overlap) over the instruction corpus. Prefer calling this before proposing
-    cross-cutting design. Parameters: query (natural language), optional comma-separated tags filter, max_results (default 5, cap 10).
+    Full-text style search (keyword overlap) over the instruction corpus. Prefer calling this before
+    proposing cross-cutting design. Parameters: query (natural language), optional comma-separated tags
+    filter, max_results (default 5, cap 10).
     """
     idx = _ensure_index()
     tokens = tokenize_query(query)
@@ -177,6 +208,16 @@ def get_instruction(
         rec = idx.get(str(id).strip())
     elif path and str(path).strip():
         needle = str(path).strip().replace("\\", "/")
+        if not instruction_path_needle_is_safe(needle):
+            return json.dumps(
+                {
+                    "error": "Invalid path argument.",
+                    "hint": (
+                        "Use a relative path without '..' segments; prefer document id from list_instructions_index."
+                    ),
+                },
+                ensure_ascii=False,
+            )
         for candidate in idx.values():
             if candidate.rel_path == needle or candidate.rel_path.endswith("/" + needle):
                 rec = candidate
@@ -217,6 +258,7 @@ def get_instruction(
 
 
 def main() -> None:
+    _configure_logging()
     mcp.run(transport="stdio")
 
 

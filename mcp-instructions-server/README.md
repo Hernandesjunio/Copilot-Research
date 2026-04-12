@@ -5,20 +5,20 @@ Servidor [Model Context Protocol](https://modelcontextprotocol.io/) em **stdio**
 ## Requisitos
 
 - Python 3.10+
-- Variável de ambiente **`INSTRUCTIONS_ROOT`**: caminho absoluto ou relativo para a pasta raiz que contém os `.md` (por exemplo, clone do repositório `org/architecture-instructions`).
+- Variável de ambiente **`INSTRUCTIONS_ROOT`**: caminho absoluto ou relativo para uma pasta **existente** que contém os `.md` (por exemplo, clone do repositório `org/architecture-instructions`). Se o caminho não existir ou não for diretório, o servidor **falha ao atender tools** (fail-fast).
 
 ## Instalação
 
+Fonte canônica de dependências: [`pyproject.toml`](pyproject.toml).
+
 ```bash
 cd mcp-instructions-server
-pip install -e .
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
 ```
 
-Ou apenas dependências:
-
-```bash
-pip install -r requirements.txt
-```
+O ficheiro [`requirements.txt`](requirements.txt) espelha apenas dependências de **runtime** para ambientes que não usam PEP 517; para desenvolvimento prefira sempre `pip install -e ".[dev]"`.
 
 ## Executar (stdio)
 
@@ -35,6 +35,8 @@ corporate-instructions-mcp
 ```
 
 Também: `python -m corporate_instructions_mcp` com o mesmo `INSTRUCTIONS_ROOT`.
+
+**Logs:** mensagens operacionais (rebuild do índice, ficheiros ignorados por limite, etc.) vão para **stderr**, para não misturar com o JSON-RPC em **stdout**.
 
 ## Registrar no Visual Studio (MCP)
 
@@ -65,11 +67,40 @@ Ajuste `command` para o Python do venv se necessário: `"command": "C:\\path\\to
 |------|--------|
 | `list_instructions_index` | Metadados de todos os `.md` (id, path, tags, hash). |
 | `search_instructions` | Busca por palavras-chave; `tags` opcional (lista separada por vírgulas); `max_results` 1–10 (default 5). |
-| `get_instruction` | Conteúdo completo por `id` ou `path` relativo; `max_chars` para truncar. |
+| `get_instruction` | Conteúdo completo por `id` ou `path` relativo (sem `..` nem caminho absoluto); `max_chars` para truncar. |
 
-**Reindexação:** o índice é reconstruído quando o processo inicia ou quando `INSTRUCTIONS_ROOT` muda. Reinicie o servidor após atualizar arquivos no corpus.
+**Reindexação:** o índice é reconstruído quando `INSTRUCTIONS_ROOT` muda entre chamadas. Reinicie o processo após alterações grandes no corpus se quiser libertar memória ou garantir estado limpo.
 
-## Formato dos arquivos
+## Limites e segurança (resumo)
+
+- **Tamanho máximo por ficheiro** indexado: 5 MiB (ficheiros maiores são ignorados com aviso em log).
+- **Frontmatter YAML**: secção entre os primeiros `---` limitada a 64 KiB; valores YAML que não sejam objeto mapeado são tratados como metadados vazios.
+- **Symlinks:** ficheiros cuja resolução saia de `INSTRUCTIONS_ROOT` são ignorados.
+- **Modelo de ameaça e reporte de vulnerabilidades:** ver [SECURITY.md](../SECURITY.md) na raiz do repositório.
+
+## Versionamento e compatibilidade
+
+| Artefacto | Política |
+|-----------|----------|
+| Pacote `corporate-instructions-mcp` | [Semantic Versioning](https://semver.org/spec/v2.0.0.html); versão em [`pyproject.toml`](pyproject.toml). |
+| Histórico de alterações | [`CHANGELOG.md`](CHANGELOG.md). |
+| Python | Testado em CI em 3.10, 3.11 e 3.12. |
+| Protocolo MCP | Dependente da biblioteca `mcp` declarada em `pyproject.toml`; sem matriz formal de cada release do upstream — actualize `mcp` com testes locais. |
+
+## Runbook operacional (curto)
+
+| Sintoma | Verificar |
+|---------|-----------|
+| Erro ao listar/buscar: `INSTRUCTIONS_ROOT is not a directory` | Caminho correcto, permissões de leitura, pasta montada em CI/CD. |
+| Índice vazio sem erro | Nenhum `.md` válido sob a raiz, ou todos ignorados (tamanho / symlink). Ver **stderr**. |
+| Conteúdo desactualizado | Reiniciar o processo MCP no IDE; o índice reflecte o disco no rebuild. |
+| `get_instruction` com `path` rejeitado | Usar `id` ou path relativo sem `..`; paths são apenas comparados ao corpus já indexado. |
+
+## Transporte HTTP (roadmap)
+
+O modo suportado hoje é **stdio** (IDE). Para alinhamento com gateways corporativos (TLS, auth, health checks), ver [docs/ROADMAP-TRANSPORT-HTTP.md](docs/ROADMAP-TRANSPORT-HTTP.md).
+
+## Formato dos ficheiros
 
 Ver [EPIC-01-inventory-governance.md](../planning/bmad/epicos/EPIC-01-inventory-governance.md) para o frontmatter esperado (`id`, `title`, `tags`, `scope`, `priority`, `kind`).
 
@@ -77,6 +108,11 @@ Ver [EPIC-01-inventory-governance.md](../planning/bmad/epicos/EPIC-01-inventory-
 
 Neste repositório Copilot, use:
 
-`INSTRUCTIONS_ROOT` = `...\Copilot\fixtures\instructions`
+`INSTRUCTIONS_ROOT` = `...\Copilot-Research\fixtures\instructions`
 
-para validar as três tools localmente.
+para validar as três tools localmente (`pytest` em `mcp-instructions-server/`).
+
+## Contribuição e políticas do repositório
+
+- [CONTRIBUTING.md](../CONTRIBUTING.md) — ambiente de desenvolvimento, gates de qualidade.
+- [SECURITY.md](../SECURITY.md) — reporte responsável.

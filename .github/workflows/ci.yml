@@ -1,4 +1,4 @@
-# Testes do pacote corporate-instructions-mcp em push/PR na main.
+# Quality gates and tests for corporate-instructions-mcp.
 name: CI
 
 on:
@@ -7,17 +7,65 @@ on:
     paths:
       - "mcp-instructions-server/**"
       - ".github/workflows/ci.yml"
+      - "CONTRIBUTING.md"
+      - "SECURITY.md"
+      - "CODEOWNERS"
+      - ".github/dependabot.yml"
+      - ".github/ISSUE_TEMPLATE/**"
   pull_request:
     branches: [main]
     paths:
       - "mcp-instructions-server/**"
       - ".github/workflows/ci.yml"
+      - "CONTRIBUTING.md"
+      - "SECURITY.md"
+      - "CODEOWNERS"
+      - ".github/dependabot.yml"
+      - ".github/ISSUE_TEMPLATE/**"
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: mcp-instructions-server/pyproject.toml
+
+      - name: Install package and dev deps
+        working-directory: mcp-instructions-server
+        run: |
+          python -m pip install --upgrade "pip>=25.3"
+          pip install -e ".[dev]" bandit pip-audit
+
+      - name: Ruff check
+        working-directory: mcp-instructions-server
+        run: ruff check .
+
+      - name: Ruff format
+        working-directory: mcp-instructions-server
+        run: ruff format --check .
+
+      - name: Mypy
+        working-directory: mcp-instructions-server
+        run: mypy corporate_instructions_mcp
+
+      - name: Bandit
+        working-directory: mcp-instructions-server
+        run: bandit -q -r corporate_instructions_mcp -ll
+
+      - name: pip-audit
+        working-directory: mcp-instructions-server
+        run: pip-audit
+
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -37,7 +85,9 @@ jobs:
 
       - name: Install package and dev deps
         working-directory: mcp-instructions-server
-        run: pip install -e ".[dev]"
+        run: |
+          python -m pip install --upgrade "pip>=25.3"
+          pip install -e ".[dev]"
 
       - name: Run tests
         working-directory: mcp-instructions-server

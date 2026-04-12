@@ -39,6 +39,10 @@ Leitura complementar (visão arquitetural MCP × Copilot): [`research/analises/2
 
 Instalação, configuração no IDE e smoke tests: [`mcp-instructions-server/README.md`](mcp-instructions-server/README.md). Configuração de testes no workspace: [`.vscode/settings.json`](.vscode/settings.json).
 
+## Segurança
+
+Reporte de vulnerabilidades e modelo de ameaça (incluindo o servidor MCP): [SECURITY.md](SECURITY.md).
+
 ## Licença e autoria
 
 O código e a documentação neste repositório são disponibilizados sob a [**licença MIT**](LICENSE): pode **usar**, **modificar** e **distribuir** o material, inclusive em projetos comerciais, desde que **mantenha o aviso de copyright e o texto da licença** nas cópias ou trabalhos derivados — o que preserva a **referência à autoria** original.

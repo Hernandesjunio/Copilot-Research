@@ -8,7 +8,6 @@ import os
 import sys
 from pathlib import Path
 
-import pytest
 from mcp import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
@@ -46,47 +45,48 @@ def test_mcp_stdio_list_search_get_instruction():
             cwd=str(_SERVER_DIR),
             env={**os.environ, "INSTRUCTIONS_ROOT": str(corpus)},
         )
-        async with stdio_client(params) as (read, write):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
+        async with (
+            stdio_client(params) as (read, write),
+            ClientSession(read, write) as session,
+        ):
+            await session.initialize()
 
-                listed = await session.list_tools()
-                names = {t.name for t in listed.tools}
-                assert names == {"get_instruction", "list_instructions_index", "search_instructions"}
+            listed = await session.list_tools()
+            names = {t.name for t in listed.tools}
+            assert names == {"get_instruction", "list_instructions_index", "search_instructions"}
 
-                raw = _tool_text(await session.call_tool("list_instructions_index", {}))
-                index = json.loads(raw)
-                assert index["count"] >= 1, f"no .md indexed under {corpus}"
-                ids = {x["id"] for x in index["instructions"]}
+            raw = _tool_text(await session.call_tool("list_instructions_index", {}))
+            index = json.loads(raw)
+            assert index["count"] >= 1, f"no .md indexed under {corpus}"
+            ids = {x["id"] for x in index["instructions"]}
 
-                if use_fixture_expectations:
-                    assert index["count"] >= 3
-                    assert {"dns-retry-pattern", "security-baseline-secrets", "csharp-async-style"}.issubset(
-                        ids
-                    )
+            if use_fixture_expectations:
+                assert index["count"] >= 3
+                expected_ids = {"dns-retry-pattern", "security-baseline-secrets", "csharp-async-style"}
+                assert expected_ids.issubset(ids)
 
-                raw = _tool_text(
-                    await session.call_tool(
-                        "search_instructions",
-                        {"query": "retry DNS polly", "max_results": 3},
-                    )
+            raw = _tool_text(
+                await session.call_tool(
+                    "search_instructions",
+                    {"query": "retry DNS polly", "max_results": 3},
                 )
-                search = json.loads(raw)
-                assert "composed_context" in search
-                if use_fixture_expectations:
-                    assert search["results"]
-                    assert search["results"][0]["id"] == "dns-retry-pattern"
+            )
+            search = json.loads(raw)
+            assert "composed_context" in search
+            if use_fixture_expectations:
+                assert search["results"]
+                assert search["results"][0]["id"] == "dns-retry-pattern"
 
-                fetch_id = (
-                    "dns-retry-pattern"
-                    if use_fixture_expectations and "dns-retry-pattern" in ids
-                    else index["instructions"][0]["id"]
-                )
-                raw = _tool_text(await session.call_tool("get_instruction", {"id": fetch_id}))
-                doc = json.loads(raw)
-                assert doc.get("id") == fetch_id
-                assert isinstance(doc.get("content"), str) and len(doc["content"]) > 0
-                if use_fixture_expectations and fetch_id == "dns-retry-pattern":
-                    assert "Polly" in doc["content"]
+            fetch_id = (
+                "dns-retry-pattern"
+                if use_fixture_expectations and "dns-retry-pattern" in ids
+                else index["instructions"][0]["id"]
+            )
+            raw = _tool_text(await session.call_tool("get_instruction", {"id": fetch_id}))
+            doc = json.loads(raw)
+            assert doc.get("id") == fetch_id
+            assert isinstance(doc.get("content"), str) and len(doc["content"]) > 0
+            if use_fixture_expectations and fetch_id == "dns-retry-pattern":
+                assert "Polly" in doc["content"]
 
     asyncio.run(_run())

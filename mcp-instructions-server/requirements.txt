@@ -1,2 +1,7 @@
+# Prefer installing from pyproject.toml (single source of truth):
+#   pip install -e ".[dev]"
+#
+# The lines below mirror runtime dependencies from [project.dependencies] for
+# environments that only support a flat requirements file.
 mcp>=1.2.0
 pyyaml>=6.0

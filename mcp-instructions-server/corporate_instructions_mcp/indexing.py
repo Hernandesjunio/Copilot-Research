@@ -1,6 +1,9 @@
+"""Index Markdown instruction files: frontmatter, body, and lightweight search."""
+
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -8,7 +11,15 @@ from typing import Any
 
 import yaml
 
+from corporate_instructions_mcp.paths import is_path_under_root
+
 FRONTMATTER_SPLIT = re.compile(r"^---\s*$", re.MULTILINE)
+
+# Defensive limits (OWASP-style abuse of CPU/memory via corpus).
+MAX_INSTRUCTION_FILE_BYTES = 5 * 1024 * 1024
+MAX_FRONTMATTER_SECTION_CHARS = 65536
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -44,10 +55,21 @@ def _parse_markdown(path: Path, root: Path) -> InstructionRecord:
     body = text
     parts = FRONTMATTER_SPLIT.split(text, maxsplit=2)
     if len(parts) >= 3 and parts[0].strip() == "":
-        try:
-            meta = yaml.safe_load(parts[1]) or {}
-        except yaml.YAMLError:
+        fm_raw = parts[1]
+        if len(fm_raw) > MAX_FRONTMATTER_SECTION_CHARS:
+            log.warning(
+                "frontmatter_truncated_skipped path=%s size=%s max=%s",
+                rel,
+                len(fm_raw),
+                MAX_FRONTMATTER_SECTION_CHARS,
+            )
             meta = {}
+        else:
+            try:
+                loaded = yaml.safe_load(fm_raw)
+                meta = loaded if isinstance(loaded, dict) else {}
+            except yaml.YAMLError:
+                meta = {}
         body = parts[2].lstrip("\n")
 
     doc_id = str(meta.get("id") or _slug_from_path(path))
@@ -78,20 +100,50 @@ def _parse_markdown(path: Path, root: Path) -> InstructionRecord:
 
 
 def build_index(root: Path) -> dict[str, InstructionRecord]:
-    """Load all *.md under root (recursive). Keys are document ids (must be unique)."""
+    """Load all ``*.md`` under ``root`` (recursive). Keys are document ids (must be unique).
+
+    Skips files outside ``root`` after resolution (symlink escapes), files larger than
+    :data:`MAX_INSTRUCTION_FILE_BYTES`, and unreadable paths.
+    """
     root = root.resolve()
     if not root.is_dir():
         return {}
 
     by_id: dict[str, InstructionRecord] = {}
     for path in sorted(root.rglob("*.md")):
-        if path.is_file():
+        if not path.is_file():
+            continue
+        if not is_path_under_root(path, root):
+            log.warning("skipped_path_outside_root path=%s", path)
+            continue
+        try:
+            st = path.stat()
+        except OSError as exc:
+            log.warning("skipped_unreadable path=%s error=%s", path, exc)
+            continue
+        if st.st_size > MAX_INSTRUCTION_FILE_BYTES:
+            log.warning(
+                "skipped_large_file path=%s bytes=%s max=%s",
+                path,
+                st.st_size,
+                MAX_INSTRUCTION_FILE_BYTES,
+            )
+            continue
+        try:
             rec = _parse_markdown(path, root)
-            if rec.id in by_id:
-                raise ValueError(
-                    f"Duplicate instruction id {rec.id!r}: {by_id[rec.id].rel_path} vs {rec.rel_path}"
-                )
-            by_id[rec.id] = rec
+        except OSError as exc:
+            log.warning("skipped_read_error path=%s error=%s", path, exc)
+            continue
+        if rec.id in by_id:
+            msg = f"Duplicate instruction id {rec.id!r}: {by_id[rec.id].rel_path} vs {rec.rel_path}"
+            raise ValueError(msg)
+        by_id[rec.id] = rec
+    log.info(
+        "index_built root=%s count=%s max_file_bytes=%s",
+        root,
+        len(by_id),
+        MAX_INSTRUCTION_FILE_BYTES,
+    )
     return by_id
 
 
