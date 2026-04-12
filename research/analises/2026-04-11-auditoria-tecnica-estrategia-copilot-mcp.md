@@ -14,8 +14,8 @@ Este repositório documenta uma iniciativa real de governança para uso discipli
 O repositório contém:
 - **Servidor MCP funcional** (Python, STDIO, 3 tools)
 - **8 documentos de instrução** como corpus de exemplo
-- **2 experimentos documentados** com resultados
-- **2 análises técnicas** comparativas
+- **1 documento de experimento** em `experimentos-mcp/` com resultados (ensaio 2026-04-05)
+- **4 documentos** em `analises/` (comparativo do template thin de 2026-04-07, duas peças de 2026-04-09 e esta auditoria)
 - **4 épicos** de planejamento (BMAD)
 - **6 documentos de governança/política**
 - **5 prompts de pesquisa** com respostas arquivadas
@@ -46,7 +46,7 @@ A estratégia está formulada como **separação entre contexto local e conhecim
 
 ### ❌ Falha identificada
 
-O `templates/copilot-instructions.thin.md` menciona fluxo com 4 passos MCP, incluindo referência implícita a tools que não existem no servidor. A inconsistência I3 do experimento 2 (2026-04-07) identificou isso mas **não foi corrigida** — o template canônico permanece desalinhado com o servidor real.
+O `templates/copilot-instructions.thin.md` menciona fluxo com 4 passos MCP, incluindo referência implícita a tools que não existem no servidor. A inconsistência I3 da [análise técnica de 2026-04-07](2026-04-07-analise-tecnica-reestruturacao-copilot-instructions-thin.md) identificou isso mas **não foi corrigida** — o template canônico permanece desalinhado com o servidor real.
 
 **Classificação:** FATO (verificável no código: `server.py` expõe 3 tools; o template sugere fluxo com "combinar múltiplas referências" que pressupõe capacidade não existente).
 
@@ -143,14 +143,14 @@ O `templates/copilot-instructions.thin.md` menciona fluxo com 4 passos MCP, incl
 | Qualitativo é "suficiente" | HIPÓTESE (razoável, não validada comparativamente) |
 | O comportamento emergiu do termo "Token Economy Pattern" | ⚠️ RISCO DE INTERPRETAÇÃO — correlação observada, causalidade inferida |
 
-### Experimento 2 (2026-04-07): Reestruturação do Template Thin
+### Análise técnica (2026-04-07): Reestruturação do template thin
 
 | Dimensão | Conteúdo |
 |----------|----------|
 | **Hipótese** | O template thin pode ser otimizado comparando versão atual vs. recomendação do Copilot Chat |
 | **Evidência** | 7 inconsistências identificadas (I1–I7) entre template atual e recomendação |
 | **Conclusão original** | "Iterar" — fechar decisão explícito vs. genérico e alinhar um único arquivo |
-| **Minha crítica** | Experimento **bem estruturado** e **acionável**. Porém, a decisão "iterar" resultou em **nenhuma ação** — o template permanece desalinhado (I3: `compose_context` inexistente ainda está implícita no fluxo). Isso é um risco de governança real. |
+| **Minha crítica** | Documento **bem estruturado** e **acionável**. Porém, a decisão "iterar" resultou em **nenhuma ação** — o template permanece desalinhado (I3: `compose_context` inexistente ainda está implícita no fluxo). Isso é um risco de governança real. |
 | **Nível de confiança** | 🟢 Alto para as inconsistências identificadas; 🔴 Baixo para a efetividade (nenhuma correção aplicada) |
 
 ---
@@ -377,7 +377,7 @@ Com base nos experimentos e análises do repositório, os seguintes padrões de 
 
 ### ❌ Falhas concretas
 
-1. **Template thin desalinhado com o servidor** — I3 do experimento 2 identificou referência a `compose_context` (tool inexistente); decisão "iterar" não resultou em correção. O template canônico pode induzir o Copilot a tentar chamar uma tool que não existe.
+1. **Template thin desalinhado com o servidor** — I3 da [análise técnica de 2026-04-07](2026-04-07-analise-tecnica-reestruturacao-copilot-instructions-thin.md) identificou referência a `compose_context` (tool inexistente); decisão "iterar" não resultou em correção. O template canônico pode induzir o Copilot a tentar chamar uma tool que não existe.
 
 2. **Nenhum experimento A/B executado** — Os 5 experimentos propostos no EPIC-04 (E1–E5) não foram executados. As conclusões são baseadas em observação qualitativa de caso único.
 
