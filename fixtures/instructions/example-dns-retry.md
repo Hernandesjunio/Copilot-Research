@@ -2,9 +2,12 @@
 id: dns-retry-pattern
 title: "Padrão de retry para resolução DNS"
 tags: [dns, retry, resilience, polly]
-scope: "src/**/Dns*/**"
+scope: "**/*.cs"
 priority: high
 kind: reference
+owner: platform-architecture
+last_reviewed: 2026-04-12
+status: active
 ---
 
 # Padrão de retry para DNS

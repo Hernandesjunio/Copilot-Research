@@ -5,6 +5,9 @@ tags: [microservice, dotnet, architecture, layering, clean-architecture]
 scope: "**/*.cs"
 priority: high
 kind: reference
+owner: platform-architecture
+last_reviewed: 2026-04-12
+status: active
 ---
 
 # Objetivo
@@ -23,7 +26,7 @@ Definir a organização padrão de microservices .NET por camadas para manter ba
 - `Api`
   - Controllers/Minimal APIs.
   - Tratamento global de erro reutilizável.
-  - Serialização e retorno no padrão Open Finance.
+  - Serialização e retorno conforme **contrato público** (JSON direto, `ProblemDetails` ou envelope organizacional — ver `microservice-api-openfinance-patterns`).
   - Configuração por `IOptions`/`IOptionsSnapshot`.
   - Registro de DI e demais configurações via extension methods.
 - `Dominio`

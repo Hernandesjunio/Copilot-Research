@@ -1,22 +1,26 @@
 ---
 id: microservice-api-validation-and-error-contracts
 title: "API — validação de entrada, 400 vs 422 e contrato de erros"
-tags: [microservice, api, validation, problem-details, errors, 400, 422]
+tags: [microservice, api, validation, problem-details, errors, 400, 422, 404]
 scope: "**/Api/**/*.cs"
 priority: high
 kind: policy
+owner: platform-architecture
+last_reviewed: 2026-04-12
+status: active
 ---
 
 # Objetivo
 
-Definir regras objetivas para validação de entrada e tratamento uniforme de falhas na camada `Api`, incluindo quando retornar `400` versus `422`, integração com `ProblemDetails` e alinhamento ao tratamento global já prescrito para o produto.
+Definir regras objetivas para validação de entrada e tratamento uniforme de falhas na camada `Api`, incluindo quando retornar `400` versus `422`, integração com `ProblemDetails` e alinhamento ao tratamento global e ao **contrato público** (envelope ou RFC 7807 conforme política do serviço).
 
 ## TL;DR
 
 - `400`: entrada malformada, tipos incorretos, campos obrigatórios ausentes, regras de formato/sintaxe da requisição.
 - `422`: entrada **sintaticamente válida**, mas rejeitada por **regra de negócio** ou invariante de domínio que não é “campo inválido” trivial.
 - Exceções de domínio mapeadas de forma centralizada (middleware/filtro); endpoints não repetem `try/catch` para fluxo normal.
-- Payload de erro segue `ProblemDetails` (RFC 7807) **ou** envelope do produto (ex.: Open Finance) que encapsule o mesmo conteúdo semântico, nunca ambos conflitantes.
+- Payload de erro segue `ProblemDetails` (RFC 7807) **ou** envelope organizacional que encapsule o mesmo conteúdo semântico, nunca ambos conflitantes no mesmo contrato sem documentação.
+- Referência de status: `microservice-api-error-catalog-baseline`; semântica REST e `404`: `microservice-rest-http-semantics-and-status-codes`.
 
 ## Critérios de decisão
 
@@ -63,3 +67,18 @@ public sealed class BusinessRuleException : Exception
 - Expor SQL, mensagens de provedor ou stack trace ao cliente.
 - Usar `422` para erro de parsing JSON ou tipo incorreto de propriedade.
 - Misturar validação de entrada profunda de domínio no controller; regra complexa permanece no `Dominio`, com exceções de domínio claras.
+
+## Anti-exemplos
+
+- Retornar `422` porque o JSON está truncado ou inválido — isso é `400` ou erro de parser conforme pipeline.
+- Usar `404` para “regra de negócio não satisfeita” quando o recurso **existe** — preferir `409` ou `422`.
+- Duplicar mapeamento de exceção por endpoint em vez de reforçar o handler global.
+- Incluir `detail` com SQL, stack trace ou PII em `ProblemDetails` ou envelope de erro.
+
+## Impacto esperado na resposta da IA
+
+- Gerar mapeamento de falhas alinhado a esta policy e ao catálogo base; quando o repo usar apenas envelope ou apenas `ProblemDetails`, **não inventar** o outro modelo sem evidência no código.
+
+## Quando explicitar incerteza
+
+- Se o serviço classificar determinada validação de campo como `400` ou `422` de forma ambígua, listar a interpretação adotada e sugerir confirmação com o time dono do contrato OpenAPI.

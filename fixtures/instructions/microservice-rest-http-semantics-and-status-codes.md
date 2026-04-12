@@ -1,22 +1,26 @@
 ---
 id: microservice-rest-http-semantics-and-status-codes
 title: "REST — verbos HTTP, semântica de resposta e códigos de status"
-tags: [microservice, api, rest, http, status-codes, idempotency]
+tags: [microservice, api, rest, http, status-codes, idempotency, 404, put, patch]
 scope: "**/Api/**/*.cs"
 priority: high
 kind: policy
+owner: platform-architecture
+last_reviewed: 2026-04-12
+status: active
 ---
 
 # Objetivo
 
-Prescrever semântica REST consistente para microservices .NET: uso correto de verbos, códigos de status previsíveis e regras mínimas de idempotência e consistência de rotas, alinhadas ao envelope/contrato público do produto (ex.: Open Finance quando aplicável).
+Prescrever semântica REST consistente para microservices .NET: uso correto de verbos, códigos de status previsíveis e regras mínimas de idempotência e consistência de rotas, alinhadas ao **contrato público** (corpo JSON, envelope ou `ProblemDetails` conforme política organizacional do produto).
 
 ## TL;DR
 
 - `GET` e `DELETE` devem ser idempotentes no efeito observável do recurso; `POST` cria; `PUT` substitui; `PATCH` aplica alteração parcial documentada.
 - Escolher **um** código principal por cenário; evitar “200 genérico” para erro de negócio ou validação.
-- Quando o produto exigir envelope (ex.: Open Finance), o corpo HTTP ainda segue o padrão do produto; códigos de status continuam semânticos HTTP.
+- Quando existir **envelope de resposta** definido pela organização, o corpo HTTP segue esse contrato; os **códigos de status** permanecem semanticamente HTTP.
 - Rotas versionadas (`/v1/...`) e substantivos no plural para coleções, salvo exceção documentada do domínio.
+- Catálogo de referência cruzada: `microservice-api-error-catalog-baseline`.
 
 ## Regras por verbo
 
@@ -32,6 +36,29 @@ Prescrever semântica REST consistente para microservices .NET: uso correto de v
   - Mudança parcial com contrato explícito (JSON Patch/Merge Patch ou DTO de patch documentado); não misturar semântica de `PUT`.
 - `DELETE`
   - Remoção lógica ou física conforme política do domínio; `204` quando não houver corpo; `202` se exclusão for assíncrona.
+
+## DTOs e contratos de atualização (`PUT` vs `PATCH`)
+
+- **`PUT`**: contrato de **substituição total** do recurso endereçado; o DTO deve refletir o recurso completo (campos obrigatórios e defaults documentados). Não usar um único DTO “tudo opcional” como substituto de substituição total sem documentação explícita.
+- **`PATCH`**: alteração **parcial** com contrato explícito (JSON Patch, merge patch documentado ou DTO de patch dedicado). Campos omitidos não devem ser interpretados como “apagar dado” salvo semântica documentada.
+- **Anti-padrão**: reutilizar o mesmo tipo de requisição para `PUT` e `PATCH` com semânticas diferentes sem nomes, rotas ou documentação OpenAPI que deixem isso óbvio para o consumidor.
+
+## Recurso inexistente (`404`, `204`) por operação
+
+| Operação | Identificador na URI inexistente | Resposta predefinida | Notas |
+| --- | --- | --- | --- |
+| `GET` coleção/item | sim | `404` | Salvo política explícita de mascaramento (ex.: `403`/`204` em listagens vazias — documentar). |
+| `PUT` | sim | `404` | Não há recurso para substituir. |
+| `PATCH` | sim | `404` | Idem. |
+| `DELETE` | sim | `404` **ou** `204` | Escolher **uma** política por API e documentar: `404` = “só apaga se existir”; `204` idempotente = “garantir ausência” sem distinguir existência prévia. |
+| `POST` sub-recurso | pai inexistente | `404` | Típico quando o recurso pai define o namespace. |
+
+Erros de negócio (“não pode cancelar neste estado”) não são substitutos de `404`; mapear para `409`/`422` conforme `microservice-api-validation-and-error-contracts`.
+
+## Representação interna até à fronteira `Api`
+
+- O `Dominio` pode expressar ausência com `null`, tipo `Option`, `Result` com ramo “não encontrado” ou exceção de domínio **tipada** — o importante é **um padrão por serviço** e mapeamento **centralizado** (middleware/filtro) para o status HTTP e o envelope de erro acordados.
+- A camada `Api` traduz o resultado do caso de uso para status e corpo; evita-se lógica duplicada de “se null então 404” espalhada por cada endpoint.
 
 ## Mapeamento mínimo de status (referência)
 
@@ -64,6 +91,12 @@ app.MapPost("/v1/relatorios", async (GerarRelatorioRequisicao req, IGerarRelator
 });
 ```
 
+## Anti-exemplos
+
+- `PATCH` com corpo parcial que na prática substitui o recurso inteiro sem contrato (comportamento de `PUT` disfarçado).
+- `DELETE` que retorna `200` com corpo `{"deleted": false}` em vez de usar `404`/`204` conforme política.
+- `GET /{id}` que retorna `200` com corpo vazio ou lista vazia quando o **id** não existe, misturando “não encontrado” com “encontrado sem dados”.
+
 ## Pode ser feito
 
 - Declarar idempotência de `POST` específicos via chave de idempotência (`Idempotency-Key`) quando o domínio exigir deduplicação.
@@ -75,3 +108,11 @@ app.MapPost("/v1/relatorios", async (GerarRelatorioRequisicao req, IGerarRelator
 - Usar `GET` com efeitos colaterais de escrita.
 - Retornar `200` com payload de erro para falha de negócio ou validação.
 - Acoplar nomes de colunas/tabelas ou stack traces em respostas públicas.
+
+## Impacto esperado na resposta da IA
+
+- Escolher verbo e status com base nas tabelas desta instruction; quando a política de `DELETE` (`404` vs `204`) não estiver definida no repositório, **propor as duas opções** e pedir decisão em vez de assumir.
+
+## Quando explicitar incerteza
+
+- Mascaramento de existência (`403` vs `404`), `DELETE` idempotente e contratos legais do produto: seguir instructions nativas do repo; se ausentes, declarar inferência e risco de enumeração.
