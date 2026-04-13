@@ -1,29 +1,33 @@
-Haja como um especialista em arquitetura de software e comunicação técnica.
+Haja como um arquiteto de software sênior com forte capacidade analítica e experiência em experimentos técnicos.
 
-Sua tarefa é gerar uma apresentação de ALTO IMPACTO (nível executivo + técnico) baseada no documento abaixo, que deve ser tratado como fonte única de verdade:
+Sua tarefa é gerar uma apresentação TÉCNICA, detalhada e orientada a evidências, baseada no documento abaixo (fonte única de verdade):
 
 [COLE AQUI O DOCUMENTO COMPLETO]
 
-OBJETIVO DA APRESENTAÇÃO:
-Apresentar uma pesquisa técnica real sobre o uso de MCP (Model Context Protocol), comparando tools vs prompts vs resources, e decisões arquiteturais relacionadas, com foco em impacto, clareza e credibilidade.
+OBJETIVO:
+Apresentar uma análise técnica comparativa entre:
+- Tools vs Prompts vs Resources no MCP
+- MCP vs .github/instructions
+- STDIO vs HTTP
 
-IMPORTANTE:
-- NÃO enviesar o conteúdo para "vender" uma solução
-- Ser crítico, justo e técnico
-- Mostrar trade-offs reais
-- Evitar exageros ou conclusões absolutas
-- A apresentação deve ser clara para público técnico
+A apresentação será para um público técnico, então deve conter:
+- análise crítica
+- comparações estruturadas
+- tabelas
+- critérios de avaliação
+- trade-offs reais
 
 ==================================================
 ESTILO DA APRESENTAÇÃO
 ==================================================
 
-- Pouco texto por slide
-- Frases curtas e diretas
-- Uso de bullets
-- Evitar parágrafos longos
-- Foco em impacto visual
-- Cada slide deve ter uma mensagem clara
+- Mais técnico que executivo
+- Uso de tabelas comparativas
+- Uso de bullets objetivos
+- Pode conter mais conteúdo por slide (sem exagero)
+- Linguagem direta e precisa
+- Sem marketing
+- Sem simplificações excessivas
 
 ==================================================
 ESTRUTURA OBRIGATÓRIA
@@ -32,85 +36,211 @@ ESTRUTURA OBRIGATÓRIA
 Gerar os slides com essa estrutura:
 
 1. Título
-2. Problema atual
-3. Objetivo do projeto
-4. Hipótese de solução
-5. O que foi construído (MVP com 3 tools)
-6. Como funciona hoje (visão simplificada)
-7. Análise técnica: Tools vs Prompts vs Resources
-8. Decisão arquitetural: quando usar cada um
-9. Trade-offs reais (sem viés)
-10. MCP STDIO vs MCP HTTP (UX e arquitetura)
-11. Resultados obtidos até agora
-12. Feedbacks da IA (incluindo críticas)
-13. Limitações e riscos
-14. Decisão: aprovação do MVP
-15. Próximos passos
-16. Conclusão forte
+2. Contexto técnico do problema
+3. Limitações do modelo atual (.github/instructions)
+4. Hipótese técnica (MCP como solução)
+
+5. MVP IMPLEMENTADO (OBRIGATÓRIO DETALHAR AS TOOLS)
+6. Arquitetura e fluxo de funcionamento
+7. Metodologia do experimento
+8. Cenários testados
+9. Critérios de avaliação
+
+10. Comparação: Tools vs Prompts vs Resources (TABELA)
+11. Análise detalhada por capacidade
+
+12. Comparação: MCP vs Instructions (TABELA)
+13. Comparação: STDIO vs HTTP (TABELA)
+
+14. Resultados observados
+15. Limitações identificadas
+16. Riscos técnicos
+17. Decisão arquitetural
+
+18. Possível arquitetura híbrida
+19. Próximos passos técnicos
+20. Conclusão
 
 ==================================================
-REGRAS IMPORTANTES
+SLIDE OBRIGATÓRIO — MVP E TOOLS
 ==================================================
 
-- NÃO copiar o texto do documento
-- SIMPLIFICAR sem perder precisão
-- Transformar conceitos complexos em explicações claras
-- NÃO remover nuances importantes
-- NÃO omitir limitações
+Você DEVE criar um slide específico explicando as 3 tools implementadas no MVP, com nível técnico adequado.
+
+As tools são:
+
+1. list_instructions_index
+2. search_instructions
+3. get_instruction
+
+Para cada tool, explicar claramente:
+
+- objetivo
+- entrada (inputs)
+- processamento interno
+- saída (output)
+- papel no fluxo geral
+- por que ela existe
+
+==================================================
+DETALHAMENTO TÉCNICO DAS TOOLS (OBRIGATÓRIO)
+==================================================
+
+Você DEVE refletir corretamente o comportamento descrito no documento:
+
+### list_instructions_index
+- varre arquivos .md no INSTRUCTIONS_ROOT
+- extrai metadados e frontmatter
+- gera catálogo com hash (SHA256)
+- permite descoberta do corpus
+
+### search_instructions
+- recebe query (texto livre) e opcionalmente tags
+- tokeniza query
+- aplica scoring heurístico léxico (determinístico)
+- realiza ranking dos documentos
+- gera excerpt baseado no match
+- retorna contexto combinado (composed_context)
+
+### get_instruction
+- recebe id ou path
+- valida segurança de path (evita traversal)
+- lê conteúdo completo
+- aplica truncagem (max_chars)
+- retorna conteúdo + metadados
+
+==================================================
+SLIDE OBRIGATÓRIO — FLUXO (MUITO IMPORTANTE)
+==================================================
+
+Gerar um slide mostrando o fluxo lógico:
+
+1. list → descoberta
+2. search → seleção
+3. get → recuperação completa
+
+Explicar como isso implementa:
+- two-stage retrieval
+- otimização de contexto
+- controle de custo
+
+==================================================
+TABELAS OBRIGATÓRIAS
+==================================================
+
+### Tools vs Prompts vs Resources
+
+Critérios obrigatórios:
+- capacidade de retrieval dinâmico
+- controle operacional
+- determinismo
+- custo de tokens
+- escalabilidade
+- facilidade de uso
+- latência
+- governança
+- testabilidade
+
+---
+
+### MCP vs .github/instructions
+
+Critérios obrigatórios:
+- centralização
+- reuso
+- manutenção
+- custo de contexto
+- precisão
+- escalabilidade
+- flexibilidade
+- acoplamento
+
+---
+
+### STDIO vs HTTP
+
+Critérios obrigatórios:
+- latência
+- experiência do dev
+- complexidade
+- escalabilidade
+- governança
+- overhead operacional
+
+==================================================
+ANÁLISE TÉCNICA (OBRIGATÓRIO)
+==================================================
+
+Você DEVE refletir fielmente o documento:
+
+- Tools implementam lógica e política (ranking, truncagem, etc)
+- Prompts não fazem retrieval real
+- Resources não fazem seleção dinâmica
+- Ranking é determinístico (heurístico léxico)
+- Prompt não substitui tool sem reimplementar lógica
+- Resource pode complementar, mas não substituir discovery/search
+- STDIO tem melhor UX local
+- HTTP tem melhor governança
+
+==================================================
+METODOLOGIA DO EXPERIMENTO
+==================================================
+
+Você DEVE estruturar:
+
+- o que foi testado
+- como foi testado
+- variáveis consideradas
+- limitações do experimento
 
 ==================================================
 FORMATO DE CADA SLIDE
 ==================================================
 
-Para cada slide gerar:
-
 ## Slide X - [Título]
 
-**Mensagem principal (1 frase forte):**
+**Objetivo do slide:**
+(frase técnica curta)
 
-- bullet curto
-- bullet curto
-- bullet curto
+Conteúdo:
+- bullet
+- bullet
+- bullet
 
-**Sugestão de imagem (para geração por IA):**
-Descreva uma imagem clara, técnica ou metafórica que represente o slide
-
-==================================================
-DIRETRIZES DE CONTEÚDO CRÍTICO
-==================================================
-
-Você DEVE refletir fielmente os seguintes pontos do documento:
-
-- Tools NÃO são substituíveis por prompts/resources em cenários de retrieval com ranking
-- Prompts NÃO fazem retrieval real (apenas template)
-- Resources NÃO fazem seleção dinâmica (apenas acesso a conteúdo)
-- Tools representam operações com lógica e política
-- Existe valor em abordagem híbrida (tools + resources + prompts)
-- STDIO vs HTTP é trade-off entre UX e governança
-- Há riscos, limitações e dependência do host
+Se necessário:
+[TABELA]
 
 ==================================================
-ESTILO DE COMUNICAÇÃO
+IMAGENS (IMPORTANTE)
 ==================================================
 
-- Linguagem técnica, mas acessível
-- Evitar jargão excessivo
-- Evitar frases genéricas
-- Priorizar clareza
-- Mostrar maturidade arquitetural
+Para slides técnicos, sugerir imagens como:
+
+- fluxo das 3 tools (pipeline)
+- arquitetura MCP
+- comparação tools vs prompt vs resource
+- STDIO vs HTTP
+
+Descrever de forma que outra IA consiga gerar.
 
 ==================================================
-IMPORTANTE FINAL
+REGRAS CRÍTICAS
 ==================================================
 
-Essa apresentação será usada em ambiente corporativo.
+- NÃO simplificar demais
+- NÃO omitir limitações
+- NÃO inventar comportamento das tools
+- NÃO gerar conteúdo genérico
+- NÃO afirmar ganhos sem base
 
-Ela precisa transmitir:
-- domínio técnico
-- pensamento crítico
-- clareza de decisão
-- maturidade arquitetural
+==================================================
+RESULTADO FINAL
+==================================================
 
-Evite qualquer tom de marketing.
+A apresentação deve parecer:
 
-Gere a apresentação completa seguindo exatamente essa estrutura.
+- um estudo técnico real
+- uma análise arquitetural madura
+- um experimento comparativo consistente
+
+Gere a apresentação completa seguindo essa estrutura.
