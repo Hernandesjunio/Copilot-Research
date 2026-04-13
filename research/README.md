@@ -59,6 +59,7 @@ O repositório **não** alega neutralidade absoluta do pesquisador: onde houver 
 - **2026-04-09 (estratégias MCP)** — Consolida premissas, decomposição da pergunta arquitetural central e comparação de cenários; integra base documental externa citada no próprio arquivo.
 - **2026-04-09 (distribuição + cache + STDIO)** — Prescreve separação **plano frio** (distribuição/update) vs **plano quente** (retrieval local), com contratos de estado/cache.
 - **2026-04-11** — Auditoria técnica crítica da estratégia Copilot + MCP no âmbito deste repositório (cobertura, lacunas de validação, riscos).
+- **2026-04-12** — Tools versus prompts/resources no MCP: por que cada tool do `corporate-instructions` **não é substituível 1:1**; melhor uso de prompts/resources; **cenários híbridos** complementares; pontos de roadmap (host, testes, caching, segurança). Ver [`analises/2026-04-12-analise-tecnica-mcp-tools-prompts-resources-corpus-instructions.md`](analises/2026-04-12-analise-tecnica-mcp-tools-prompts-resources-corpus-instructions.md).
 
 ### 4.3 Experimentação (`research/experimentos-mcp/`)
 
@@ -125,7 +126,7 @@ Incluem métricas como notas por dimensão, contagem aproximada de tokens em nat
 
 | Caminho | Conteúdo |
 |---------|----------|
-| [`analises/`](analises/) | Análises técnicas datadas (arquitetura MCP, template thin, distribuição/cache, auditoria). |
+| [`analises/`](analises/) | Análises técnicas datadas (arquitetura MCP, template thin, distribuição/cache, tools/prompts/resources, auditoria). |
 | [`experimentos-mcp/`](experimentos-mcp/) | README de convenções, template, pastas ou arquivos por data com `notas.md` e anexos. |
 | [`sugestoes-futura/`](sugestoes-futura/) | Explorações e notas de longo prazo (sem status de decisão formal). |
 
