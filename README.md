@@ -2,6 +2,10 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+## Apresentação
+
+[![Assista à apresentação do projeto](https://img.youtube.com/vi/abE2CV6SE98/maxresdefault.jpg)](https://youtu.be/abE2CV6SE98)
+
 Repositório de **pesquisa aplicada** sobre extensão do **GitHub Copilot** via **Model Context Protocol (MCP)** customizado, com foco em **centralização de contexto**, **governança de corpus** e **redução de duplicação** de `.github/instructions` em cenários com **muitos repositórios**.
 
 ## Problema e objetivo
