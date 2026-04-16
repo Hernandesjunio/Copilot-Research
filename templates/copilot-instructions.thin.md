@@ -1,25 +1,26 @@
-# Instruções locais (camada mínima)
+# Instruções locais
 
 - **Idioma**: português.
 - **Segurança**: nunca inclua segredos/tokens/dados pessoais.
 - **Escopo**: não assuma código/infra de outros serviços.
-- **Limites**: se faltar dado decisivo, explicite a inferência e ofereça 2–3 opções.
 
 ## Contexto do repositório
 
 - **Descrição:** {{DESCRIÇÃO_DO_PROJETO}}
 - **Stack:** {{STACK_COMPLETA}}
 
-## Padrões organizacionais (via MCP)
+## MCP server: `corporate-instructions`
 
-Para padrões de arquitetura, convenções, segurança, resiliência, ADRs, exemplos de domínio ou catálogo de erros:
+Padrões organizacionais são servidos via MCP — não estão neste repo.
+Este arquivo prevalece sobre o MCP em caso de conflito.
 
-1. Use o MCP `corporate-instructions`.
-2. Em qualquer tarefa que envolva design, implementação de padrões, tratamento de erros ou dúvida sobre convenções: `search_instructions` com query descritiva.
-3. Para o texto completo: `get_instructions_batch` com os `ids` relevantes (separados por vírgula), mesmo quando houver apenas 1 `id`.
-4. Se precisar combinar múltiplas referências, faça `search_instructions` para selecionar os `id` relevantes e então use `get_instructions_batch` para ler os documentos necessários.
+### Consulta MCP (obrigatório em decisões cross-cutting)
 
-As regras **deste arquivo** prevalecem se houver conflito com o MCP.
+1. **Indexar** — chame `list_instructions_index` para ver o corpus e agrupamento por tags.
+2. **Buscar por tema** — faça `search_instructions` com queries distintas por cada concern da tarefa; não se limite a uma busca.
+3. **Ler todas as relevantes** — use `get_instructions_batch` para ler o corpo completo de todas as instructions pertinentes de uma vez; não pare nas primeiras retornadas.
+4. **Cruzar policy × código** — antes de aplicar um padrão MCP, verifique se já existe no repo. Existente = **FATO**; ausente = **HIPÓTESE**. Consistência com o código prevalece sobre completude normativa.
+5. **Citar fontes** — referencie server + id da instruction e arquivos do repo em cada decisão.
 
 ## Fluxo de trabalho
 
