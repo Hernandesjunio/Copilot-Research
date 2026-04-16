@@ -112,6 +112,11 @@ Neste repositório Copilot, use:
 
 para validar as tools localmente (`pytest` em `mcp-instructions-server/`).
 
+## Pesquisa e análises
+
+- Metodologia e experimentos: [`../research/README.md`](../research/README.md)
+- Índice das análises técnicas datadas (MCP, corpus, estratégias): [`../research/analises/README.md`](../research/analises/README.md)
+
 ## Contribuição e políticas do repositório
 
 - [CONTRIBUTING.md](../CONTRIBUTING.md) — ambiente de desenvolvimento, gates de qualidade.

@@ -55,11 +55,13 @@ O repositório **não** alega neutralidade absoluta do pesquisador: onde houver 
 
 ### 4.2 Análises técnicas datadas (`research/analises/`)
 
-- **2026-04-07** — Comparativo estruturado entre template “thin” versionado e recomendação alternativa (artefato referido no documento como `research/rascunho.md`); explicita inconsistências I1–I7 e decisão de **iterar** até uma fonte canónica.
-- **2026-04-09 (estratégias MCP)** — Consolida premissas, decomposição da pergunta arquitetural central e comparação de cenários; integra base documental externa citada no próprio arquivo.
-- **2026-04-09 (distribuição + cache + STDIO)** — Prescreve separação **plano frio** (distribuição/update) vs **plano quente** (retrieval local), com contratos de estado/cache.
-- **2026-04-11** — Auditoria técnica crítica da estratégia Copilot + MCP no âmbito deste repositório (cobertura, lacunas de validação, riscos).
-- **2026-04-12** — Tools versus prompts/resources no MCP: por que cada tool do `corporate-instructions` **não é substituível 1:1**; melhor uso de prompts/resources; **cenários híbridos** complementares; pontos de roadmap (host, testes, caching, segurança). Ver [`analises/2026-04-12-analise-tecnica-mcp-tools-prompts-resources-corpus-instructions.md`](analises/2026-04-12-analise-tecnica-mcp-tools-prompts-resources-corpus-instructions.md).
+**Índice com entrada por ficheiro e descrição breve:** [`analises/README.md`](analises/README.md). As linhas temáticas abaixo resumem a linha do tempo; detalhes e links estáveis estão no índice.
+
+- **2026-04-07** — Template “thin” vs variante alternativa; inconsistências I1–I7 e decisão de **iterar** até uma fonte canónica.
+- **2026-04-09** — Duas análises complementares: **estratégias MCP** (substituir/complementar `.github/instructions`) e **distribuição central + cache local + STDIO** (plano frio vs plano quente).
+- **2026-04-11** — Auditoria técnica crítica da estratégia Copilot + MCP no âmbito deste repositório.
+- **2026-04-12** — Tools versus prompts/resources no corpus `corporate-instructions` (substituibilidade 1:1, híbridos, roadmap).
+- **2026-04-16** — **Pitch** curto e **defesa arquitetural** alinhados (MCP STDIO, tools, limites do estágio); ver entradas datadas no índice.
 
 ### 4.3 Experimentação (`research/experimentos-mcp/`)
 
@@ -127,10 +129,12 @@ Incluem métricas como notas por dimensão, contagem aproximada de tokens em nat
 
 | Caminho | Conteúdo |
 |---------|----------|
-| [`analises/`](analises/) | Análises técnicas datadas (arquitetura MCP, template thin, distribuição/cache, tools/prompts/resources, auditoria). |
+| [`analises/README.md`](analises/README.md) | Índice das análises técnicas datadas (uma linha por ficheiro + descrição). |
 | [`experimentos-mcp/`](experimentos-mcp/) | README de convenções, template, pastas ou arquivos por data com `notas.md` e anexos. |
 | [`sugestoes-futura/`](sugestoes-futura/) | Explorações e notas de longo prazo (sem status de decisão formal). |
 
 ## 10. Como citar internamente
+
+Para **análises técnicas** sob `analises/`, use o índice em [`analises/README.md`](analises/README.md) para identificar o ficheiro certo antes de citar `caminho + data`.
 
 Prefira citar **caminho + data + revisão** quando existir no artefato (por exemplo, `experimentos-mcp/2026-04-12-…/artefatos/analise-comparativa.md`, revisão R1, e `experimentos-mcp/2026-04-12-…/criterios-de-comparacao.md` para a rubrica). Para o follow-up de vertical slice, cite `experimentos-mcp/2026-04-16-analise-comparativa-instructions-mcp-vertical-slice/analise-comparativa-iteracao-1.md` ou `…-iteracao-2.md` conforme a síntese relevante. Para hipóteses brutas vs síntese, preserve a distinção de **papel** (ensaio vs consolidação) indicada em `notas.md` do experimento correspondente.

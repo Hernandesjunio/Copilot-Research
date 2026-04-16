@@ -31,6 +31,7 @@ Esta iniciativa combina métodos complementares (detalhamento metodológico, cri
 | Políticas de uso do Copilot (camadas, checklists) | `[copilot-comportamento/README.md](copilot-comportamento/README.md)`               |
 | Template de instruções nativas mínimas            | `[templates/copilot-instructions.thin.md](templates/copilot-instructions.thin.md)` |
 | **Metodologia, análises e experimentos**          | `[research/README.md](research/README.md)`                                         |
+| Índice de análises técnicas datadas             | `[research/analises/README.md](research/analises/README.md)`                       |
 | Registro de experimentos MCP                      | `[research/experimentos-mcp/README.md](research/experimentos-mcp/README.md)`       |
 | Planejamento BMAD (execução + épicos)             | `[planning/bmad/README.md](planning/bmad/README.md)`                               |
 | Perguntas de pesquisa (prompts datados)           | `[prompts/](prompts/)`                                                             |
@@ -39,7 +40,7 @@ Esta iniciativa combina métodos complementares (detalhamento metodológico, cri
 | Corpus de exemplo                                 | `[fixtures/instructions/](fixtures/instructions/)`                                 |
 
 
-Leitura complementar (visão arquitetural MCP × Copilot): `[research/analises/2026-04-09-analise-tecnica-mcp-copilot.md](research/analises/2026-04-09-analise-tecnica-mcp-copilot.md)`.
+Leitura complementar: índice com resumo de cada análise em `[research/analises/README.md](research/analises/README.md)`; exemplo de profundidade arquitetural (MCP × Copilot): `[research/analises/2026-04-09-analise-tecnica-mcp-copilot.md](research/analises/2026-04-09-analise-tecnica-mcp-copilot.md)`.
 
 ## Desenvolvimento do servidor MCP
 

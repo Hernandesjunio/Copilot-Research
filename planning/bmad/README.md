@@ -18,3 +18,8 @@ Esta pasta agrupa a documentação de planeamento **BMAD** em dois eixos:
 - [EPIC-03 — Rollout em muitos repositórios](epicos/EPIC-03-rollout-playbook.md)
 - [EPIC-04 — Protocolo de experimentos](epicos/EPIC-04-experiments-protocol.md)
 - [Template de inventário (EPIC-01)](epicos/INVENTORY-TEMPLATE.md)
+
+## Pesquisa e análises
+
+- Metodologia e experimentos: [`../../research/README.md`](../../research/README.md)
+- Índice das análises técnicas datadas (MCP, corpus, estratégias): [`../../research/analises/README.md`](../../research/analises/README.md)
