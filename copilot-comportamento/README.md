@@ -22,6 +22,8 @@ research/
 
 ## Documentos nesta pasta
 
+As políticas aqui **devem** poder ser rastreadas a evidência em [`../research/`](../research/README.md) (experimentos e análises datados). Onde houver números ou comportamento observado, cite o artefato correspondente em `research/experimentos-mcp/…` ao atualizar estes ficheiros.
+
 - [Política de camadas](politica-camadas.md)
 - [Checklist novo repo](checklist-novo-repo.md)
 - [Convenções de prompts](convenções-prompts.md)

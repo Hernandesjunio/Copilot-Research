@@ -24,6 +24,22 @@ Exemplos de bons gatilhos no thin:
 
 Pode ser útil citar `search_instructions` e `get_instructions_batch` no thin por serem o “caminho feliz” do servidor atual. Evite citar tools não existentes ou experimentais.
 
+### Descriptions das tools (“quando usar”)
+
+No mesmo experimento **2026-04-05** (secção “Insight: descriptions das tools” em [`2026-04-05-mcp-corporate-instructions-avaliacao-tools.md`](../research/experimentos-mcp/2026-04-05-mcp-corporate-instructions-avaliacao-tools/2026-04-05-mcp-corporate-instructions-avaliacao-tools.md)), a pesquisa regista que descrições **imperativas sobre o momento de uso** (“Use when…”) orientam melhor a seleção de tools do que texto que só descreve o retorno.
+
+Quem mantiver o servidor deve alinhar descrições ao README canónico; o thin não substitui isso, mas pode apontar o fluxo (descoberta → busca → leitura em lote).
+
+### Protocolo de descoberta (observado na pesquisa, não prescrição rígida)
+
+Na segunda iteração do vertical slice **2026-04-16** ([`analise-comparativa-iteracao-2.md`](../research/experimentos-mcp/2026-04-16-analise-comparativa-instructions-mcp-vertical-slice/analise-comparativa-iteracao-2.md)), o cenário MCP melhorou aderência após reforços documentados: **`list_instructions_index` antes das buscas**, **várias** chamadas a `search_instructions` por tema, e **`get_instructions_batch`** para leitura em lote. O thin pode espelhar esse padrão em linguagem genérica (“descubra o índice, refine por tema, leia em lote”) sem amarrar a uma versão fixa de parâmetros de tool.
+
+### Conflito: policy concreta (corpus/MCP) vs meta-instrução abstrata (thin)
+
+Ainda em **2026-04-16** (iteração 2, critério 4 e conclusão na mesma síntese), o registo indica que uma **policy normativa concreta** (ex.: cache) pode prevalecer sobre uma meta-instrução de **conservadorismo** (“alinhar ao código existente”) — a meta não basta, por si só, para impedir implementação alinhada à policy.
+
+Implicação para governança: combinar (1) policies com critérios de aplicabilidade ao código, (2) checklists explícitos no thin, ou (3) evolução de tools de verificação, conforme planeado no `research/` (sugestões na própria síntese: ex. `check_applicability`, flag em policy).
+
 ## Fonte da verdade das tools
 
 - **Canônico**: `mcp-instructions-server/README.md` (lista de tools disponíveis).
