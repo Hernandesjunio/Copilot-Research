@@ -7,12 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-16
+
+### Added
+
+- `docs/TESTS.md` describing how to run and what the suite covers; expanded smoke and stdio integration tests for `related_ids`, `max_results` defaults/caps, and end-to-end STDIO behaviour.
+- Package `README.md` cross-links to monorepo agent orientation (`AGENTS.md`).
+
 ### Changed
 
 - Retrieval contract simplified to batch-only content fetch: removed `get_instruction` and standardized full-text reads on `get_instructions_batch` (single or multiple IDs).
 - `search_instructions` now defaults to `max_results=10` with cap 20, includes `related_ids`, and uses synonym expansion to reduce false negatives in keyword overlap.
 - `list_instructions_index` now returns `by_tag` grouping in addition to flat metadata.
 - Tests, smoke and stdio integration flows updated to reflect the new tool contract.
+
+### Fixed
+
+- CI: Ruff format applied to `indexing.py` and `integration_mcp_stdio_test.py` so `ruff format --check` passes.
 
 ## [0.2.0] - 2026-04-12
 
