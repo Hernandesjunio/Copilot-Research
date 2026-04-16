@@ -16,7 +16,7 @@ Arquivos em `.github/instructions` e instruções nativas ajudam o contexto **lo
 
 ## Research Methodology
 
-Esta iniciativa combina métodos complementares (detalhamento metodológico, critérios, limitações e rastreabilidade de artefatos em `[research/README.md](research/README.md)`):
+Esta iniciativa combina métodos complementares (detalhamento metodológico, critérios, limitações e rastreabilidade de artefatos em [`research/README.md`](research/README.md)):
 
 - **Planejamento orientado a épicos (BMAD)** — decompõe inventário, MVP do servidor MCP, rollout multi-repo e protocolos de experimentação com critérios de aceite.
 - **Análise arquitetural comparativa** — confronta transportes e modos de exposição MCP (STDIO, HTTP, híbrido; tools, resources, prompts) com trade-offs explícitos.
@@ -31,23 +31,23 @@ Esta iniciativa combina métodos complementares (detalhamento metodológico, cri
 | Área                                              | Caminho                                                                            |
 | ------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | **Entrada para agentes (mapa por tarefa)**        | [`AGENTS.md`](AGENTS.md)                                                           |
-| Políticas de uso do Copilot (camadas, checklists) | `[copilot-comportamento/README.md](copilot-comportamento/README.md)`               |
-| Template de instruções nativas mínimas            | `[templates/copilot-instructions.thin.md](templates/copilot-instructions.thin.md)` |
-| **Metodologia, análises e experimentos**          | `[research/README.md](research/README.md)`                                         |
-| Índice de análises técnicas datadas             | `[research/analises/README.md](research/analises/README.md)`                       |
-| Registro de experimentos MCP                      | `[research/experimentos-mcp/README.md](research/experimentos-mcp/README.md)`       |
-| Planejamento BMAD (execução + épicos)             | `[planning/bmad/README.md](planning/bmad/README.md)`                               |
-| Perguntas de pesquisa (prompts datados)           | `[prompts/](prompts/)`                                                             |
-| Respostas alinhadas aos prompts                   | `[responses/](responses/)`                                                         |
-| Servidor MCP (instalação, tools)                  | `[mcp-instructions-server/README.md](mcp-instructions-server/README.md)`           |
-| Corpus de exemplo                                 | `[fixtures/instructions/](fixtures/instructions/)`                                 |
+| Políticas de uso do Copilot (camadas, checklists) | [`copilot-comportamento/README.md`](copilot-comportamento/README.md)               |
+| Template de instruções nativas mínimas            | [`templates/copilot-instructions.thin.md`](templates/copilot-instructions.thin.md) |
+| **Metodologia, análises e experimentos**          | [`research/README.md`](research/README.md)                                         |
+| Índice de análises técnicas datadas               | [`research/analises/README.md`](research/analises/README.md)                       |
+| Registro de experimentos MCP                      | [`research/experimentos-mcp/README.md`](research/experimentos-mcp/README.md)       |
+| Planejamento BMAD (execução + épicos)             | [`planning/bmad/README.md`](planning/bmad/README.md)                               |
+| Perguntas de pesquisa (prompts datados)           | [`prompts/`](prompts/)                                                             |
+| Respostas alinhadas aos prompts                   | [`responses/`](responses/)                                                         |
+| Servidor MCP (instalação, tools)                  | [`mcp-instructions-server/README.md`](mcp-instructions-server/README.md)           |
+| Corpus de exemplo                                 | [`fixtures/instructions/`](fixtures/instructions/)                                 |
 
 
-Leitura complementar: índice com resumo de cada análise em `[research/analises/README.md](research/analises/README.md)`; exemplo de profundidade arquitetural (MCP × Copilot): `[research/analises/2026-04-09-analise-tecnica-mcp-copilot.md](research/analises/2026-04-09-analise-tecnica-mcp-copilot.md)`.
+Leitura complementar: índice com resumo de cada análise em [`research/analises/README.md`](research/analises/README.md); exemplo de profundidade arquitetural (MCP × Copilot): [`research/analises/2026-04-09-analise-tecnica-mcp-copilot.md`](research/analises/2026-04-09-analise-tecnica-mcp-copilot.md).
 
 ## Desenvolvimento do servidor MCP
 
-Instalação, configuração no IDE e smoke tests: `[mcp-instructions-server/README.md](mcp-instructions-server/README.md)`. Configuração de testes no workspace: `[.vscode/settings.json](.vscode/settings.json)`.
+Instalação, configuração no IDE e smoke tests: [`mcp-instructions-server/README.md`](mcp-instructions-server/README.md). Configuração de testes no workspace: [`.vscode/settings.json`](.vscode/settings.json).
 
 ## Segurança
 
