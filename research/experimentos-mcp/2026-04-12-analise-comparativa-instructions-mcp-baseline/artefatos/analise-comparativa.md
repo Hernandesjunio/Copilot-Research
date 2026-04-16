@@ -336,6 +336,10 @@ Essas são limitações esperadas de um MVP, não defeitos metodológicos. O exp
 
 ## Avaliação consolidada
 
+### Rubrica utilizada (critérios definidos)
+
+Para definições operacionais (o que significa 0/5/10), evidências exigidas, métricas auxiliares e sugestão de pesos, ver: `artefatos/criterios-de-comparacao.md`.
+
 | Critério | Instructions locais (A) | MCP STDIO (B) | Baseline (C) |
 |---|---:|---:|---:|
 | Qualidade do plano | 8 | 9 | 5 |

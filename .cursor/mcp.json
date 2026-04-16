@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "corporate-instructions": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["-m", "corporate_instructions_mcp"],
+      "env": {
+        "INSTRUCTIONS_ROOT": "C:/_projeto/Copilot-Research/fixtures/instructions",
+        "PYTHONPATH": "${workspaceFolder}/mcp-instructions-server"
+      }
+    }
+  }
+}
