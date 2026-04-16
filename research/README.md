@@ -1,5 +1,14 @@
 # Research — metodologia, análises e experimentos
 
+## Orientação rápida (navegação)
+
+- **Este ficheiro** — metodologia longa, fases, limitações e **como citar**; use quando precisar de contexto completo ou referências formais.
+- **Só localizar uma análise por data/tema** — comece por [`analises/README.md`](analises/README.md) (índice) em vez de ler este documento inteiro.
+- **Experimentos** — convenções e pastas: [`experimentos-mcp/README.md`](experimentos-mcp/README.md).
+- **Mapa global do repo** — [`../AGENTS.md`](../AGENTS.md).
+
+---
+
 Esta área agrega **notas, análises e experimentos** que **não** constituem o corpus canônico servido pelo MCP. O objetivo documental é manter **rastreabilidade** entre pergunta de pesquisa, **desenho metodológico**, **artefatos brutos** (ensaíos, prompts) e **síntese crítica**, distinguindo o que é **evidência empírica** do que é **argumento arquitetural** ou **projeção de escala**.
 
 Para o guia de produto/execução (BMAD) e critérios de aceite por épico, ver [`../planning/bmad/README.md`](../planning/bmad/README.md).

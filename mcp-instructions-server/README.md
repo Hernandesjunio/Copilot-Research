@@ -1,5 +1,7 @@
 # Corporate Instructions MCP (read-only)
 
+**Mapa do repositório (agentes):** [`../AGENTS.md`](../AGENTS.md).
+
 Servidor [Model Context Protocol](https://modelcontextprotocol.io/) em **stdio** que expõe o corpus canônico de instructions (Markdown com frontmatter) para o GitHub Copilot no Visual Studio — alinhado ao plano híbrido: poucas instructions nativas no repo + recuperação sob demanda.
 
 ## Requisitos

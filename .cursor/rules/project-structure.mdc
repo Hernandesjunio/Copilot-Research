@@ -1,0 +1,30 @@
+---
+description: Mapa do repositório, limites entre research/corpus/código MCP e rotas por tarefa
+alwaysApply: true
+---
+
+# Estrutura do repositório Copilot-Research
+
+## Leitura inicial
+
+1. `AGENTS.md` (raiz) — mapa compacto e fluxo MCP.
+2. `README.md` (raiz) — tabela “Onde está cada coisa” e contexto do projeto.
+
+## Limites (evitar confusão)
+
+- **`research/`** — artefatos de pesquisa (análises, experimentos, metodologia). Não substitui o corpus servido pelo MCP.
+- **`fixtures/instructions/`** — corpus de exemplo para dev/testes do servidor.
+- **Código do servidor** — pacote Python em `mcp-instructions-server/corporate_instructions_mcp/`; documentação de testes em `mcp-instructions-server/docs/`.
+
+## Rotas por objetivo
+
+| Objetivo | Onde começar |
+|----------|----------------|
+| Alterar ou depurar o MCP | `mcp-instructions-server/README.md`, `CONTRIBUTING.md` |
+| Listar ou escolher análises por data | `research/analises/README.md` |
+| Contexto metodológico longo ou citar | `research/README.md` (secção “Como citar internamente”) |
+| Revisar análise externa contra o repo | `.cursor/rules/review-rules.md` |
+
+## Fluxo MCP (stdio)
+
+`Copilot/IDE → processo stdio → corporate_instructions_mcp → leitura de INSTRUCTIONS_ROOT`.

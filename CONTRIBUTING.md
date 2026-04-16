@@ -2,6 +2,8 @@
 
 Thank you for helping improve this project.
 
+**Repository map for agents:** [`AGENTS.md`](AGENTS.md) (task routes and boundaries between `research/`, fixtures, and MCP code).
+
 ## Scope
 
 This repository combines **research documentation** and the **`mcp-instructions-server`** Python package (`corporate-instructions-mcp`). Code changes to the MCP server should stay focused and include tests.

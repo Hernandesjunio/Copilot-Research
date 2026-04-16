@@ -2,6 +2,8 @@
 
 [License: MIT](LICENSE)
 
+**Orientação rápida para agentes de IA:** [`AGENTS.md`](AGENTS.md) (mapa por tarefa, fluxo MCP e limites entre `research/`, fixtures e corpus).
+
 ## Apresentação
 
 [Assista à apresentação do projeto](https://youtu.be/abE2CV6SE98)
@@ -28,6 +30,7 @@ Esta iniciativa combina métodos complementares (detalhamento metodológico, cri
 
 | Área                                              | Caminho                                                                            |
 | ------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **Entrada para agentes (mapa por tarefa)**        | [`AGENTS.md`](AGENTS.md)                                                           |
 | Políticas de uso do Copilot (camadas, checklists) | `[copilot-comportamento/README.md](copilot-comportamento/README.md)`               |
 | Template de instruções nativas mínimas            | `[templates/copilot-instructions.thin.md](templates/copilot-instructions.thin.md)` |
 | **Metodologia, análises e experimentos**          | `[research/README.md](research/README.md)`                                         |

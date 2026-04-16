@@ -4,7 +4,7 @@ Use esta skill quando houver um documento com análise técnica prévia e for ne
 
 ## Contexto `research/`
 
-Se o documento estiver em `research/analises/` ou `research/experimentos-mcp/`, seguir o guia de citação em [`research/README.md`](../../research/README.md) (secção **“Como citar internamente”**: caminho, data, revisão quando existir). Em **sínteses comparativas** de experimentos, confrontar afirmações relevantes com a rubrica em [`research/experimentos-mcp/2026-04-12-analise-comparativa-instructions-mcp-baseline/criterios-de-comparacao.md`](../../research/experimentos-mcp/2026-04-12-analise-comparativa-instructions-mcp-baseline/criterios-de-comparacao.md) quando o texto depender dessa escala ou desses critérios.
+Navegação geral do repositório: [`AGENTS.md`](../../AGENTS.md). Se o documento estiver em `research/analises/` ou `research/experimentos-mcp/`, seguir o guia de citação em [`research/README.md`](../../research/README.md) (secção **“Como citar internamente”**: caminho, data, revisão quando existir). Em **sínteses comparativas** de experimentos, confrontar afirmações relevantes com a rubrica em [`research/experimentos-mcp/2026-04-12-analise-comparativa-instructions-mcp-baseline/criterios-de-comparacao.md`](../../research/experimentos-mcp/2026-04-12-analise-comparativa-instructions-mcp-baseline/criterios-de-comparacao.md) quando o texto depender dessa escala ou desses critérios.
 
 ## Processo
 
