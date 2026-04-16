@@ -25,4 +25,5 @@
 ## Conclusões e próximos passos
 
 - Alterações propostas ao corpus / template / servidor:
+- Sugestão (orchestrator/tools): considerar mover descrições estáticas das tools para um resource versionado/snapshot e manter `copilot-instructions.md` mínimo, referenciando esse resource; registrar versão/hash/data do resource no resultado do experimento.
 - Decisão: adotar / iterar / descartar (e porquê):
