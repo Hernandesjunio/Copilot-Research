@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 from typing import Any, cast
 
+import pytest
 from mcp import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
@@ -105,5 +106,71 @@ def test_mcp_stdio_list_search_get_instruction() -> None:
             assert isinstance(first.get("content"), str) and len(first["content"]) > 0
             if use_fixture_expectations and fetch_id == "dns-retry-pattern":
                 assert "Polly" in first["content"]
+
+    asyncio.run(_run())
+
+
+def test_mcp_stdio_search_default_max_persistencia_sql_and_related_ids() -> None:
+    """M4, I1, I2: STDIO path matches smoke — default max_results=10, persistência SQL hit, related_ids present."""
+
+    corpus = _corpus_root()
+    use_fixture_expectations = corpus == _FIXTURES.resolve()
+    if not use_fixture_expectations:
+        pytest.skip("fixture-only expectations (INSTRUCTIONS_ROOT override)")
+
+    async def _run() -> None:
+        params = StdioServerParameters(
+            command=sys.executable,
+            args=["-m", "corporate_instructions_mcp"],
+            cwd=str(_SERVER_DIR),
+            env={**os.environ, "INSTRUCTIONS_ROOT": str(corpus)},
+        )
+        async with (
+            stdio_client(params) as (read, write),
+            ClientSession(read, write) as session,
+        ):
+            await session.initialize()
+
+            raw = _tool_text(await session.call_tool("list_instructions_index", {}))
+            index = json.loads(raw)
+            assert index["count"] >= 3
+            assert "by_tag" in index
+
+            # M4: omit max_results → default 10
+            raw = _tool_text(
+                await session.call_tool(
+                    "search_instructions",
+                    {"query": "microservice"},
+                )
+            )
+            micro = json.loads(raw)
+            assert len(micro["results"]) == 10
+
+            # I1: synonym / domain query finds data-access (same as smoke)
+            raw = _tool_text(
+                await session.call_tool(
+                    "search_instructions",
+                    {"query": "persistência SQL"},
+                )
+            )
+            persist = json.loads(raw)
+            ids = {r["id"] for r in persist["results"]}
+            assert "microservice-data-access-and-sql-security" in ids
+            assert persist.get("composed_context", "").strip() != ""
+
+            # I2: multi-hit search; top result carries related_ids (discoverability contract)
+            raw = _tool_text(
+                await session.call_tool(
+                    "search_instructions",
+                    {"query": "retry DNS polly", "max_results": 3},
+                )
+            )
+            dns = json.loads(raw)
+            assert dns["results"]
+            first = dns["results"][0]
+            assert first["id"] == "dns-retry-pattern"
+            assert "related_ids" in first
+            assert isinstance(first["related_ids"], list)
+            assert "microservice-resilience-polly-timeouts-and-circuit-breaker" in first["related_ids"]
 
     asyncio.run(_run())

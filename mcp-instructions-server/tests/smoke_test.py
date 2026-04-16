@@ -41,6 +41,61 @@ def test_search_instructions_finds_dns() -> None:
     assert "composed_context" in data
 
 
+def test_search_results_have_related_ids_shape() -> None:
+    """R1: each hit includes related_ids (list of str), never self."""
+    from corporate_instructions_mcp.server import search_instructions
+
+    data = json.loads(search_instructions(query="retry DNS polly", max_results=3))
+    for r in data["results"]:
+        assert "related_ids" in r
+        assert isinstance(r["related_ids"], list)
+        assert all(isinstance(x, str) for x in r["related_ids"])
+        assert r["id"] not in r["related_ids"]
+
+
+def test_search_dns_top_result_related_ids_include_resilience_policy() -> None:
+    """R2: shared tags (resilience, polly) link dns-retry to the Polly policy doc."""
+    from corporate_instructions_mcp.server import search_instructions
+
+    data = json.loads(search_instructions(query="retry DNS polly", max_results=3))
+    top = next(r for r in data["results"] if r["id"] == "dns-retry-pattern")
+    assert "microservice-resilience-polly-timeouts-and-circuit-breaker" in top["related_ids"]
+
+
+def test_search_persistencia_sql_data_access_related_ids_include_dapper_neighbor() -> None:
+    """R3: tag overlap (microservice, dapper) surfaces a close neighbor via related_ids."""
+    from corporate_instructions_mcp.server import search_instructions
+
+    data = json.loads(search_instructions(query="persistência SQL"))
+    row = next(r for r in data["results"] if r["id"] == "microservice-data-access-and-sql-security")
+    assert "microservice-domain-interfaces-models-repository" in row["related_ids"]
+
+
+def test_search_instructions_default_max_results_is_ten() -> None:
+    """M1: omit max_results → default 10 (corpus has >10 microservice-tagged matches)."""
+    from corporate_instructions_mcp.server import search_instructions
+
+    data = json.loads(search_instructions(query="microservice"))
+    assert len(data["results"]) == 10
+
+
+def test_search_instructions_max_results_clamped_to_twenty() -> None:
+    """M2: values above 20 are clamped."""
+    from corporate_instructions_mcp.server import search_instructions
+
+    data = json.loads(search_instructions(query="microservice", max_results=100))
+    assert len(data["results"]) <= 20
+    assert len(data["results"]) == 20
+
+
+def test_search_instructions_max_results_one() -> None:
+    """M3: explicit max_results=1 returns at most one row."""
+    from corporate_instructions_mcp.server import search_instructions
+
+    data = json.loads(search_instructions(query="microservice", max_results=1))
+    assert len(data["results"]) == 1
+
+
 def test_get_instructions_batch_single_document() -> None:
     from corporate_instructions_mcp.server import get_instructions_batch
 

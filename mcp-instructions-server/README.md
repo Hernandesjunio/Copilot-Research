@@ -112,6 +112,10 @@ Neste repositório Copilot, use:
 
 para validar as tools localmente (`pytest` em `mcp-instructions-server/`).
 
+## Testes
+
+Descrição de cada ficheiro e teste, corpus assumido e limites da cobertura: **[docs/TESTS.md](docs/TESTS.md)**.
+
 ## Pesquisa e análises
 
 - Metodologia e experimentos: [`../research/README.md`](../research/README.md)
