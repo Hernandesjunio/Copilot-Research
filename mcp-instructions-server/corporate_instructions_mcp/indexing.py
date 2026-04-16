@@ -180,11 +180,7 @@ def _build_synonym_lookup(synonyms: dict[str, list[str]]) -> dict[str, list[str]
         terms = [canonical, *related]
         normalized_terms = {_normalize_token(term): term for term in terms}
         for term_norm in normalized_terms:
-            others = {
-                other
-                for other_norm, other in normalized_terms.items()
-                if other_norm != term_norm
-            }
+            others = {other for other_norm, other in normalized_terms.items() if other_norm != term_norm}
             if not others:
                 continue
             lookup.setdefault(term_norm, set()).update(others)

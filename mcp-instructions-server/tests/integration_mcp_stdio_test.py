@@ -92,9 +92,7 @@ def test_mcp_stdio_list_search_get_instruction() -> None:
             batch_ids = ",".join(
                 [
                     fetch_id,
-                    "microservice-rest-http-semantics-and-status-codes"
-                    if use_fixture_expectations
-                    else fetch_id,
+                    "microservice-rest-http-semantics-and-status-codes" if use_fixture_expectations else fetch_id,
                 ]
             )
             raw = _tool_text(await session.call_tool("get_instructions_batch", {"ids": batch_ids}))
