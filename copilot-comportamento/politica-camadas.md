@@ -7,7 +7,7 @@ Resumo alinhado ao épico de inventário. Detalhe e critérios: [`../planning/bm
 | Tipo | Onde vive | Exemplos |
 |------|-----------|----------|
 | Regra sempre ativa | `.github/instructions/` ou `copilot-instructions.md` no repo do serviço | idioma, segurança, limites do repo, 5–15 temas |
-| Referência on-demand | Repositório canônico + MCP (`search_instructions`, `get_instruction`) | padrões de API, ADRs, exemplos por domínio |
+| Referência on-demand | Repositório canônico + MCP (`search_instructions`, `get_instructions_batch`) | padrões de API, ADRs, exemplos por domínio |
 
 ## Precedência em conflito
 
@@ -16,4 +16,4 @@ Resumo alinhado ao épico de inventário. Detalhe e critérios: [`../planning/bm
 
 ## Fluxo sugerido com MCP
 
-Antes de um design ou refatoração grande, usar `search_instructions` com query clara; usar `get_instruction` com o `id` quando precisar do texto completo.
+Antes de um design ou refatoração grande, usar `search_instructions` com query clara; usar `get_instructions_batch` com os `id` relevantes para leitura completa.

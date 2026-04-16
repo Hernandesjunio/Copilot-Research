@@ -10,8 +10,8 @@ Este ficheiro deve ser mantido **mínimo** para não interferir no experimento.
 
 Escolha **um** arquivo de cenário como fonte de regras do experimento e não use outros fora desse cenário:
 
-- Baseline (sem MCP/sem instructions): `research/experimentos-mcp/_novo/orquestrador/copilot-instructions-baseline.md`
-- Instructions locais: `research/experimentos-mcp/_novo/orquestrador/copilot-instructions-instructions-locais.md`
-- MCP: `research/experimentos-mcp/_novo/orquestrador/copilot-instructions-mcp.md`
+- Baseline (sem MCP/sem instructions): `research/experimentos-mcp/2026-04-16-analise-comparativa-instructions-mcp-vertical-slice/orquestrador/copilot-instructions-baseline.md`
+- Instructions locais: `research/experimentos-mcp/2026-04-16-analise-comparativa-instructions-mcp-vertical-slice/orquestrador/copilot-instructions-instructions-locais.md`
+- MCP: `research/experimentos-mcp/2026-04-16-analise-comparativa-instructions-mcp-vertical-slice/orquestrador/copilot-instructions-mcp.md`
 
 Se o arquivo de cenário não existir no projeto do experimento, declare **lacuna** e não substitua por política inventada.

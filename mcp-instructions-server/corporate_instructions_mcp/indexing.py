@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -153,6 +154,56 @@ def tokenize_query(q: str) -> list[str]:
 
 PRIORITY_RANK = {"high": 3, "medium": 2, "low": 1, None: 0}
 
+SYNONYMS: dict[str, list[str]] = {
+    "cache": ["imemorycache", "idistributedcache", "caching", "ttl", "invalidation"],
+    "persistencia": ["dapper", "sql", "repositorio", "data-access", "query"],
+    "validacao": ["validation", "error-contracts", "400", "422"],
+    "http": ["rest", "status-codes", "get", "put", "post", "delete", "endpoint"],
+    "resiliencia": ["polly", "retry", "circuit-breaker", "timeout", "tolerancia"],
+    "arquitetura": ["layering", "camadas", "clean-architecture", "solid"],
+    "testes": ["testing", "unit", "integration", "contract"],
+    "observabilidade": ["opentelemetry", "health", "correlation", "tracing"],
+    "mensageria": ["rabbitmq", "messaging", "publish", "consume"],
+    "seguranca": ["security", "secrets", "tokens"],
+}
+
+
+def _normalize_token(token: str) -> str:
+    normalized = unicodedata.normalize("NFKD", token)
+    no_diacritics = "".join(c for c in normalized if not unicodedata.combining(c))
+    return no_diacritics.lower()
+
+
+def _build_synonym_lookup(synonyms: dict[str, list[str]]) -> dict[str, list[str]]:
+    lookup: dict[str, set[str]] = {}
+    for canonical, related in synonyms.items():
+        terms = [canonical, *related]
+        normalized_terms = {_normalize_token(term): term for term in terms}
+        for term_norm in normalized_terms:
+            others = {
+                other
+                for other_norm, other in normalized_terms.items()
+                if other_norm != term_norm
+            }
+            if not others:
+                continue
+            lookup.setdefault(term_norm, set()).update(others)
+    return {key: sorted(values) for key, values in lookup.items()}
+
+
+_SYNONYM_LOOKUP = _build_synonym_lookup(SYNONYMS)
+
+
+def expand_query_with_synonyms(tokens: list[str]) -> dict[str, float]:
+    """Expand query tokens with related terms weighted lower than direct matches."""
+    expanded: dict[str, float] = {}
+    for token in tokens:
+        expanded[token] = max(expanded.get(token, 0.0), 1.0)
+        normalized = _normalize_token(token)
+        for related in _SYNONYM_LOOKUP.get(normalized, [])[:5]:
+            expanded[related] = max(expanded.get(related, 0.0), 0.5)
+    return expanded
+
 
 def score_record(rec: InstructionRecord, tokens: list[str], tag_filter: set[str] | None) -> float:
     if tag_filter and not (tag_filter & set(rec.tags)):
@@ -160,15 +211,15 @@ def score_record(rec: InstructionRecord, tokens: list[str], tag_filter: set[str]
     blob = rec.search_blob()
     score = 0.0
     title_l = rec.title.lower()
-    for t in tokens:
+    for t, weight in expand_query_with_synonyms(tokens).items():
         c = blob.count(t)
         if c:
-            score += 1.0 + min(5.0, 0.25 * c)
+            score += weight * (1.0 + min(5.0, 0.25 * c))
         if t in title_l:
-            score += 3.0
+            score += weight * 3.0
         for tag in rec.tags:
             if t == tag or t in tag:
-                score += 2.0
+                score += weight * 2.0
     score += 0.5 * PRIORITY_RANK.get(rec.priority, 0)
     return score
 

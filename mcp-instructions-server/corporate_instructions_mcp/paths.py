@@ -1,4 +1,4 @@
-"""Path validation for instruction corpus roots and tool arguments."""
+"""Path validation helpers for instruction corpus roots and optional relative paths."""
 
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ def is_path_under_root(path: Path, root: Path) -> bool:
 def instruction_path_needle_is_safe(needle: str) -> bool:
     """Return False for absolute paths, empty needles, or ``..`` segments.
 
-    ``needle`` is a POSIX-style relative path as provided to ``get_instruction``.
+    ``needle`` is a POSIX-style relative path suitable for tool arguments.
     """
     n = str(needle).strip().replace("\\", "/")
     if not n or n.startswith("/"):

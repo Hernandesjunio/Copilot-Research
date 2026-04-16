@@ -8,6 +8,7 @@
 
 | Artefato | Modelo | Descrição |
 |---|---|---|
+| [`criterios-de-comparacao.md`](criterios-de-comparacao.md) | — | Rubrica compartilhada (11 critérios, escala 0–10); mantida na **raiz** desta pasta para reutilização por experimentos relacionados. |
 | [`artefatos/analise-comparativa.md`](artefatos/analise-comparativa.md) | Opus 4.6 | Análise consolidada completa (correções metodológicas, tabelas, limitações, recomendação arquitetural). |
 | [`artefatos/hipoteses/hipotese1.md`](artefatos/hipoteses/hipotese1.md) | GPT 5.4 | Ensaio **A** — apenas `.github/copilot-instructions.md` e `.github/instructions/*`. |
 | [`artefatos/hipoteses/hipotese2.md`](artefatos/hipoteses/hipotese2.md) | GPT 5.4 | Ensaio **B** — MCP como mecanismo principal de contexto. |

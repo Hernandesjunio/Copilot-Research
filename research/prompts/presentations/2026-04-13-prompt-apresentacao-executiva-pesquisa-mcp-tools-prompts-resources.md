@@ -71,7 +71,7 @@ As tools são:
 
 1. list_instructions_index
 2. search_instructions
-3. get_instruction
+3. get_instructions_batch (histórico: get_instruction)
 
 Para cada tool, explicar claramente:
 
@@ -102,7 +102,7 @@ Você DEVE refletir corretamente o comportamento descrito no documento:
 - gera excerpt baseado no match
 - retorna contexto combinado (composed_context)
 
-### get_instruction
+### get_instructions_batch *(histórico: get_instruction)*
 - recebe id ou path
 - valida segurança de path (evita traversal)
 - lê conteúdo completo

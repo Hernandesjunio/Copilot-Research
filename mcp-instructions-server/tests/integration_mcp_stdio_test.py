@@ -7,6 +7,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 from mcp import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
@@ -24,16 +25,16 @@ def _corpus_root() -> Path:
     return _FIXTURES.resolve()
 
 
-def _tool_text(result) -> str:
+def _tool_text(result: Any) -> str:
     assert not result.isError, getattr(result, "content", result)
     assert result.content, "tool returned no content"
     block = result.content[0]
     assert hasattr(block, "text"), block
-    return block.text
+    return cast(str, block.text)
 
 
-def test_mcp_stdio_list_search_get_instruction():
-    """End-to-end: subprocess runs FastMCP; client exercises the three tools."""
+def test_mcp_stdio_list_search_get_instruction() -> None:
+    """End-to-end: subprocess runs FastMCP; client exercises MCP tools."""
 
     corpus = _corpus_root()
     use_fixture_expectations = corpus == _FIXTURES.resolve()
@@ -53,11 +54,16 @@ def test_mcp_stdio_list_search_get_instruction():
 
             listed = await session.list_tools()
             names = {t.name for t in listed.tools}
-            assert names == {"get_instruction", "list_instructions_index", "search_instructions"}
+            assert names == {
+                "get_instructions_batch",
+                "list_instructions_index",
+                "search_instructions",
+            }
 
             raw = _tool_text(await session.call_tool("list_instructions_index", {}))
             index = json.loads(raw)
             assert index["count"] >= 1, f"no .md indexed under {corpus}"
+            assert "by_tag" in index
             ids = {x["id"] for x in index["instructions"]}
 
             if use_fixture_expectations:
@@ -82,11 +88,22 @@ def test_mcp_stdio_list_search_get_instruction():
                 if use_fixture_expectations and "dns-retry-pattern" in ids
                 else index["instructions"][0]["id"]
             )
-            raw = _tool_text(await session.call_tool("get_instruction", {"id": fetch_id}))
-            doc = json.loads(raw)
-            assert doc.get("id") == fetch_id
-            assert isinstance(doc.get("content"), str) and len(doc["content"]) > 0
+            batch_ids = ",".join(
+                [
+                    fetch_id,
+                    "microservice-rest-http-semantics-and-status-codes"
+                    if use_fixture_expectations
+                    else fetch_id,
+                ]
+            )
+            raw = _tool_text(await session.call_tool("get_instructions_batch", {"ids": batch_ids}))
+            batch = json.loads(raw)
+            assert batch["found_count"] >= 1
+            assert isinstance(batch["instructions"], list)
+            first = batch["instructions"][0]
+            assert first.get("id") == fetch_id
+            assert isinstance(first.get("content"), str) and len(first["content"]) > 0
             if use_fixture_expectations and fetch_id == "dns-retry-pattern":
-                assert "Polly" in doc["content"]
+                assert "Polly" in first["content"]
 
     asyncio.run(_run())

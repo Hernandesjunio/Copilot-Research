@@ -22,7 +22,7 @@ Exemplos de bons gatilhos no thin:
 
 ### Quando vale ser explícito
 
-Pode ser útil citar `search_instructions` e `get_instruction` no thin por serem o “caminho feliz” do servidor atual. Evite citar tools não existentes ou experimentais.
+Pode ser útil citar `search_instructions` e `get_instructions_batch` no thin por serem o “caminho feliz” do servidor atual. Evite citar tools não existentes ou experimentais.
 
 ## Fonte da verdade das tools
 

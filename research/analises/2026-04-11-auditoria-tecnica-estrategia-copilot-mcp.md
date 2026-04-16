@@ -59,7 +59,7 @@ O `templates/copilot-instructions.thin.md` menciona fluxo com 4 passos MCP, incl
 | Camada | Responsabilidade (proposta no repo) | Avaliação | Exemplos |
 |--------|-------------------------------------|-----------|----------|
 | `.github/copilot-instructions.md` | Regras sempre-ativas (idioma, segurança, escopo, limites) + orquestração MCP ("pseudo-hook") | ✅ Correto | "português", "nunca inclua segredos", "não assuma código de outros serviços" |
-| MCP (tools) | Retrieval sob demanda de conhecimento transversal | ✅ Correto para MVP | `search_instructions`, `get_instruction`, `list_instructions_index` |
+| MCP (tools) | Retrieval sob demanda de conhecimento transversal | ✅ Correto para MVP | `search_instructions`, `get_instructions_batch` (histórico: `get_instruction`), `list_instructions_index` |
 | MCP (resources) | Não implementado | ⚠️ Lacuna — análise técnica (2026-04-09) reconhece que resources seriam ideais para "base persistente" | Padrões REST, checklists de observabilidade |
 | MCP (prompts) | Não implementado | ⚠️ Lacuna — análise reconhece valor para tarefas recorrentes | "Criar endpoint ponta a ponta" |
 | Copilot Spaces | **Não mencionado** em nenhum documento | ❌ Lacuna significativa | Contexto compartilhado de projeto, documentação viva |
@@ -259,7 +259,7 @@ O `templates/copilot-instructions.thin.md` menciona fluxo com 4 passos MCP, incl
 │  │                                  │                               │
 │  │  TOOLS:                          │                               │
 │  │  • search_instructions           │                               │
-│  │  • get_instruction               │                               │
+│  │  • get_instructions_batch        │                               │
 │  │  • resolve_instructions_for_file │  ← PRIORIDADE 1              │
 │  │  • list_instructions_index       │                               │
 │  │                                  │                               │

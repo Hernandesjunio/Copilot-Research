@@ -106,7 +106,7 @@ Copilot Spaces:
 O servidor MCP atual (`corporate-instructions`) expõe **apenas tools**:
 
 - `search_instructions` — busca por keyword
-- `get_instruction` — texto completo por id
+- `get_instructions_batch` — texto completo por id(s) (histórico: `get_instruction`)
 - `list_instructions_index` — metadados de todos os documentos
 
 #### Fluxo atual (tools only)
@@ -362,7 +362,7 @@ Padrões corporativos → NÃO no Space → no MCP server
 *(Alinhado ao pedido explícito do prompt original; sintetiza riscos implícitos na análise.)*
 
 - **Duplicar a mesma policy** em Copilot Space, MCP e `copilot-instructions.md` — drift de versão, respostas contraditórias e custo de manutenção triplicado; manter **uma fonte de verdade** (tipicamente MCP para políticas transversais).
-- **Tools MCP sem paginação** que devolvem catálogos enormes ou documentos inteiros em cada turno — explode tokens e latência; preferir **chunks**, **metadados + `get_instruction`**, ou **resources** com URIs granulares.
+- **Tools MCP sem paginação** que devolvem catálogos enormes ou documentos inteiros em cada turno — explode tokens e latência; preferir **chunks**, **metadados + `get_instructions_batch`** (histórico: `get_instruction`), ou **resources** com URIs granulares.
 - **Depender do Space** para estado volátil da sessão (o que foi decidido no plano, checklist do BMAD, etc.) — o RAG não é um store de sessão; usar **prompt files** + **histórico do chat** + artefactos em repo.
 - **Mega-Space** com 100+ repositórios como substituto de catálogo corporativo — ruído na recuperação e latência; a análise recomenda **Spaces por domínio** e políticas no **MCP**.
 - **Só tools, sem resources**, para regras **non-negotiable** (segurança, compliance) — o modelo pode omitir a chamada; **resources** ou **passos obrigatórios** no prompt file mitigam o risco.
@@ -392,7 +392,7 @@ A abordagem com MCP local é fundamentalmente mais adequada para cenários com 1
 > **Nota**: Esta análise reflete o estado das funcionalidades em julho/2025. Copilot Spaces está em evolução ativa e pode ganhar capacidades que alterem estas recomendações (ex.: controle explícito de chunks, cache local, integração com agent mode).
 
 ## Extração rápida (preencher depois)
-- **Ferramentas citadas:** Copilot Spaces (RAG remoto, indexação GitHub); MCP (`search_instructions`, `get_instruction`, `list_instructions_index`; proposta de **resources**); prompt files (`.github/prompts/*.prompt.md`); Visual Studio 2026 (UI Spaces vs consumo pelo modelo).
+- **Ferramentas citadas:** Copilot Spaces (RAG remoto, indexação GitHub); MCP (`search_instructions`, `get_instructions_batch` (histórico: `get_instruction`), `list_instructions_index`; proposta de **resources**); prompt files (`.github/prompts/*.prompt.md`); Visual Studio 2026 (UI Spaces vs consumo pelo modelo).
 - **Limitações mencionadas:** RAG probabilístico sem API de controlo de chunks; latência rede + índice; ausência de cache de sessão observável; instructions remotas com fetch por sessão; Spaces como contexto passivo sem workflow estruturado; MCP *tools-only* com risco de o modelo não invocar a tool.
 - **Insights para MCP / extensões:** expor **resources** com URIs estáveis e agregado `high-priority`; manter tools para busca on-demand; inventário de 8 docs / 5 high — candidatos a pré-carga; evitar payloads gigantes sem paginação.
 - **Follow-up sugerido (próximo prompt):** separar tabela **factos documentados vs inferências vs incerteza** conforme regras do prompt; validar afirmações sobre **VS 2026** e comportamento exacto de **resources** no produto com changelog/docs; medir latência real (cold/warm) e tokens com/sem resource agregado.

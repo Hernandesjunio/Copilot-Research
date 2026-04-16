@@ -34,7 +34,7 @@ O ponto central é separar dois planos:
 2. **MCP Local (stdio) — “motor de retrieval”**
    - Roda no desktop (servidor MCP atual `corporate-instructions`).
    - Aponta `INSTRUCTIONS_ROOT` para um **cache local** com o corpus.
-   - Expõe tools de busca/leitura (`search_instructions`, `get_instruction`, etc.).
+   - Expõe tools de busca/leitura (`search_instructions`, `get_instructions_batch`; historicamente `get_instruction`).
 
 3. **Cache Local de Corpus (no desktop)**
    - Diretório com versão atual (`current`) e staging (`staging`), com metadados de versão/hashes.
@@ -367,7 +367,7 @@ O servidor MCP local existente (`corporate-instructions`) continua expondo:
 
 - `list_instructions_index`
 - `search_instructions`
-- `get_instruction`
+- `get_instructions_batch` *(histórico: `get_instruction`)*
 
 Regra de implementação:
 

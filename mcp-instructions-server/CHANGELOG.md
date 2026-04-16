@@ -7,13 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Retrieval contract simplified to batch-only content fetch: removed `get_instruction` and standardized full-text reads on `get_instructions_batch` (single or multiple IDs).
+- `search_instructions` now defaults to `max_results=10` with cap 20, includes `related_ids`, and uses synonym expansion to reduce false negatives in keyword overlap.
+- `list_instructions_index` now returns `by_tag` grouping in addition to flat metadata.
+- Tests, smoke and stdio integration flows updated to reflect the new tool contract.
+
 ## [0.2.0] - 2026-04-12
 
 ### Added
 
 - Repository governance at monorepo root: `SECURITY.md`, `CONTRIBUTING.md`, `CODEOWNERS`, Dependabot, issue template.
 - CI quality gates: Ruff (lint + format), mypy, Bandit, `pip-audit` (with upgraded `pip` in CI).
-- Corpus hardening: max file size and frontmatter size before YAML parse; skip paths resolved outside `INSTRUCTIONS_ROOT` (symlink escapes); `get_instruction` rejects unsafe `path` arguments (`..`, absolute).
+- Corpus hardening: max file size and frontmatter size before YAML parse; skip paths resolved outside `INSTRUCTIONS_ROOT` (symlink escapes); historical `get_instruction` rejected unsafe `path` arguments (`..`, absolute).
 - Fail-fast when `INSTRUCTIONS_ROOT` is unset or not a directory; operational logging on **stderr** (stdio-safe).
 - `corporate_instructions_mcp.paths` helpers for root validation and path safety.
 - Expanded package README: versioning matrix, runbook, limits, security pointers; `docs/ROADMAP-TRANSPORT-HTTP.md`.
@@ -31,7 +38,7 @@ First published release of the **corporate-instructions-mcp** read-only MCP serv
 
 - **stdio** MCP server (FastMCP) exposing an organizational Markdown instruction corpus to compatible hosts (e.g. GitHub Copilot in Visual Studio).
 - Configuration via environment variable **`INSTRUCTIONS_ROOT`** pointing at the corpus root directory.
-- **Tools:** `list_instructions_index` (metadata for all indexed `.md`), `search_instructions` (keyword-style search with optional tag filter and capped `max_results`), `get_instruction` (full body by `id` or relative `path`, with `max_chars` truncation).
+- **Tools:** `list_instructions_index` (metadata for all indexed `.md`), `search_instructions` (keyword-style search with optional tag filter and capped `max_results`), historical `get_instruction` (today replaced by `get_instructions_batch`).
 - **Indexing:** recursive discovery of `*.md` under the corpus root; YAML frontmatter parsing (`id`, `title`, `tags`, `scope`, `priority`, `kind`); duplicate `id` detection; simple relevance scoring for search.
 - **Distribution:** Python package built with Hatchling; console script `corporate-instructions-mcp` and module entry `python -m corporate_instructions_mcp`.
 - **Runtime dependencies:** `mcp`, `pyyaml` (declared in `pyproject.toml`).

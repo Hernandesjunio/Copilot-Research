@@ -65,9 +65,9 @@ Ajuste `command` para o Python do venv se necessário: `"command": "C:\\path\\to
 
 | Tool | Função |
 |------|--------|
-| `list_instructions_index` | Metadados de todos os `.md` (id, path, tags, hash). |
-| `search_instructions` | Busca por palavras-chave; `tags` opcional (lista separada por vírgulas); `max_results` 1–10 (default 5). |
-| `get_instruction` | Conteúdo completo por `id` ou `path` relativo (sem `..` nem caminho absoluto); `max_chars` para truncar. |
+| `list_instructions_index` | Metadados de todos os `.md` (id, path, tags, hash) + agrupamento `by_tag` para navegação por tema. |
+| `search_instructions` | Busca por palavras-chave (com expansão por sinónimos), `tags` opcional (lista separada por vírgulas), `max_results` 1–20 (default 10), e `related_ids` por interseção de tags. |
+| `get_instructions_batch` | Conteúdo completo de 1 ou mais instructions por `ids` separados por vírgula; `max_chars_per_instruction` para truncagem individual e teto de payload total da resposta. |
 
 **Reindexação:** o índice é reconstruído quando `INSTRUCTIONS_ROOT` muda entre chamadas. Reinicie o processo após alterações grandes no corpus se quiser libertar memória ou garantir estado limpo.
 
@@ -94,7 +94,7 @@ Ajuste `command` para o Python do venv se necessário: `"command": "C:\\path\\to
 | Erro ao listar/buscar: `INSTRUCTIONS_ROOT is not a directory` | Caminho correcto, permissões de leitura, pasta montada em CI/CD. |
 | Índice vazio sem erro | Nenhum `.md` válido sob a raiz, ou todos ignorados (tamanho / symlink). Ver **stderr**. |
 | Conteúdo desactualizado | Reiniciar o processo MCP no IDE; o índice reflecte o disco no rebuild. |
-| `get_instruction` com `path` rejeitado | Usar `id` ou path relativo sem `..`; paths são apenas comparados ao corpus já indexado. |
+| `get_instructions_batch` devolve `missing_ids` | Corrigir IDs com `list_instructions_index` ou `search_instructions` e repetir a chamada batch. |
 
 ## Transporte HTTP (roadmap)
 
@@ -110,7 +110,7 @@ Neste repositório Copilot, use:
 
 `INSTRUCTIONS_ROOT` = `...\Copilot-Research\fixtures\instructions`
 
-para validar as três tools localmente (`pytest` em `mcp-instructions-server/`).
+para validar as tools localmente (`pytest` em `mcp-instructions-server/`).
 
 ## Contribuição e políticas do repositório
 

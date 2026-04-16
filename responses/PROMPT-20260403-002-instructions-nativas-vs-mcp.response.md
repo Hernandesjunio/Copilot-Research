@@ -115,7 +115,7 @@ MCP Server
 │   │   input:  { "query": "como tratar erro DNS timeout" }
 │   │   output: [ { file, score, trecho } ]
 │   │
-│   ├── get_instruction        ← Retorna conteúdo completo de um .md
+│   ├── get_instructions_batch ← Retorna conteúdo completo de 1+ .md (histórico: get_instruction)
 │   │   input:  { "path": "instructions/dns-handler.md" }
 │   │   output: { content, metadata }
 │   │
@@ -210,7 +210,8 @@ priority: high
 │  │ Instructions     │   │ MCP Server           │  │
 │  │ Nativas (5-15)   │   │                      │  │
 │  │                   │   │  search_instructions │  │
-│  │ • Estilo/idioma   │   │  get_instruction     │  │
+│  │ • Estilo/idioma   │   │ get_instructions_    │  │
+│  │                   │   │   batch              │  │
 │  │ • Segurança       │   │  compose_context     │  │
 │  │ • Padrões core    │   │                      │  │
 │  │                   │   │  Fonte: mesmos .md   │  │
@@ -227,7 +228,7 @@ priority: high
 ---
 
 ## Extração rápida
-- **Ferramentas citadas:** `search_instructions`, `get_instruction`, `compose_context`; resource `instructions-index`; indexação (embeddings / keywords-tags)
+- **Ferramentas citadas:** `search_instructions`, `get_instructions_batch` (histórico: `get_instruction`), `compose_context`; resource `instructions-index`; indexação (embeddings / keywords-tags)
 - **Limitações mencionadas:** MCP no VS em evolução; invocação de tools automática vs. explícita; prioridade entre fontes e orçamento de tokens variam com versão, modo (Chat vs. Agent) e configuração
 - **Insights para MCP / extensões:** híbrido com 5–15 nativas + restante via MCP; hierarquia **nativas > MCP**; `.md` como fonte única; retorno JSON com resumo + excerto + `full_available`; top-K 3–5; metadados (`tags`, `scope`, `priority`); mitigação de contradição, saturação, drift e over-retrieval
 - **Follow-up sugerido (próximo prompt):** Implementação de re-indexação (watch vs. on-demand) e regra explícita de “omitir do MCP o que já está nas nativas” por tema ou `id`

@@ -12,30 +12,31 @@ from corporate_instructions_mcp.indexing import (
     InstructionRecord,
     build_index,
     excerpt_around_match,
+    expand_query_with_synonyms,
     score_record,
     summarize_body,
     tokenize_query,
 )
 
 
-def test_tokenize_query_drops_short_and_splits():
+def test_tokenize_query_drops_short_and_splits() -> None:
     assert tokenize_query("a BC de-f") == ["bc", "de"]
 
 
-def test_summarize_body_truncates():
+def test_summarize_body_truncates() -> None:
     long = "word " * 100
     out = summarize_body(long, limit=30)
     assert len(out) <= 30
     assert out.endswith("...")
 
 
-def test_excerpt_around_match_prefers_token_hit():
+def test_excerpt_around_match_prefers_token_hit() -> None:
     body = "intro " * 50 + "needle" + " tail " * 50
     ex = excerpt_around_match(body, ["needle"], max_len=80)
     assert "needle" in ex
 
 
-def test_score_record_respects_tag_filter():
+def test_score_record_respects_tag_filter() -> None:
     rec = InstructionRecord(
         id="x",
         rel_path="x.md",
@@ -52,7 +53,32 @@ def test_score_record_respects_tag_filter():
     assert score_record(rec, tokens, {"other"}) == 0.0
 
 
-def test_build_index_duplicate_id_raises():
+def test_expand_query_with_synonyms_handles_accents() -> None:
+    expanded = expand_query_with_synonyms(["persistência"])
+    assert expanded["persistência"] == 1.0
+    assert expanded["sql"] == 0.5
+    assert expanded["dapper"] == 0.5
+
+
+def test_score_record_boosts_related_domain_terms() -> None:
+    rec = InstructionRecord(
+        id="sql-doc",
+        rel_path="sql-doc.md",
+        title="Data access security",
+        tags=["data-access"],
+        scope=None,
+        priority="medium",
+        kind="reference",
+        body="Use parameterized queries with dapper repositories.",
+        content_hash="1" * 64,
+    )
+    direct_score = score_record(rec, tokenize_query("dapper"), None)
+    related_score = score_record(rec, tokenize_query("persistência"), None)
+    assert related_score > 0.0
+    assert direct_score > related_score
+
+
+def test_build_index_duplicate_id_raises() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         (root / "a.md").write_text("---\nid: dup\ntitle: A\n---\nbody", encoding="utf-8")
@@ -61,7 +87,7 @@ def test_build_index_duplicate_id_raises():
             build_index(root)
 
 
-def test_build_index_missing_dir_returns_empty():
+def test_build_index_missing_dir_returns_empty() -> None:
     missing = Path(tempfile.gettempdir()) / "nonexistent_instructions_root_xyz"
     assert build_index(missing) == {}
 

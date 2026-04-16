@@ -12,7 +12,7 @@ status: active
 
 # Objetivo
 
-Garantir que novas ou alteradas instructions no corpus canónico sejam **recuperáveis**, **normativamente claras** e **fáceis de manter**, alinhadas ao servidor MCP (`list_instructions_index`, `search_instructions`, `get_instruction`).
+Garantir que novas ou alteradas instructions no corpus canónico sejam **recuperáveis**, **normativamente claras** e **fáceis de manter**, alinhadas ao servidor MCP (`list_instructions_index`, `search_instructions`, `get_instructions_batch`).
 
 ## TL;DR
 

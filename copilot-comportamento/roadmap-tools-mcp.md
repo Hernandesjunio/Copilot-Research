@@ -8,7 +8,7 @@ Este documento não altera o servidor por si só; ele orienta priorização e ma
 
 - `list_instructions_index`
 - `search_instructions`
-- `get_instruction`
+- `get_instructions_batch`
 
 ## Propostas priorizadas
 

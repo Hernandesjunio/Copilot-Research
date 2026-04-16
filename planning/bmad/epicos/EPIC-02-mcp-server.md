@@ -2,7 +2,7 @@
 
 ## Entregável
 
-Implementação em Python com **stdio**, três tools (`list_instructions_index`, `search_instructions`, `get_instruction`), índice em memória na inicialização e leitura de `INSTRUCTIONS_ROOT`.
+Implementação em Python com **stdio**, tools (`list_instructions_index`, `search_instructions`, `get_instructions_batch`), índice em memória na inicialização e leitura de `INSTRUCTIONS_ROOT`.
 
 ## Documentação e código
 
@@ -12,5 +12,5 @@ Implementação em Python com **stdio**, três tools (`list_instructions_index`,
 ## Aceite (checklist)
 
 - [ ] `pip install -e .` com sucesso.
-- [ ] Com `INSTRUCTIONS_ROOT` apontando para [`fixtures/instructions`](../../../fixtures/instructions), as três tools devolvem JSON esperado.
+- [ ] Com `INSTRUCTIONS_ROOT` apontando para [`fixtures/instructions`](../../../fixtures/instructions), as tools devolvem JSON esperado.
 - [ ] `pytest` (extra `dev`) passa em `tests/smoke_test.py`.

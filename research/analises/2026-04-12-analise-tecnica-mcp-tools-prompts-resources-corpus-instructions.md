@@ -24,7 +24,7 @@ O repositório investiga **centralização de contexto** e **governança de corp
 - opera em **stdio**;
 - lê o corpus a partir de **`INSTRUCTIONS_ROOT`**;
 - mantém um **índice em memória** reconstruído na primeira utilização e sempre que a raiz (`INSTRUCTIONS_ROOT`) muda;
-- expõe três tools: **`list_instructions_index`**, **`search_instructions`**, **`get_instruction`** (ver `mcp-instructions-server/corporate_instructions_mcp/server.py`).
+- expõe três tools: **`list_instructions_index`**, **`search_instructions`**, **`get_instructions_batch`** (na versão inicial desta análise, a terceira tool era `get_instruction`; ver `mcp-instructions-server/corporate_instructions_mcp/server.py`).
 
 A linha arquitetural já documentada separa:
 
@@ -68,7 +68,7 @@ Definições operacionais usadas ao longo do texto:
 | --- | --- | --- | --- | --- |
 | `list_instructions_index` | Catálogo completo com metadados estáveis (id, path, tags, hash…) | **Parcial**: dá para expor *um* resource agregado, mas vira “documento monolítico” ou exige listagem dinâmica | **Fraco**: prompt não enumera o disco; ou repete catálogo estático (drift) ou chama código (daí não é “só prompt”) | Enumerar **N fontes** com consistência e **hashes** é operação de serviço, não template |
 | `search_instructions` | Ranking léxico/heurístico + filtros + excertos + `composed_context` | **Fraco** sem lógica tipo tool: resource é “get blob”, não **ranking parametrizado sobre N** | **Fraco** se “filtro” for só argumentos do template: não cobre **query aberta** + scoring + top‑K como o Python atual | O diferencial é **algoritmo + políticas** no servidor (não substituível por “só” template/read) |
-| `get_instruction` | Corpo completo + truncagem + validação de path + erro estruturado | **Plausível como resource por documento**, mas **não remove** necessidade de descoberta (`list`/`search`) | **Fraco**: prompt não valida `..` nem aplica `max_chars` por política sem código no `get_prompt` | Segurança e limites são **enforcement** de entrega; resource ajuda no **endereçamento**, não substitui descoberta nem ranking |
+| `get_instructions_batch` *(histórico: `get_instruction`)* | Corpo completo + truncagem por item + limites de payload | **Plausível como resource por documento**, mas **não remove** necessidade de descoberta (`list`/`search`) | **Fraco**: prompt não valida limites por política sem código no `get_prompt` | Segurança e limites são **enforcement** de entrega; resource ajuda no **endereçamento**, não substitui descoberta nem ranking |
 
 ### 5.2 `list_instructions_index` — catálogo materializado do índice
 
@@ -107,7 +107,7 @@ Definições operacionais usadas ao longo do texto:
 
 **Conclusão:** `search_instructions` é **computação + política**. Prompt/resource **não são**, por si, **motores de seleção/ranking sobre N**; no máximo **transportam resultados** de um motor que continua a existir (na implementação atual, esse motor é a própria tool).
 
-### 5.4 `get_instruction` — fetch governado do corpo completo
+### 5.4 `get_instructions_batch` — fetch governado do corpo completo *(histórico: `get_instruction`)*
 
 **O que a tool faz:** resolve `id` ou `path` relativo, valida segurança de `path` (`instruction_path_needle_is_safe`), aplica `max_chars` com clamp, devolve JSON com metadados e `truncated`.
 
@@ -124,7 +124,7 @@ Definições operacionais usadas ao longo do texto:
 
 - Prompt não é o lugar natural para **enforcement** de `max_chars` e validação de entrada; isso é **código**. Um `get_prompt` poderia, em teoria, executar a mesma lógica — mas então o prompt torna-se **fachada** de uma operação, não o substituto conceptual da tool.
 
-**Conclusão:** `get_instruction` é a face **“get blob governado”** do sistema. Resource pode ser **melhor representação** do *artifact*, mas **não elimina** `list/search` nem a **lógica** de validação/truncagem — apenas pode **reorganizar** onde vive.
+**Conclusão:** `get_instructions_batch` (antes `get_instruction`) é a face **“get blob governado”** do sistema. Resource pode ser **melhor representação** do *artifact*, mas **não elimina** `list/search` nem a **lógica** de validação/truncagem — apenas pode **reorganizar** onde vive.
 
 ---
 
@@ -191,12 +191,12 @@ Definições operacionais usadas ao longo do texto:
 
 ### 8.6 Pontos adicionais sugeridos (roadmap e discussão)
 
-1. **Contrato de erro**: `get_instruction` devolve JSON com `error`/`hint` em casos de validação ou não encontrado; outras tools podem falhar por exceção ou transporte RPC. Prompts/resources exigem disciplina equivalente se houver fallback.
+1. **Contrato de erro**: `get_instructions_batch` devolve JSON com `error` para entrada vazia e `missing_ids`/contagens para não encontrados; outras tools podem falhar por exceção ou transporte RPC. Prompts/resources exigem disciplina equivalente se houver fallback.
 2. **Observabilidade**: logs em stderr (já no servidor) são parte da operação; híbridos devem manter **rastreio** de “qual URI/tool/prompt foi usado”.
 3. **Testes**: as tools atuais são facilmente testáveis em integração (`tests/` no pacote); resources/prompts acrescentam **matriz** de testes (URI estável, conteúdo esperado).
 4. **Compatibilidade upstream**: primitivos suportados e UX dependem da stack `mcp` + host; evoluir para híbrido deve incluir **matriz de suporte** explícita.
 5. **Caching**: resource pode ser cacheável por URI; `search` é menos cacheável por natureza (entrada variável) — útil para desenho de performance.
-6. **Segurança**: `get_instruction` valida paths; resources precisam de **modelo de ameaça** equivalente (quem pode pedir que URI, e como evitar exfiltração por encadeamento).
+6. **Segurança**: `get_instructions_batch` elimina entrada por path e reduz superfície de path traversal; resources precisam de **modelo de ameaça** equivalente (quem pode pedir que URI, e como evitar exfiltração por encadeamento).
 7. **Tamanho do catálogo**: com N grande, `list_instructions_index` pode ser pesado — complemento futuro pode ser **paginação** (continua a ser operação tool-shaped).
 
 ---

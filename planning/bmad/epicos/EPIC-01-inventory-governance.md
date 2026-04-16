@@ -9,7 +9,7 @@ Reduzir duplicação em 100+ repositórios mantendo **uma fonte da verdade** par
 | Tipo | Definição | Onde vive |
 |------|-----------|-----------|
 | **Regra sempre-ativa** | Deve influenciar **toda** interação (idioma, segurança, estilo, boundaries do repo). | `.github/instructions/` ou `copilot-instructions.md` (mínimo, 5–15 temas) |
-| **Referência on-demand** | Volumosa, condicional à tarefa, exemplos por domínio, ADRs, catálogos. | Repositório canônico + MCP (`search_instructions` / `get_instruction`) |
+| **Referência on-demand** | Volumosa, condicional à tarefa, exemplos por domínio, ADRs, catálogos. | Repositório canônico + MCP (`search_instructions` / `get_instructions_batch`) |
 
 ## Hierarquia em caso de conflito
 
@@ -34,7 +34,7 @@ kind: reference | policy
 
 | Campo | Obrigatório | Notas |
 |-------|-------------|--------|
-| `id` | Sim | Estável; usado em `get_instruction`. |
+| `id` | Sim | Estável; usado em `get_instructions_batch`. |
 | `title` | Sim | Aparece no índice e em resultados de busca. |
 | `tags` | Recomendado | Filtragem em `search_instructions`. |
 | `scope` | Opcional | Documentação de aplicação; pode espelhar `applyTo` mental. |

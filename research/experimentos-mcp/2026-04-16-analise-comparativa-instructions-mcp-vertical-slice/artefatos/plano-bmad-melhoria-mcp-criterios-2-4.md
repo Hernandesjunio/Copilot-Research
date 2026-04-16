@@ -14,7 +14,7 @@ meta: { mcp_criterio_2: ">=9", mcp_criterio_4: ">=8" }
 
 ### Contexto do experimento anterior
 
-O experimento comparativo (análise em `analise-comparativa.md`) revelou que o MCP perdeu para Instructions locais em **2 critérios de qualidade individual**:
+O experimento comparativo (análise em [`analise-comparativa-iteracao-1.md`](../analise-comparativa-iteracao-1.md)) revelou que o MCP perdeu para Instructions locais em **2 critérios de qualidade individual**:
 
 | Critério | MCP (A) | Instructions (B) | Delta |
 |---|---:|---:|---:|
@@ -25,7 +25,7 @@ O experimento comparativo (análise em `analise-comparativa.md`) revelou que o M
 
 **FATO:** O cenário MCP consultou 5 instructions de um corpus de 24 disponíveis. O cenário Instructions locais consultou 8.
 
-**FATO:** O MCP fez 1 call de `search_instructions` (keyword overlap, max 5 resultados) + 5 calls de `get_instruction`. Instructions locais fez leitura direta de 24 arquivos e citou 15.
+**FATO:** O MCP fez 1 call de `search_instructions` (keyword overlap, max 5 resultados) + 5 calls de `get_instruction` (equivalente atual: `get_instructions_batch`). Instructions locais fez leitura direta de 24 arquivos e citou 15.
 
 **FATO:** A instruction `microservice-data-access-and-sql-security` foi usada pelo cenário B mas **não foi retornada** pela busca MCP — a query não continha os termos certos para keyword overlap.
 
@@ -146,7 +146,7 @@ SYNONYMS: dict[str, list[str]] = {
 
 **Arquivo:** `corporate_instructions_mcp/server.py` — nova tool
 
-**Problema:** O modelo precisa fazer N calls de `get_instruction` para ler N instructions. No experimento, foram 5 calls. Com o novo prompt pedindo "leia TODAS as relevantes", serão 8-12 calls. Cada call é um round-trip JSON-RPC.
+**Problema:** O modelo precisa fazer N calls de `get_instruction` para ler N instructions (equivalente atual: `get_instructions_batch` em uma única chamada). No experimento, foram 5 calls. Com o novo prompt pedindo "leia TODAS as relevantes", serão 8-12 calls. Cada call é um round-trip JSON-RPC.
 
 **Mudança:** Adicionar tool `get_instructions_batch` que aceita uma lista de IDs e retorna todos os corpos num único retorno.
 
@@ -160,7 +160,7 @@ def get_instructions_batch(
     
     Use after list_instructions_index or search_instructions when you need
     the full text of several instructions at once. More efficient than
-    calling get_instruction repeatedly.
+    calling get_instructions_batch repeatedly.
     """
 ```
 

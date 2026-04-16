@@ -40,7 +40,7 @@ Essa abordagem staged é metodologicamente válida. O experimento atual testa qu
 
 ### Estado do MCP
 
-O MCP atual é um **MVP com 3 tools implementadas** (`search_instructions`, `list_instructions_index`, `get_instruction`). Há ~10 tools adicionais planejadas. A avaliação reflete capacidade atual. A lógica de validação MVP é: se 3 tools não produzem resultado pelo menos equivalente às instructions locais, não há justificativa para construir mais 10. Resultados equivalentes ou superiores validam a continuidade do investimento.
+O MCP é um **MVP com 3 tools implementadas** (`search_instructions`, `list_instructions_index`, `get_instruction`). Há ~10 tools adicionais planejadas. A avaliação reflete a capacidade desse MVP. A lógica de validação MVP é: se 3 tools não produzem resultado pelo menos equivalente às instructions locais, não há justificativa para construir mais 10. Resultados equivalentes ou superiores validam a continuidade do investimento.
 
 ### `INSTRUCTIONS_ROOT` aponta para path local por decisão de experimento
 
@@ -338,7 +338,7 @@ Essas são limitações esperadas de um MVP, não defeitos metodológicos. O exp
 
 ### Rubrica utilizada (critérios definidos)
 
-Para definições operacionais (o que significa 0/5/10), evidências exigidas, métricas auxiliares e sugestão de pesos, ver: `artefatos/criterios-de-comparacao.md`.
+Para definições operacionais (o que significa 0/5/10), evidências exigidas, métricas auxiliares e sugestão de pesos, ver: [`../criterios-de-comparacao.md`](../criterios-de-comparacao.md).
 
 | Critério | Instructions locais (A) | MCP STDIO (B) | Baseline (C) |
 |---|---:|---:|---:|

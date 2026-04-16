@@ -1,13 +1,13 @@
 ---
-titulo: "Análise comparativa — MCP (STDIO) vs Instructions locais vs Baseline"
+titulo: "Análise comparativa (iteração 1) — MCP (STDIO) vs Instructions locais vs Baseline"
 data: "2026-04-16"
 modelo_analise: "Opus 4.6 (Cursor Agent)"
 modelo_execucao: "GPT 5.4 (Copilot Chat) — cenários A/B/C executados em threads separadas"
-rubrica: "criterios-de-comparacao.md (11 critérios, escala 0–10)"
+rubrica: "../2026-04-12-analise-comparativa-instructions-mcp-baseline/criterios-de-comparacao.md (11 critérios, escala 0–10)"
 escopo: "Vertical slice PUT/GET /clientes/{id} — planejamento + implementação + validação"
 ---
 
-# Análise comparativa — MCP (STDIO) vs Instructions locais vs Baseline
+# Análise comparativa (iteração 1) — MCP (STDIO) vs Instructions locais vs Baseline
 
 ## Identificação dos cenários
 

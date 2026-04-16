@@ -19,7 +19,7 @@ from corporate_instructions_mcp.indexing import (
     summarize_body,
     tokenize_query,
 )
-from corporate_instructions_mcp.paths import instruction_path_needle_is_safe, require_existing_dir
+from corporate_instructions_mcp.paths import require_existing_dir
 
 mcp = FastMCP(
     "corporate-instructions",
@@ -31,6 +31,7 @@ mcp = FastMCP(
 
 _index: dict[str, InstructionRecord] = {}
 _index_root: Path | None = None
+MAX_BATCH_TOTAL_CHARS = 120_000
 
 log = logging.getLogger(__name__)
 
@@ -91,6 +92,26 @@ def _clamp_int(value: object, default: int, lo: int, hi: int) -> int:
     return max(lo, min(n, hi))
 
 
+def _related_instruction_ids(
+    rec: InstructionRecord,
+    idx: dict[str, InstructionRecord],
+    max_related: int = 10,
+) -> list[str]:
+    tags = set(rec.tags)
+    if not tags:
+        return []
+    related: list[tuple[int, str, str]] = []
+    for candidate in idx.values():
+        if candidate.id == rec.id:
+            continue
+        overlap = len(tags & set(candidate.tags))
+        if overlap <= 0:
+            continue
+        related.append((overlap, candidate.id, candidate.rel_path))
+    related.sort(key=lambda item: (-item[0], item[2], item[1]))
+    return [candidate_id for _, candidate_id, _ in related[:max_related]]
+
+
 @mcp.tool()
 def list_instructions_index() -> str:
     """Use when you need an overview of all available organizational instruction documents (ids, titles, tags).
@@ -100,6 +121,7 @@ def list_instructions_index() -> str:
     """
     idx = _ensure_index()
     out = []
+    by_tag: dict[str, list[str]] = {}
     for rec in sorted(idx.values(), key=lambda r: r.rel_path):
         out.append(
             {
@@ -113,25 +135,28 @@ def list_instructions_index() -> str:
                 "content_sha256": rec.content_hash,
             }
         )
-    return json.dumps({"instructions": out, "count": len(out)}, ensure_ascii=False)
+        for tag in rec.tags:
+            by_tag.setdefault(tag, []).append(rec.id)
+    by_tag = {tag: sorted(ids) for tag, ids in sorted(by_tag.items())}
+    return json.dumps({"instructions": out, "count": len(out), "by_tag": by_tag}, ensure_ascii=False)
 
 
 @mcp.tool()
 def search_instructions(
     query: str,
     tags: str | None = None,
-    max_results: int = 5,
+    max_results: int = 10,
 ) -> str:
     """Use when the user asks about architecture, patterns, DNS, security, style, or any org-specific guideline.
 
     Full-text style search (keyword overlap) over the instruction corpus. Prefer calling this before
     proposing cross-cutting design. Parameters: query (natural language), optional comma-separated tags
-    filter, max_results (default 5, cap 10).
+    filter, max_results (default 10, cap 20).
     """
     idx = _ensure_index()
     tokens = tokenize_query(query)
     tag_filter = _parse_tags(tags)
-    cap = _clamp_int(max_results, default=5, lo=1, hi=10)
+    cap = _clamp_int(max_results, default=10, lo=1, hi=20)
 
     if not tokens:
         if not tag_filter:
@@ -180,6 +205,7 @@ def search_instructions(
                 "full_available": True,
                 "tags": rec.tags,
                 "kind": rec.kind,
+                "related_ids": _related_instruction_ids(rec, idx),
             }
         )
         composed_parts.append(f"### {rec.title} ({rec.id})\n{summarize_body(rec.body, 280)}")
@@ -192,66 +218,68 @@ def search_instructions(
 
 
 @mcp.tool()
-def get_instruction(
-    id: str | None = None,
-    path: str | None = None,
-    max_chars: int = 12000,
+def get_instructions_batch(
+    ids: str,
+    max_chars_per_instruction: int = 8000,
 ) -> str:
-    """Use when search_instructions returned an id/path and you need the full instruction text.
+    """Fetch multiple instructions in a single call. Provide comma-separated ids.
 
-    Fetch the complete markdown body (after frontmatter). Provide either id or path relative to INSTRUCTIONS_ROOT.
-    max_chars truncates very large files (default 12000).
+    Use after list_instructions_index or search_instructions when you need
+    the full text of one or more instructions at once.
     """
     idx = _ensure_index()
-    rec: InstructionRecord | None = None
-    if id and str(id).strip():
-        rec = idx.get(str(id).strip())
-    elif path and str(path).strip():
-        needle = str(path).strip().replace("\\", "/")
-        if not instruction_path_needle_is_safe(needle):
-            return json.dumps(
-                {
-                    "error": "Invalid path argument.",
-                    "hint": (
-                        "Use a relative path without '..' segments; prefer document id from list_instructions_index."
-                    ),
-                },
-                ensure_ascii=False,
-            )
-        for candidate in idx.values():
-            if candidate.rel_path == needle or candidate.rel_path.endswith("/" + needle):
-                rec = candidate
-                break
-    else:
+    requested_ids = [candidate.strip() for candidate in str(ids).split(",") if candidate.strip()]
+    if not requested_ids:
         return json.dumps(
-            {"error": "Provide either id or path."},
+            {"error": "Provide at least one instruction id."},
             ensure_ascii=False,
         )
 
-    if rec is None:
-        return json.dumps(
-            {"error": "Instruction not found.", "hint": "Call list_instructions_index or search_instructions."},
-            ensure_ascii=False,
-        )
+    per_instruction_limit = _clamp_int(max_chars_per_instruction, default=8000, lo=500, hi=200_000)
+    total_remaining = MAX_BATCH_TOTAL_CHARS
+    items: list[dict[str, object]] = []
+    missing_ids: list[str] = []
+    skipped_ids_due_to_total_cap: list[str] = []
 
-    limit = _clamp_int(max_chars, default=12000, lo=500, hi=200_000)
-    body = rec.body
-    truncated = len(body) > limit
-    if truncated:
-        body = body[: limit - 20] + "\n\n… [truncated]"
+    for requested_id in requested_ids:
+        rec = idx.get(requested_id)
+        if rec is None:
+            missing_ids.append(requested_id)
+            continue
+        if total_remaining <= 0:
+            skipped_ids_due_to_total_cap.append(requested_id)
+            continue
+
+        effective_limit = min(per_instruction_limit, total_remaining)
+        body = rec.body
+        truncated = len(body) > effective_limit
+        if truncated:
+            body = body[: max(0, effective_limit - 20)] + "\n\n… [truncated]"
+        total_remaining -= len(body)
+        items.append(
+            {
+                "id": rec.id,
+                "path": rec.rel_path,
+                "title": rec.title,
+                "tags": rec.tags,
+                "scope": rec.scope,
+                "priority": rec.priority,
+                "kind": rec.kind,
+                "content_sha256": rec.content_hash,
+                "truncated": truncated,
+                "content": body,
+            }
+        )
 
     return json.dumps(
         {
-            "id": rec.id,
-            "path": rec.rel_path,
-            "title": rec.title,
-            "tags": rec.tags,
-            "scope": rec.scope,
-            "priority": rec.priority,
-            "kind": rec.kind,
-            "content_sha256": rec.content_hash,
-            "truncated": truncated,
-            "content": body,
+            "instructions": items,
+            "requested_count": len(requested_ids),
+            "found_count": len(items),
+            "missing_ids": missing_ids,
+            "skipped_ids_due_to_total_cap": skipped_ids_due_to_total_cap,
+            "max_chars_per_instruction": per_instruction_limit,
+            "max_total_chars": MAX_BATCH_TOTAL_CHARS,
         },
         ensure_ascii=False,
     )

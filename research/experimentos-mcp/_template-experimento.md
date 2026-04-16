@@ -9,7 +9,7 @@
 - IDE / extensão Copilot:
 - Modelo (se souber):
 - `INSTRUCTIONS_ROOT` ou corpus usado:
-- Tools MCP invocadas (ex.: `search_instructions`, `get_instruction`):
+- Tools MCP invocadas (ex.: `search_instructions`, `get_instructions_batch`):
 
 ## Procedimento
 

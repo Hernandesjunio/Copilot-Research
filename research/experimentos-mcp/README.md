@@ -24,7 +24,7 @@ experimentos-mcp/
 
 Use data `YYYY-MM-DD` e um `slug` em minúsculas com hífens.
 
-Exemplo preenchido: [`2026-04-05-mcp-corporate-instructions-avaliacao-tools.md`](2026-04-05-mcp-corporate-instructions-avaliacao-tools.md) (origem: [`rascunho.md`](rascunho.md)).
+Exemplo preenchido (pasta por ensaio, alinhado ao padrão `2026-04-16-analise-comparativa-instructions-mcp-vertical-slice/`): [`2026-04-05-mcp-corporate-instructions-avaliacao-tools/notas.md`](2026-04-05-mcp-corporate-instructions-avaliacao-tools/notas.md) — relatório principal em [`2026-04-05-mcp-corporate-instructions-avaliacao-tools/2026-04-05-mcp-corporate-instructions-avaliacao-tools.md`](2026-04-05-mcp-corporate-instructions-avaliacao-tools/2026-04-05-mcp-corporate-instructions-avaliacao-tools.md) (origem: [`rascunho.md`](rascunho.md)).
 
 ## Ligações
 

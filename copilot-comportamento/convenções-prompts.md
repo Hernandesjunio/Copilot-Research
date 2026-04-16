@@ -10,15 +10,15 @@ Frases e fluxos reutilizáveis. Ajuste nomes de servidor e de tools ao que tiver
 
 2. Se precisar do texto completo de um documento:
 
-   > Para o `id` **[id-devolvido]**, chame `get_instruction` e aplique só o que for compatível com as instructions nativas deste repo.
+   > Para o(s) `id` **[id-devolvido(s)]**, chame `get_instructions_batch` e aplique só o que for compatível com as instructions nativas deste repo.
 
 ## Ao implementar um endpoint ou feature vertical
 
-> Siga as instructions nativas deste repositório. Para padrões organizacionais, consulte o MCP: `search_instructions` com «[ex.: Open Finance, repository pattern]»; se necessário, `get_instruction` pelo `id` escolhido. Não contradiga políticas locais.
+> Siga as instructions nativas deste repositório. Para padrões organizacionais, consulte o MCP: `search_instructions` com «[ex.: Open Finance, repository pattern]»; se necessário, `get_instructions_batch` com os `id` escolhidos. Não contradiga políticas locais.
 
 ## Quando o modelo não invocou o MCP
 
-> Obrigatório: invoque as tools `search_instructions` (e `get_instruction` se precisar) antes de continuar; a tarefa depende do corpus corporativo.
+> Obrigatório: invoque as tools `search_instructions` e `get_instructions_batch` antes de continuar; a tarefa depende do corpus corporativo.
 
 ## Checklist rápido em um único prompt
 

@@ -16,8 +16,8 @@ Para padrões de arquitetura, convenções, segurança, resiliência, ADRs, exem
 
 1. Use o MCP `corporate-instructions`.
 2. Em qualquer tarefa que envolva design, implementação de padrões, tratamento de erros ou dúvida sobre convenções: `search_instructions` com query descritiva.
-3. Para o texto completo: `get_instruction` com o `id` retornado.
-4. Se precisar combinar múltiplas referências, faça `search_instructions` para selecionar os `id` relevantes e então use `get_instruction` para ler só os documentos necessários (evite carregar conteúdo desnecessário).
+3. Para o texto completo: `get_instructions_batch` com os `ids` relevantes (separados por vírgula), mesmo quando houver apenas 1 `id`.
+4. Se precisar combinar múltiplas referências, faça `search_instructions` para selecionar os `id` relevantes e então use `get_instructions_batch` para ler os documentos necessários.
 
 As regras **deste arquivo** prevalecem se houver conflito com o MCP.
 

@@ -36,7 +36,7 @@ O repositório **não** alega neutralidade absoluta do pesquisador: onde houver 
 | **Pesquisa aplicada** | Orienta decisões de arquitetura de uso do Copilot em organizações com muitos repositórios; entrega MVP e playbooks. |
 | **Avaliação arquitetural** | Documentos comparativos STDIO/HTTP/híbrido; modelo de distribuição central com cache local. |
 | **Prototipação de software** | Servidor MCP com tools de leitura e índice em memória; critérios de aceite em épicos. |
-| **Estudo comparativo com controle** | Condições A/B/C com baseline sem corpus estruturado; variáveis de conteúdo e de sessão explicitadas nos artefatos do experimento 2026-04-12. |
+| **Estudo comparativo com controle** | Condições A/B/C com baseline sem corpus estruturado; variáveis de conteúdo e de sessão explicitadas nos artefatos do experimento 2026-04-12; extensão 2026-04-16 para vertical slice com duas sínteses (iterações) e rubrica compartilhada. |
 | **Experimento empírico documentado** | Registros datados em `experimentos-mcp/` com setup, procedimento e anexos. |
 | **Ciclo iterativo** | Análises e experimentos encadeiam achados, limitações e próximos passos; decisões de iteração aparecem em análises datadas. |
 
@@ -49,7 +49,7 @@ O repositório **não** alega neutralidade absoluta do pesquisador: onde houver 
 ### 4.1 Planejamento e governança de conteúdo (BMAD / EPICs)
 
 - **EPIC-01 — Inventário e governança:** classificação **sempre-ativa** vs **on-demand**, hierarquia de conflito (nativas locais prevalecem), contrato de **frontmatter** (`id`, `title`, `tags`, `scope`, `priority`, `kind`).
-- **EPIC-02 — MVP do servidor MCP:** `stdio`, três tools (`list_instructions_index`, `search_instructions`, `get_instruction`), testes de fumaça.
+- **EPIC-02 — MVP do servidor MCP:** `stdio`, tools de descoberta/busca/leitura em lote (`list_instructions_index`, `search_instructions`, `get_instructions_batch`), testes de fumaça.
 - **EPIC-03 — Rollout multi-repo:** opções de distribuição do corpus (clone central, submodule, package, env), checklist de onboarding, piloto em poucos repositórios.
 - **EPIC-04 — Protocolo de experimentos (E1–E5):** métricas propostas para qualidade percebida, invocação de tools, ruído de `max_results`, embeddings futuros e conflitos entre camadas.
 
@@ -65,7 +65,8 @@ O repositório **não** alega neutralidade absoluta do pesquisador: onde houver 
 
 - **Template padrão:** [`experimentos-mcp/_template-experimento.md`](experimentos-mcp/_template-experimento.md) padroniza data, setup (IDE, modelo, `INSTRUCTIONS_ROOT`, tools), procedimento, resultado e decisão.
 - **Experimento 2026-04-05** — Avaliação do MCP em projeto **.NET 8** real; discussão de evolução de tools, comportamento agêntico e pressões de **janela de contexto**.
-- **Experimento 2026-04-12** — Comparação **A/B/C** para planejamento de endpoint REST específico; **threads isoladas**; **corpus idêntico** entre A e B por configuração deliberada; síntese crítica com **matriz de critérios** e **limitações** explícitas (incluindo o que **não** foi testado empiricamente, como operação em 100+ repositórios reais).
+- **Experimento 2026-04-12** — Comparação **A/B/C** para planejamento de endpoint REST específico; **threads isoladas**; **corpus idêntico** entre A e B por configuração deliberada; síntese crítica com **matriz de critérios** e **limitações** explícitas (incluindo o que **não** foi testado empiricamente, como operação em 100+ repositórios reais). Rubrica operacional na raiz da pasta: [`experimentos-mcp/2026-04-12-analise-comparativa-instructions-mcp-baseline/criterios-de-comparacao.md`](experimentos-mcp/2026-04-12-analise-comparativa-instructions-mcp-baseline/criterios-de-comparacao.md).
+- **Experimento 2026-04-16** — Mesmo desenho **A/B/C** aplicado a um **vertical slice** (`PUT`/`GET` `/clientes/{id}`): **plano + implementação + validação**; **duas sínteses** (`analise-comparativa-iteracao-1.md`, `analise-comparativa-iteracao-2.md`) com **reexecução isolada** do cenário MCP na segunda volta; registo em [`experimentos-mcp/2026-04-16-analise-comparativa-instructions-mcp-vertical-slice/notas.md`](experimentos-mcp/2026-04-16-analise-comparativa-instructions-mcp-vertical-slice/notas.md).
 
 ### 4.4 Papel de múltiplos modelos e decomposição de viés
 
@@ -91,9 +92,9 @@ Materiais **não canónicos** e de maior volatilidade (por exemplo, desdobrament
 
 ## 6. Critérios de avaliação (observados vs planejados)
 
-### 6.1 Critérios já usados em sínteses comparativas (ex.: experimento 2026-04-12)
+### 6.1 Critérios já usados em sínteses comparativas (ex.: experimentos 2026-04-12 e 2026-04-16)
 
-Incluem, entre outros: qualidade de **plano** (estrutura BMAD), **centralização**, **escalabilidade projetada**, **governança** (metadados e hash), **risco de drift**, **DX/fluidez**, **dependência de reprompt**, **previsibilidade**, **latência** no perfil STDIO, **maturidade do MVP**, **viabilidade corporativa** percebida, e **mecanismo de descoberta** (busca determinística vs navegação de arquivos).
+A definição operacional da rubrica (escalas, evidências, pesos sugeridos) está em [`experimentos-mcp/2026-04-12-analise-comparativa-instructions-mcp-baseline/criterios-de-comparacao.md`](experimentos-mcp/2026-04-12-analise-comparativa-instructions-mcp-baseline/criterios-de-comparacao.md). Os critérios incluem, entre outros: qualidade de **plano** (estrutura BMAD), **centralização**, **escalabilidade projetada**, **governança** (metadados e hash), **risco de drift**, **DX/fluidez**, **dependência de reprompt**, **previsibilidade**, **latência** no perfil STDIO, **maturidade do MVP**, **viabilidade corporativa** percebida, e **mecanismo de descoberta** (busca determinística vs navegação de arquivos).
 
 ### 6.2 Critérios planejados no protocolo E1–E5 (EPIC-04)
 
@@ -132,4 +133,4 @@ Incluem métricas como notas por dimensão, contagem aproximada de tokens em nat
 
 ## 10. Como citar internamente
 
-Prefira citar **caminho + data + revisão** quando existir no artefato (por exemplo, `experimentos-mcp/2026-04-12-…/artefatos/analise-comparativa.md`, revisão R1). Para hipóteses brutas vs síntese, preserve a distinção de **papel** (ensaio vs consolidação) indicada em `notas.md` do experimento correspondente.
+Prefira citar **caminho + data + revisão** quando existir no artefato (por exemplo, `experimentos-mcp/2026-04-12-…/artefatos/analise-comparativa.md`, revisão R1, e `experimentos-mcp/2026-04-12-…/criterios-de-comparacao.md` para a rubrica). Para o follow-up de vertical slice, cite `experimentos-mcp/2026-04-16-analise-comparativa-instructions-mcp-vertical-slice/analise-comparativa-iteracao-1.md` ou `…-iteracao-2.md` conforme a síntese relevante. Para hipóteses brutas vs síntese, preserve a distinção de **papel** (ensaio vs consolidação) indicada em `notas.md` do experimento correspondente.
