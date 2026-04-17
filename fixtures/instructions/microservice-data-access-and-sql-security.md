@@ -5,6 +5,9 @@ tags: [microservice, data, sql, dapper, efcore, security, transactions, performa
 scope: "**/*.cs"
 priority: high
 kind: policy
+workspace_evidence_required: true
+workspace_signals: [IDbConnection, SqlConnection, Dapper, SqlMapper, DbContext, DbSet, EntityFrameworkCore]
+on_absence: hypothesis_only
 ---
 
 # Objetivo

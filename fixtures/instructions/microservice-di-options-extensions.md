@@ -5,6 +5,9 @@ tags: [microservice, dotnet, dependency-injection, ioptions, configuration]
 scope: "**/*.cs"
 priority: medium
 kind: policy
+workspace_evidence_required: true
+workspace_signals: [IOptions, IOptionsSnapshot, IOptionsMonitor, Configure, ServiceCollection]
+on_absence: hypothesis_only
 ---
 
 # Objetivo

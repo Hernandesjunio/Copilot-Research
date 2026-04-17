@@ -20,6 +20,7 @@ Garantir que novas ou alteradas instructions no corpus canónico sejam **recuper
 - Políticas (`kind: policy`) devem incluir **tabela de decisão** ou critérios explícitos, secções **Pode ser feito** / **Não pode ser feito**, e preferencialmente **anti-exemplos**.
 - Manter `id` estável após publicação; mudanças incompatíveis → novo `id` e deprecar o anterior no texto.
 - Campos recomendados para governança: `owner`, `last_reviewed`, `status` (`draft` | `active` | `deprecated`).
+- Campos **opcionais** de aplicabilidade ao workspace (`workspace_evidence_required`, `workspace_signals`, `on_absence`): ver secção abaixo; **não** são obrigatórios em todo o corpus — o time do corpus pode torná-los obrigatórios por política interna.
 
 ## Valores de `kind`
 
@@ -29,6 +30,30 @@ Garantir que novas ou alteradas instructions no corpus canónico sejam **recuper
 | `reference` | Guia, contexto, padrões técnicos sem força de lei total. |
 
 Outros tipos (`adr`, `template`, `catalog`, `playbook`) podem ser introduzidos no frontmatter quando o índice e ferramentas suportarem; até lá, usar `reference` + `tags` descritivas.
+
+## Aplicabilidade ao workspace (consumo via MCP / assistentes)
+
+Estes campos existem para o cliente (ex.: Copilot) combinar **norma do corpus** com **evidência no repositório**, sem o servidor MCP ler ficheiros do utilizador. São devolvidos em `get_instructions_batch` dentro de `frontmatter`.
+
+### Obrigatoriedade neste repositório (fixture)
+
+| Campo | Obrigatório em *todos* os `.md`? | Quem decide em produção |
+| --- | --- | --- |
+| `workspace_evidence_required` | **Não** | Time do corpus |
+| `workspace_signals` | **Não** | Time do corpus |
+| `on_absence` | **Não** | Time do corpus |
+
+**Regra para o fixture canónico:** estes três campos são **opcionais** globalmente. Para este conjunto de exemplos, eles foram **preenchidos (SHOULD)** apenas em policies cujo texto **prescreve padrões de infraestrutura, bibliotecas ou DI** que um microsserviço pode ainda não ter (cache, mensageria, Polly, HttpClientFactory, OpenTelemetry, options/DI, configuração operacional, acesso a dados com stack concreta). Instructions puramente contratuais ou de processo (HTTP, validação, layering, BMAD, catálogo de erros, etc.) **não** precisam destes campos no fixture; o time do corpus pode acrescentá-los mais tarde se o risco de “norma concreta sem evidência no repo” existir.
+
+### Semântica sugerida
+
+| Campo | Tipo | Uso |
+| --- | --- | --- |
+| `workspace_evidence_required` | boolean | Se `true`, o assistente deve procurar `workspace_signals` no código **antes** de implementar o padrão normativo. |
+| `workspace_signals` | lista de strings | Termos ou identificadores a procurar (grep / leitura de `Program.cs`, DI, etc.). Curadoria manual — não duplicar o corpo da policy. |
+| `on_absence` | string | Comportamento quando não há match; neste fixture usa-se `hypothesis_only` (não introduzir infra nova; documentar HIPÓTESE ou pedir confirmação). |
+
+Valores possíveis de `on_absence` podem evoluir (`confirm_with_user`, `do_not_implement`); o time do corpus alinha com o orquestrador de prompts.
 
 ## Estrutura mínima sugerida (Markdown)
 

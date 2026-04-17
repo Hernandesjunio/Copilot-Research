@@ -5,6 +5,9 @@ tags: [microservice, messaging, rabbitmq, resilience, observability, idempotency
 scope: "**/*.cs"
 priority: high
 kind: policy
+workspace_evidence_required: true
+workspace_signals: [RabbitMQ, IConnection, RabbitMQ.Client, MassTransit, AddMassTransit, IBus]
+on_absence: hypothesis_only
 ---
 
 # Objetivo

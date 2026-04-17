@@ -5,6 +5,9 @@ tags: [microservice, caching, memory-cache, performance]
 scope: "**/*.cs"
 priority: medium
 kind: policy
+workspace_evidence_required: true
+workspace_signals: [IMemoryCache, AddMemoryCache, MemoryCache, Microsoft.Extensions.Caching.Memory]
+on_absence: hypothesis_only
 ---
 
 # Objetivo

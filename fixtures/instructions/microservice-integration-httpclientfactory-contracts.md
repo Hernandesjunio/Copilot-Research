@@ -5,6 +5,9 @@ tags: [microservice, httpclient, integration, resilience, serialization, contrac
 scope: "**/*.cs"
 priority: high
 kind: policy
+workspace_evidence_required: true
+workspace_signals: [IHttpClientFactory, AddHttpClient, HttpClient, HttpRequestMessage]
+on_absence: hypothesis_only
 ---
 
 # Objetivo

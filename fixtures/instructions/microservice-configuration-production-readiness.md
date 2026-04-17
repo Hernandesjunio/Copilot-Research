@@ -5,6 +5,9 @@ tags: [microservice, configuration, options, feature-flags, production, deployme
 scope: "**/*.cs"
 priority: medium
 kind: policy
+workspace_evidence_required: true
+workspace_signals: [IConfiguration, IOptions, IHostApplicationLifetime, AddFeatureManagement, IFeatureManager]
+on_absence: hypothesis_only
 ---
 
 # Objetivo

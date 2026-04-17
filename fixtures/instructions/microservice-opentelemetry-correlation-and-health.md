@@ -5,6 +5,9 @@ tags: [microservice, observability, opentelemetry, tracing, metrics, logging, he
 scope: "**/*.cs"
 priority: high
 kind: policy
+workspace_evidence_required: true
+workspace_signals: [OpenTelemetry, AddOpenTelemetry, ActivitySource, Meter, TracerProvider, MapHealthChecks]
+on_absence: hypothesis_only
 ---
 
 # Objetivo

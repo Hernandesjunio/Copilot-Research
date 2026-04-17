@@ -5,6 +5,9 @@ tags: [microservice, resilience, polly, httpclient, timeout, retry, circuit-brea
 scope: "**/*.cs"
 priority: high
 kind: policy
+workspace_evidence_required: true
+workspace_signals: [Polly, AddPolicyHandler, IAsyncPolicy, HttpPolicyExtensions, AddResilienceHandler]
+on_absence: hypothesis_only
 ---
 
 # Objetivo
