@@ -26,6 +26,7 @@ Logs operacionais do servidor vão para **stderr**; **stdout** é só o protocol
 | Índice de análises (por data/tema) | [`research/analises/README.md`](research/analises/README.md) |
 | Metodologia completa e citações | [`research/README.md`](research/README.md) |
 | Experimentos MCP | [`research/experimentos-mcp/README.md`](research/experimentos-mcp/README.md) |
+| Núcleo da pesquisa (código, prompts, propostas por tema) | [`research/nucleo-pesquisa/README.md`](research/nucleo-pesquisa/README.md) |
 | Planejamento BMAD / épicos | [`planning/bmad/README.md`](planning/bmad/README.md) |
 | Políticas de uso do Copilot | [`copilot-comportamento/README.md`](copilot-comportamento/README.md) |
 | Template “thin” de instruções nativas | [`templates/copilot-instructions.thin.md`](templates/copilot-instructions.thin.md) |

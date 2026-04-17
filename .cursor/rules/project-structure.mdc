@@ -22,6 +22,7 @@ alwaysApply: true
 |----------|----------------|
 | Alterar ou depurar o MCP | `mcp-instructions-server/README.md`, `CONTRIBUTING.md` |
 | Listar ou escolher análises por data | `research/analises/README.md` |
+| Achados de implementação, prompts de análise e propostas por tema | `research/nucleo-pesquisa/README.md` |
 | Contexto metodológico longo ou citar | `research/README.md` (secção “Como citar internamente”) |
 | Revisar análise externa contra o repo | `.cursor/rules/review-rules.md` |
 

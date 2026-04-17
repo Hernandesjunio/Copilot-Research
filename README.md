@@ -36,6 +36,7 @@ Esta iniciativa combina métodos complementares (detalhamento metodológico, cri
 | **Metodologia, análises e experimentos**          | [`research/README.md`](research/README.md)                                         |
 | Índice de análises técnicas datadas               | [`research/analises/README.md`](research/analises/README.md)                       |
 | Registro de experimentos MCP                      | [`research/experimentos-mcp/README.md`](research/experimentos-mcp/README.md)       |
+| Núcleo da pesquisa (código, prompts, propostas por tema) | [`research/nucleo-pesquisa/README.md`](research/nucleo-pesquisa/README.md) |
 | Planejamento BMAD (execução + épicos)             | [`planning/bmad/README.md`](planning/bmad/README.md)                               |
 | Perguntas de pesquisa (prompts datados)           | [`prompts/`](prompts/)                                                             |
 | Respostas alinhadas aos prompts                   | [`responses/`](responses/)                                                         |

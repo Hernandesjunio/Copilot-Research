@@ -5,6 +5,7 @@
 - **Este ficheiro** — metodologia longa, fases, limitações e **como citar**; use quando precisar de contexto completo ou referências formais.
 - **Só localizar uma análise por data/tema** — comece por [`analises/README.md`](analises/README.md) (índice) em vez de ler este documento inteiro.
 - **Experimentos** — convenções e pastas: [`experimentos-mcp/README.md`](experimentos-mcp/README.md).
+- **Núcleo da pesquisa** (achados de código, prompts de análise, propostas de desenho por tema) — [`nucleo-pesquisa/README.md`](nucleo-pesquisa/README.md).
 - **Mapa global do repo** — [`../AGENTS.md`](../AGENTS.md).
 
 ---
@@ -121,6 +122,7 @@ Incluem métricas como notas por dimensão, contagem aproximada de tokens em nat
 - **Escala 100+ repositórios:** há argumentação e modelos operacionais; **teste empírico multi-repo** é explicitamente listado como pendência na síntese do experimento 2026-04-12.
 - **Variabilidade de modelo e de IDE:** resultados podem variar com o cliente Copilot, versão da extensão e modelo; o repositório mitiga parcialmente com **controles de sessão** e **declaração de modelos**, mas não substitui bateria grande de repetições.
 - **Corpus gerado por pipeline assistido:** reprodutibilidade do *prompt estruturado* não elimina decisões de curadoria humana (o próprio relatório de síntese admite decisões de framing).
+- **Limitações de implementação e extensibilidade** (viés lexical, busca, indexação, etc.) documentadas com rastreabilidade código ↔ prompt ↔ proposta: [`nucleo-pesquisa/README.md`](nucleo-pesquisa/README.md).
 
 ---
 
@@ -141,6 +143,7 @@ Incluem métricas como notas por dimensão, contagem aproximada de tokens em nat
 | [`analises/README.md`](analises/README.md) | Índice das análises técnicas datadas (uma linha por ficheiro + descrição). |
 | [`experimentos-mcp/`](experimentos-mcp/) | README de convenções, template, pastas ou arquivos por data com `notas.md` e anexos. |
 | [`sugestoes-futura/`](sugestoes-futura/) | Explorações e notas de longo prazo (sem status de decisão formal). |
+| [`nucleo-pesquisa/README.md`](nucleo-pesquisa/README.md) | Temas em subpastas: observação, prompt de análise assistida, proposta de desenho; template em `nucleo-pesquisa/_template/`. |
 
 ## 10. Como citar internamente
 
