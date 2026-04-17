@@ -13,6 +13,8 @@ pytest
 
 Com verbosidade e só smoke: `pytest tests/smoke_test.py -v`. Integração STDIO (subprocess + cliente MCP): `pytest tests/integration_mcp_stdio_test.py -v`.
 
+Para gravar o catálogo `tools/list` em JSON (útil quando um IDE mostra tools nas definições mas o chat nega): `python scripts/print_mcp_tools_list.py` (defina `INSTRUCTIONS_ROOT` como no IDE).
+
 ## Corpus usado
 
 - **Smoke e maior parte dos testes:** `INSTRUCTIONS_ROOT` aponta para [`../../fixtures/instructions`](../../fixtures/instructions) (relativamente a `mcp-instructions-server/`). Vários testes assumem IDs concretos desse fixture (ex.: `dns-retry-pattern`, `microservice-data-access-and-sql-security`).
@@ -26,6 +28,7 @@ Com verbosidade e só smoke: `pytest tests/smoke_test.py -v`. Integração STDIO
 | [`tests/integration_mcp_stdio_test.py`](../tests/integration_mcp_stdio_test.py) | Integração | Processo real `python -m corporate_instructions_mcp` com JSON-RPC sobre stdio. |
 | [`tests/test_indexing.py`](../tests/test_indexing.py) | Unitário | Funções puras e `build_index` em directórios temporários. |
 | [`tests/test_paths.py`](../tests/test_paths.py) | Unitário | Validação de caminhos e segurança. |
+| [`tests/test_server_frontmatter.py`](../tests/test_server_frontmatter.py) | Unitário | Normalização JSON de frontmatter (`date`, `datetime`, `Decimal`, listas aninhadas). |
 
 ---
 
@@ -44,6 +47,8 @@ Executa as tools com `INSTRUCTIONS_ROOT` no fixture; reinicia o índice em memó
 | `test_search_instructions_max_results_clamped_to_twenty` | `max_results=100` é limitado a 20 resultados. |
 | `test_search_instructions_max_results_one` | `max_results=1` devolve uma linha. |
 | `test_get_instructions_batch_single_document` | Batch com um único ID devolve conteúdo esperado (ex.: menção a Polly). |
+| `test_get_instructions_batch_includes_frontmatter_with_extra_keys` | Cada item inclui `frontmatter` com chaves extra do YAML (ex.: `owner`, `last_reviewed` como ISO). |
+| `test_get_instructions_batch_frontmatter_round_trips_json` | `frontmatter` é serializável em JSON após `json.loads` do payload da tool. |
 | `test_search_tags_only` | Query vazia com `tags=security` filtra e inclui `security-baseline-secrets`. |
 | `test_search_instructions_invalid_max_results_uses_default` | `max_results` inválido cai no default e ainda devolve resultados. |
 | `test_search_instructions_persistencia_sql_returns_data_access` | Expansão por sinónimos / domínio: `persistência SQL` ranqueia `microservice-data-access-and-sql-security`. |
@@ -82,6 +87,19 @@ Testa `indexing.py` sem arrancar o servidor MCP.
 | `test_build_index_skips_symlink_escape` | Symlink para fora da raiz é ignorado (pode ser `skip` no Windows se criar symlink falhar). |
 | `test_build_index_skips_huge_frontmatter` | Frontmatter YAML gigante é tratado como vazio e o corpo mantém-se. |
 | `test_yaml_non_dict_frontmatter_treated_as_empty` | Frontmatter que não é mapeamento → metadados vazios; id derivado do ficheiro. |
+
+---
+
+## `test_server_frontmatter.py`
+
+Testa `_json_safe_frontmatter` sem corpus (datas e decimais YAML → valores JSON-safe).
+
+| Teste | O que valida |
+|-------|----------------|
+| `test_json_safe_frontmatter_converts_date_and_nested` | `date` em raiz e aninhado → strings ISO. |
+| `test_json_safe_frontmatter_datetime_and_decimal` | `datetime` e `Decimal` convertidos. |
+| `test_json_safe_frontmatter_lists` | Listas com `date` dentro. |
+| `test_json_safe_frontmatter_empty` | Dicionário vazio. |
 
 ---
 

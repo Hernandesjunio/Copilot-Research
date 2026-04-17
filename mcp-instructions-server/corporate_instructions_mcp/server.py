@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import datetime
 import json
 import logging
 import os
 import sys
+from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
@@ -34,6 +37,25 @@ _index_root: Path | None = None
 MAX_BATCH_TOTAL_CHARS = 120_000
 
 log = logging.getLogger(__name__)
+
+
+def _json_safe_frontmatter(meta: dict[str, Any]) -> dict[str, Any]:
+    """Return a copy of frontmatter suitable for json.dumps (YAML may load dates, decimals, etc.)."""
+
+    def _convert(value: Any) -> Any:
+        if isinstance(value, dict):
+            return {k: _convert(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [_convert(v) for v in value]
+        if isinstance(value, datetime.datetime):
+            return value.isoformat()
+        if isinstance(value, datetime.date):
+            return value.isoformat()
+        if isinstance(value, Decimal):
+            return float(value)
+        return value
+
+    return _convert(meta)
 
 
 def _configure_logging() -> None:
@@ -222,10 +244,10 @@ def get_instructions_batch(
     ids: str,
     max_chars_per_instruction: int = 8000,
 ) -> str:
-    """Fetch multiple instructions in a single call. Provide comma-separated ids.
+    """Fetch multiple instructions in one call. Parameter ids: comma-separated instruction ids.
 
-    Use after list_instructions_index or search_instructions when you need
-    the full text of one or more instructions at once.
+    Call after list_instructions_index or search_instructions when full bodies are needed.
+    Each returned item includes a frontmatter object (parsed YAML header, JSON-safe).
     """
     idx = _ensure_index()
     requested_ids = [candidate.strip() for candidate in str(ids).split(",") if candidate.strip()]
@@ -268,6 +290,7 @@ def get_instructions_batch(
                 "content_sha256": rec.content_hash,
                 "truncated": truncated,
                 "content": body,
+                "frontmatter": _json_safe_frontmatter(rec.raw_frontmatter),
             }
         )
 

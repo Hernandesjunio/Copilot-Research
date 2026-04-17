@@ -42,7 +42,11 @@ Também: `python -m corporate_instructions_mcp` com o mesmo `INSTRUCTIONS_ROOT`.
 
 ## Registrar no Visual Studio (MCP)
 
-Adicione o servidor na configuração de MCP do VS (JSON), apontando o comando para o interpretador e módulo instalados, por exemplo:
+Adicione o servidor na configuração de MCP do VS (JSON), apontando o comando para o interpretador que tem o pacote instalado (`pip install -e ".[dev]"` a partir desta pasta).
+
+Pode instalar em **venv** ou **globalmente** (`pip install -e .` no interpretador do sistema); em ambos os casos o VS deve usar o **`python.exe` exacto** onde correu o `pip`. No Windows, `where python` ou `py -0p` lista candidatos; copie o caminho completo para `command`.
+
+**Recomendado:** use **`command` com caminho absoluto** (por exemplo `C:\\Users\\…\\AppData\\Local\\Programs\\Python\\Python313\\python.exe`, ou o `python.exe` do venv) e **`INSTRUCTIONS_ROOT` absoluto**. Assim o Visual Studio não depende do `PATH` da sessão nem da pasta de trabalho do processo — evita correr um `python` diferente do terminal ou uma versão antiga do pacote em `site-packages`.
 
 ```json
 {
@@ -50,18 +54,37 @@ Adicione o servidor na configuração de MCP do VS (JSON), apontando o comando p
   "servers": {
     "corporate-instructions": {
       "type": "stdio",
-      "command": "python",
+      "command": "C:\\path\\to\\venv\\Scripts\\python.exe",
       "args": ["-m", "corporate_instructions_mcp"],
       "env": {
-        "INSTRUCTIONS_ROOT": "endereço das instructions"
+        "INSTRUCTIONS_ROOT": "C:\\path\\to\\corpus-instructions"
       }
     }
   }
 }
-
 ```
 
-Ajuste `command` para o Python do venv se necessário: `"command": "C:\\path\\to\\venv\\Scripts\\corporate-instructions-mcp.exe"`.
+Alternativa equivalente: `"command": "C:\\path\\to\\venv\\Scripts\\corporate-instructions-mcp.exe"` com `"args": []` (o entrypoint já chama `main()`).
+
+**Desenvolvimento no monorepo (opcional):** se quiser executar o código em `mcp-instructions-server` sem reinstalar após cada `git pull`, defina `PYTHONPATH` para a pasta que contém o pacote (a pasta `mcp-instructions-server`, não `corporate_instructions_mcp`):
+
+```json
+"env": {
+  "INSTRUCTIONS_ROOT": "C:\\path\\to\\corpus-instructions",
+  "PYTHONPATH": "C:\\path\\to\\Copilot-Research\\mcp-instructions-server"
+}
+```
+
+**Evitar:** `"command": "python"` sem caminho absoluto. O VS resolve outro executável do que o esperado com facilidade; o catálogo de tools (`list_instructions_index`, `search_instructions`, `get_instructions_batch`) vem do módulo realmente carregado.
+
+### Visual Studio: tools no catálogo vs chat
+
+1. Confirme o interpretador: `pip show corporate-instructions-mcp` e `python -c "import corporate_instructions_mcp.server as s; assert hasattr(s, 'get_instructions_batch')"`.
+2. Valide o protocolo: na pasta `mcp-instructions-server`, `python -m pytest tests/integration_mcp_stdio_test.py::test_mcp_stdio_list_search_get_instruction` — verifica que `tools/list` expõe as três tools.
+3. **Evidência JSON para suporte:** com o mesmo `INSTRUCTIONS_ROOT` que usa no VS, execute `python scripts/print_mcp_tools_list.py` (a partir de `mcp-instructions-server/`). A saída deve listar `get_instructions_batch`, `list_instructions_index` e `search_instructions` com `inputSchema`. Anexe ao reporte de bug.
+4. Se o `pytest` e o script mostram as **três** tools mas o **chat** do Visual Studio continua a negar (incluindo após `command` absoluto ao `python.exe` onde correu o `pip`): confira no painel de MCP do VS se **cada tool está activada** (por predefinição podem vir desligadas após mudar o nome do servidor ou das tools).
+5. Se após o passo anterior o chat ainda negar: o servidor pode estar conforme o MCP e o sintoma ser **do host Copilot no VS** (modo de chat vs agente, sessão antiga, ou regressão). Tente conversa nova; modo **agente** se estiver só em perguntas rápidas; confirmar que o servidor MCP está ligado para essa sessão; actualizar Visual Studio e GitHub Copilot. Para isolar, configure o **mesmo** comando/`env` no VS Code (`.vscode/mcp.json` ou definições MCP) — se lá as tools aparecem ao modelo, o problema é específico do VS.
+6. Relatos semelhantes no ecossistema (VS Code): [Chat does not see all MCP tools](https://github.com/microsoft/vscode/issues/293598) — útil como referência ao abrir ticket na Microsoft / Developer Community para o Visual Studio.
 
 ## Tools
 
@@ -69,7 +92,7 @@ Ajuste `command` para o Python do venv se necessário: `"command": "C:\\path\\to
 |------|--------|
 | `list_instructions_index` | Metadados de todos os `.md` (id, path, tags, hash) + agrupamento `by_tag` para navegação por tema. |
 | `search_instructions` | Busca por palavras-chave (com expansão por sinónimos), `tags` opcional (lista separada por vírgulas), `max_results` 1–20 (default 10), e `related_ids` por interseção de tags. |
-| `get_instructions_batch` | Conteúdo completo de 1 ou mais instructions por `ids` separados por vírgula; `max_chars_per_instruction` para truncagem individual e teto de payload total da resposta. |
+| `get_instructions_batch` | Conteúdo completo de 1 ou mais instructions por `ids` separados por vírgula; `max_chars_per_instruction` para truncagem individual e teto de payload total da resposta. Cada item inclui `frontmatter` (YAML parseado completo, com chaves extra além dos metadados listados no índice). |
 
 **Reindexação:** o índice é reconstruído quando `INSTRUCTIONS_ROOT` muda entre chamadas. Reinicie o processo após alterações grandes no corpus se quiser libertar memória ou garantir estado limpo.
 
@@ -93,6 +116,7 @@ Ajuste `command` para o Python do venv se necessário: `"command": "C:\\path\\to
 
 | Sintoma | Verificar |
 |---------|-----------|
+| Chat não reconhece `get_instructions_batch` mas as definições listam tools | Secção **Visual Studio: tools no catálogo vs chat** acima; `command` absoluto; `pytest` de integração. |
 | Erro ao listar/buscar: `INSTRUCTIONS_ROOT is not a directory` | Caminho correcto, permissões de leitura, pasta montada em CI/CD. |
 | Índice vazio sem erro | Nenhum `.md` válido sob a raiz, ou todos ignorados (tamanho / symlink). Ver **stderr**. |
 | Conteúdo desactualizado | Reiniciar o processo MCP no IDE; o índice reflecte o disco no rebuild. |

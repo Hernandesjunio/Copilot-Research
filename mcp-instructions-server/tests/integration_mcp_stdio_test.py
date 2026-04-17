@@ -102,8 +102,10 @@ def test_mcp_stdio_list_search_get_instruction() -> None:
             first = batch["instructions"][0]
             assert first.get("id") == fetch_id
             assert isinstance(first.get("content"), str) and len(first["content"]) > 0
+            assert isinstance(first.get("frontmatter"), dict) and first["frontmatter"]
             if use_fixture_expectations and fetch_id == "dns-retry-pattern":
                 assert "Polly" in first["content"]
+                assert first["frontmatter"].get("id") == "dns-retry-pattern"
 
     asyncio.run(_run())
 

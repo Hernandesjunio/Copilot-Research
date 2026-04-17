@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- README: guia de registo no Visual Studio com `command`/`INSTRUCTIONS_ROOT` absolutos, `PYTHONPATH` opcional para monorepo, e resolução de problemas quando o catálogo de tools diverge do chat; nota de que `pip install -e` global é válido desde que o `command` aponte para esse `python.exe`; lembrete de activar cada tool no painel MCP do VS após renomear servidor/tools.
+- `get_instructions_batch`: docstring MCP simplificada (menos marcação) para reduzir ruído em clientes sensíveis à descrição da tool.
+
+### Added
+
+- `scripts/print_mcp_tools_list.py`: imprime `tools/list` em JSON (stdio real) para anexar a tickets de IDE quando o chat não espelha o catálogo MCP.
+- `get_instructions_batch`: each instruction item now includes `frontmatter`, the full parsed YAML header (with extra keys beyond id/title/tags), JSON-safe for dates and decimals.
+
+### Tests
+
+- Smoke and integration assertions for `frontmatter`; unit tests for `_json_safe_frontmatter` in `tests/test_server_frontmatter.py`.
+
 ## [0.3.0] - 2026-04-16
 
 ### Added

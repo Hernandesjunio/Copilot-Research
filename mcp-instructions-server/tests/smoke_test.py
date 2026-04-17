@@ -104,6 +104,29 @@ def test_get_instructions_batch_single_document() -> None:
     assert "Polly" in data["instructions"][0]["content"]
 
 
+def test_get_instructions_batch_includes_frontmatter_with_extra_keys() -> None:
+    """Batch items expose full parsed YAML; extra keys (e.g. owner) are JSON-serializable."""
+    from corporate_instructions_mcp.server import get_instructions_batch
+
+    data = json.loads(get_instructions_batch(ids="dns-retry-pattern"))
+    assert data["found_count"] == 1
+    fm = data["instructions"][0]["frontmatter"]
+    assert isinstance(fm, dict)
+    assert fm["id"] == "dns-retry-pattern"
+    assert fm["owner"] == "platform-architecture"
+    assert fm["status"] == "active"
+    assert fm["last_reviewed"] == "2026-04-12"
+
+
+def test_get_instructions_batch_frontmatter_round_trips_json() -> None:
+    """Response must be json.dumps-safe (dates from YAML become ISO strings)."""
+    from corporate_instructions_mcp.server import get_instructions_batch
+
+    raw = get_instructions_batch(ids="dns-retry-pattern")
+    parsed = json.loads(raw)
+    json.dumps(parsed["instructions"][0]["frontmatter"])
+
+
 def test_search_tags_only() -> None:
     from corporate_instructions_mcp.server import search_instructions
 
