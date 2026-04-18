@@ -11,9 +11,13 @@ pip install -e ".[dev]"
 pytest
 ```
 
-Com verbosidade e só smoke: `pytest tests/smoke_test.py -v`. Integração STDIO (subprocess + cliente MCP): `pytest tests/integration_mcp_stdio_test.py -v`.
+Com verbosidade e só smoke: `pytest tests/smoke_test.py -v`. Integração STDIO (subprocess + cliente MCP): `pytest tests/integration_mcp_stdio_test.py -v`. Telemetria NDJSON: `pytest tests/test_telemetry_ndjson.py -v`.
 
 Para gravar o catálogo `tools/list` em JSON (útil quando um IDE mostra tools nas definições mas o chat nega): `python scripts/print_mcp_tools_list.py` (defina `INSTRUCTIONS_ROOT` como no IDE).
+
+### Telemetria estruturada (`CORPORATE_INSTRUCTIONS_TELEMETRY`)
+
+Com `minimal` ou `full`, o servidor escreve linhas **NDJSON** em **stderr** (por exemplo `server_start`, `index_rebuilt`, eventos `*.completed` por tool). Guia prático (ver, gravar em ficheiro, filtrar, IDE): [`HOW-TO-TELEMETRY-LOGS.md`](HOW-TO-TELEMETRY-LOGS.md). Não misture stderr com stdout (protocolo MCP).
 
 ## Corpus usado
 
@@ -29,6 +33,7 @@ Para gravar o catálogo `tools/list` em JSON (útil quando um IDE mostra tools n
 | [`tests/test_indexing.py`](../tests/test_indexing.py) | Unitário | Funções puras e `build_index` em directórios temporários. |
 | [`tests/test_paths.py`](../tests/test_paths.py) | Unitário | Validação de caminhos e segurança. |
 | [`tests/test_server_frontmatter.py`](../tests/test_server_frontmatter.py) | Unitário | Normalização JSON de frontmatter (`date`, `datetime`, `Decimal`, listas aninhadas). |
+| [`tests/test_telemetry_ndjson.py`](../tests/test_telemetry_ndjson.py) | Unitário | Eventos NDJSON em stderr (`CORPORATE_INSTRUCTIONS_TELEMETRY`) sem subprocess MCP. |
 
 ---
 

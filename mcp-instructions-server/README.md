@@ -40,6 +40,10 @@ Também: `python -m corporate_instructions_mcp` com o mesmo `INSTRUCTIONS_ROOT`.
 
 **Logs:** mensagens operacionais (rebuild do índice, ficheiros ignorados por limite, etc.) vão para **stderr**, para não misturar com o JSON-RPC em **stdout**.
 
+**Telemetria estruturada (opcional):** defina `CORPORATE_INSTRUCTIONS_TELEMETRY` como `minimal` ou `full` para emitir eventos **NDJSON** (uma linha JSON por evento) em stderr — útil para experimentos e análise posterior. `off` (omissão) desliga a telemetria. Em `minimal`, queries de pesquisa são registadas apenas como `query_sha256`; em `full` inclui `query_preview` (uso recomendado só em laboratório).
+
+**Como ver, gravar em ficheiro e filtrar NDJSON:** [`docs/HOW-TO-TELEMETRY-LOGS.md`](docs/HOW-TO-TELEMETRY-LOGS.md). Telemetria nos testes: [`docs/TESTS.md`](docs/TESTS.md).
+
 ## Registrar no Visual Studio (MCP)
 
 Adicione o servidor na configuração de MCP do VS (JSON), apontando o comando para o interpretador que tem o pacote instalado (`pip install -e ".[dev]"` a partir desta pasta).

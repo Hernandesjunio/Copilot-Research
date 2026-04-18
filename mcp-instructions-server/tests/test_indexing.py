@@ -14,6 +14,7 @@ from corporate_instructions_mcp.indexing import (
     excerpt_around_match,
     expand_query_with_synonyms,
     score_record,
+    score_record_breakdown,
     summarize_body,
     tokenize_query,
 )
@@ -58,6 +59,24 @@ def test_expand_query_with_synonyms_handles_accents() -> None:
     assert expanded["persistência"] == 1.0
     assert expanded["sql"] == 0.5
     assert expanded["dapper"] == 0.5
+
+
+def test_score_record_breakdown_matches_total() -> None:
+    rec = InstructionRecord(
+        id="sql-doc",
+        rel_path="sql-doc.md",
+        title="Data access security",
+        tags=["data-access"],
+        scope=None,
+        priority="medium",
+        kind="reference",
+        body="Use parameterized queries with dapper repositories.",
+        content_hash="1" * 64,
+    )
+    tokens = tokenize_query("persistência")
+    total = score_record(rec, tokens, None)
+    bd = score_record_breakdown(rec, tokens, None)
+    assert abs(total - bd.total) < 1e-6
 
 
 def test_score_record_boosts_related_domain_terms() -> None:

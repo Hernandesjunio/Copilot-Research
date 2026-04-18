@@ -189,35 +189,153 @@ def _build_synonym_lookup(synonyms: dict[str, list[str]]) -> dict[str, list[str]
 
 _SYNONYM_LOOKUP = _build_synonym_lookup(SYNONYMS)
 
+EXPANSION_CAP_PER_TOKEN = 5
+
+
+@dataclass(frozen=True)
+class ExpandedQueryInfo:
+    """Token expansion for telemetry (synonym map is weighted in scoring)."""
+
+    weights: dict[str, float]
+    user_tokens: list[str]
+    terms_added_by_dictionary: list[str]
+    expansion_truncated: bool
+    synonym_expansion_count: int
+
 
 def expand_query_with_synonyms(tokens: list[str]) -> dict[str, float]:
     """Expand query tokens with related terms weighted lower than direct matches."""
+    info = expand_query_with_metadata(tokens)
+    return info.weights
+
+
+def expand_query_with_metadata(tokens: list[str]) -> ExpandedQueryInfo:
+    """Like expand_query_with_synonyms plus telemetry on dictionary terms and truncation."""
+    user_set = frozenset(tokens)
     expanded: dict[str, float] = {}
+    expansion_truncated = False
+    added: set[str] = set()
+    synonym_expansion_count = 0
     for token in tokens:
         expanded[token] = max(expanded.get(token, 0.0), 1.0)
         normalized = _normalize_token(token)
-        for related in _SYNONYM_LOOKUP.get(normalized, [])[:5]:
+        related_list = _SYNONYM_LOOKUP.get(normalized, [])
+        if len(related_list) > EXPANSION_CAP_PER_TOKEN:
+            expansion_truncated = True
+        for related in related_list[:EXPANSION_CAP_PER_TOKEN]:
+            synonym_expansion_count += 1
+            if related not in user_set:
+                added.add(related)
             expanded[related] = max(expanded.get(related, 0.0), 0.5)
-    return expanded
+    added_sorted = sorted(added)
+    return ExpandedQueryInfo(
+        weights=expanded,
+        user_tokens=list(tokens),
+        terms_added_by_dictionary=added_sorted,
+        expansion_truncated=expansion_truncated,
+        synonym_expansion_count=synonym_expansion_count,
+    )
+
+
+@dataclass(frozen=True)
+class ScoreBreakdown:
+    """Heuristic score split (same total semantics as legacy score_record)."""
+
+    total: float
+    score_title: float
+    score_tags: float
+    score_body_blob: float
+    score_priority: float
+    score_from_user_terms: float
+    score_from_expansion_terms: float
+
+
+def _term_parts(rec: InstructionRecord, t: str, weight: float, blob: str, title_l: str) -> tuple[float, float, float]:
+    """Returns body_blob, title, tags contribution for one term."""
+    c = blob.count(t)
+    body_blob = weight * (1.0 + min(5.0, 0.25 * c)) if c else 0.0
+    title = weight * 3.0 if t in title_l else 0.0
+    tags = 0.0
+    for tag in rec.tags:
+        if t == tag or t in tag:
+            tags += weight * 2.0
+    return body_blob, title, tags
+
+
+def score_record_breakdown(
+    rec: InstructionRecord,
+    tokens: list[str],
+    tag_filter: set[str] | None,
+    expanded_info: ExpandedQueryInfo | None = None,
+) -> ScoreBreakdown:
+    """Per-document score with component and user vs synonym expansion split."""
+    if tag_filter and not (tag_filter & set(rec.tags)):
+        return ScoreBreakdown(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+
+    info = expanded_info if expanded_info is not None else expand_query_with_metadata(tokens)
+    user_set = frozenset(info.user_tokens)
+
+    blob = rec.search_blob()
+    title_l = rec.title.lower()
+    score_body = 0.0
+    score_title = 0.0
+    score_tags = 0.0
+    from_user = 0.0
+    from_exp = 0.0
+
+    for t, weight in info.weights.items():
+        bp, tp, gp = _term_parts(rec, t, weight, blob, title_l)
+        part = bp + tp + gp
+        score_body += bp
+        score_title += tp
+        score_tags += gp
+        if t in user_set:
+            from_user += part
+        else:
+            from_exp += part
+
+    pr = 0.5 * PRIORITY_RANK.get(rec.priority, 0)
+    total = score_body + score_title + score_tags + pr
+    return ScoreBreakdown(
+        total=total,
+        score_title=score_title,
+        score_tags=score_tags,
+        score_body_blob=score_body,
+        score_priority=pr,
+        score_from_user_terms=from_user,
+        score_from_expansion_terms=from_exp,
+    )
 
 
 def score_record(rec: InstructionRecord, tokens: list[str], tag_filter: set[str] | None) -> float:
+    return score_record_breakdown(rec, tokens, tag_filter).total
+
+
+def terms_with_positive_hits(
+    rec: InstructionRecord,
+    expanded_info: ExpandedQueryInfo,
+    tag_filter: set[str] | None,
+) -> tuple[set[str], set[str]]:
+    """Terms that contributed non-zero score: (matched_user_terms, matched_dictionary_only_terms)."""
     if tag_filter and not (tag_filter & set(rec.tags)):
-        return 0.0
+        return set(), set()
+
+    user_set = frozenset(expanded_info.user_tokens)
     blob = rec.search_blob()
-    score = 0.0
     title_l = rec.title.lower()
-    for t, weight in expand_query_with_synonyms(tokens).items():
-        c = blob.count(t)
-        if c:
-            score += weight * (1.0 + min(5.0, 0.25 * c))
-        if t in title_l:
-            score += weight * 3.0
-        for tag in rec.tags:
-            if t == tag or t in tag:
-                score += weight * 2.0
-    score += 0.5 * PRIORITY_RANK.get(rec.priority, 0)
-    return score
+
+    matched_user: set[str] = set()
+    matched_dict_only: set[str] = set()
+
+    for t, weight in expanded_info.weights.items():
+        bp, tp, gp = _term_parts(rec, t, weight, blob, title_l)
+        if bp + tp + gp <= 0.0:
+            continue
+        if t in user_set:
+            matched_user.add(t)
+        else:
+            matched_dict_only.add(t)
+    return matched_user, matched_dict_only
 
 
 def excerpt_around_match(body: str, tokens: list[str], max_len: int = 400) -> str:
