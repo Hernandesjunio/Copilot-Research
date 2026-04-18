@@ -22,4 +22,6 @@ The **Corporate Instructions MCP** server is a **local, read-only** process (def
 
 Risks mitigated in code include **path confinement** under `INSTRUCTIONS_ROOT` (including symlink resolution), **size limits** on files and frontmatter to reduce abuse of CPU/memory, and **dependency scanning** in CI. Remaining risks (malicious corpus placed by an attacker with filesystem access) are **operational** and must be addressed with access control and corpus governance.
 
+**Structured telemetry (optional):** when `CORPORATE_INSTRUCTIONS_TELEMETRY` is set to `minimal` or `full`, the MCP server emits newline-delimited JSON events on **stderr** (tool names, timings, instruction ids, search query hashes or previews in `full` mode). Treat captured logs like any operational log that may contain sensitive path fragments if `full` is enabled. Default is `off` (no structured events).
+
 For transport strategy (stdio vs HTTP) see [mcp-instructions-server/docs/ROADMAP-TRANSPORT-HTTP.md](mcp-instructions-server/docs/ROADMAP-TRANSPORT-HTTP.md).
