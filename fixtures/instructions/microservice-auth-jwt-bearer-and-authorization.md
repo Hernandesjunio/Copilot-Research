@@ -20,6 +20,7 @@ Padronizar autenticação e autorização em APIs/microservices .NET com **JWT B
 - **Não** confiar em claims não validadas; mapear claims relevantes para um modelo interno (`UserContext`) e usar políticas/requirements.
 - **Nunca** logar tokens (header `Authorization`) nem claims sensíveis; mascarar IDs quando necessário.
 - Responder com semântica HTTP consistente: `401` quando não autenticado, `403` quando autenticado mas sem permissão.
+- Autorização **além de roles/claims globais** (propriedade de recurso, auditoria, rotas ao âmbito do utilizador): ver `microservice-authorization-resource-scope-and-audit`.
 
 ## Critérios (decisão rápida)
 
@@ -84,4 +85,8 @@ builder.Services.AddAuthorization(options =>
 - Tratar qualquer claim como “fonte de verdade” sem validação do token.
 - Logar `Authorization` header, token inteiro, ou claims sensíveis em spans/logs.
 - Retornar `200` com corpo de erro “não autorizado”; usar `401`/`403`.
+
+## Ver também
+
+- `microservice-authorization-resource-scope-and-audit` — propriedade de recurso, auditoria e listagens ao âmbito do ator (guardrails; semântica de negócio nas instructions locais).
 
