@@ -22,6 +22,20 @@ Recomendação inicial: **A + D** (repo central + variável de ambiente no regis
 3. Registrar o servidor MCP no Visual Studio (ver [README do servidor](../../../mcp-instructions-server/README.md)) com `INSTRUCTIONS_ROOT` correto.
 4. (Opcional) Script `tools/sync-instructions.ps1` que faz `git pull` no repo canônico — para quem usa clone único.
 
+## Regra de fronteira: o que fica local
+
+Nem tudo deve migrar para o corpus central. Deve permanecer em **instruction local** quando o tema depender de:
+
+- fornecedor específico do serviço;
+- shape de payload ou contrato próprio do produto;
+- nomes de entidades, estados e transições de domínio;
+- decisões de persistência que só fazem sentido naquele repositório.
+
+Exemplo típico:
+
+- integração `CEP` / `ViaCEP`, shape de endereço e estado “validação pendente” devem ficar no contexto local;
+- o MCP central continua responsável apenas pelos guardrails transversais: `HttpClient`, resiliência, cache, contrato HTTP/erros e observabilidade.
+
 ## Piloto (2–3 repos)
 
 - Escolher serviços representativos (um API, um worker, um com legado).
