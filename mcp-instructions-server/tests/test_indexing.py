@@ -12,6 +12,7 @@ from corporate_instructions_mcp.indexing import (
     InstructionRecord,
     build_index,
     excerpt_around_match,
+    extract_exact_phrases,
     expand_query_with_synonyms,
     score_record,
     score_record_breakdown,
@@ -21,7 +22,15 @@ from corporate_instructions_mcp.indexing import (
 
 
 def test_tokenize_query_drops_short_and_splits() -> None:
-    assert tokenize_query("a BC de-f") == ["bc", "de"]
+    assert tokenize_query("a BC de-f") == ["bc"]
+
+
+def test_tokenize_query_keeps_useful_version_variants() -> None:
+    tokens = tokenize_query(".NET 8 net8 v2")
+    assert "dotnet8" in tokens
+    assert "net8" in tokens
+    assert "v2" in tokens
+    assert "2" in tokens
 
 
 def test_summarize_body_truncates() -> None:
@@ -61,6 +70,23 @@ def test_expand_query_with_synonyms_handles_accents() -> None:
     assert expanded["dapper"] == 0.5
 
 
+def test_synonym_clusters_fit_expansion_cap() -> None:
+    """Each cluster must have <=5 related terms so neighbor lists are not truncated."""
+    for key, related in indexing.SYNONYMS.items():
+        assert len(related) <= 5, f"cluster {key!r} has {len(related)} related terms (max 5)"
+
+
+def test_synonym_file_contains_domain_cluster() -> None:
+    assert "mensageria" in indexing.SYNONYMS
+    assert "outbox" in indexing.SYNONYMS["mensageria"]
+
+
+def test_extract_exact_phrases() -> None:
+    phrases = extract_exact_phrases('Use "outbox transacional" and "problem details"')
+    assert "outbox transacional" in phrases
+    assert "problem details" in phrases
+
+
 def test_score_record_breakdown_matches_total() -> None:
     rec = InstructionRecord(
         id="sql-doc",
@@ -95,6 +121,24 @@ def test_score_record_boosts_related_domain_terms() -> None:
     related_score = score_record(rec, tokenize_query("persistência"), None)
     assert related_score > 0.0
     assert direct_score > related_score
+
+
+def test_score_record_penalizes_expansion_only_matches() -> None:
+    rec = InstructionRecord(
+        id="sql-doc",
+        rel_path="sql-doc.md",
+        title="Data access security",
+        tags=["data-access"],
+        scope=None,
+        priority="medium",
+        kind="reference",
+        body="Use parameterized queries with dapper repositories.",
+        content_hash="1" * 64,
+    )
+    tokens = tokenize_query("persistência")
+    unpenalized = score_record(rec, tokens, None, expansion_penalty_ratio=1.0)
+    penalized = score_record(rec, tokens, None, expansion_penalty_ratio=0.5)
+    assert penalized <= unpenalized
 
 
 def test_build_index_duplicate_id_raises() -> None:

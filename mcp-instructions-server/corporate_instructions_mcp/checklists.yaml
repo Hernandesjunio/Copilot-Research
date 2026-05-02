@@ -1,0 +1,136 @@
+mensageria_outbox:
+  title: "Mensageria com outbox transacional"
+  objective: "Consolidar baseline normativa para publicação assíncrona com consistência, idempotência e observabilidade."
+  checklist:
+    - key: transactional_outbox
+      title: "Garantir publicação atômica com padrão outbox"
+      requirement_level: required
+      why: "Eventos não podem ser publicados no meio da transação principal sem mecanismo de reconciliação."
+      instruction_ids:
+        - microservice-messaging-rabbitmq-publish-consume
+        - microservice-data-access-and-sql-security
+      verification:
+        - "A publicação assíncrona não ocorre diretamente dentro da transação de escrita."
+        - "Existe tabela/registro de outbox ou mecanismo equivalente com processamento dedicado."
+    - key: idempotent_consumers
+      title: "Consumidores devem ser idempotentes"
+      requirement_level: required
+      why: "Reentrega e retry não podem duplicar efeitos observáveis na read model ou no domínio."
+      instruction_ids:
+        - microservice-messaging-rabbitmq-publish-consume
+      verification:
+        - "O consumidor usa chave de idempotência estável (`messageId` ou equivalente)."
+        - "Ack ocorre apenas após efeito durável e idempotente."
+    - key: retry_and_dead_letter
+      title: "Documentar retry transitório e DLQ"
+      requirement_level: required
+      why: "Sem limite de reentrega e fallback operacional, falhas transitórias viram tempestade de retry."
+      instruction_ids:
+        - microservice-messaging-rabbitmq-publish-consume
+        - microservice-resilience-polly-timeouts-and-circuit-breaker
+        - dns-retry-pattern
+      verification:
+        - "Há política explícita para retry transitório, contagem de reentrega e DLQ."
+        - "Retry cego ou infinito não é permitido."
+    - key: traceability
+      title: "Propagar correlação e sinais operacionais"
+      requirement_level: recommended
+      why: "Observabilidade reduz MTTR quando filas, reentregas e dependências externas se degradam."
+      instruction_ids:
+        - microservice-messaging-rabbitmq-publish-consume
+        - microservice-opentelemetry-correlation-and-health
+      verification:
+        - "Mensagens propagam `traceparent` ou identificador de correlação equivalente."
+        - "Há métricas/logs para reentregas, DLQ e lag."
+    - key: delivery_tests
+      title: "Cobrir comportamento com testes"
+      requirement_level: recommended
+      why: "Sem testes focados em duplicação e falhas transitórias, a implementação tende a regredir."
+      instruction_ids:
+        - microservice-testing-strategy-unit-integration-contract
+      verification:
+        - "Existem testes para duplicação de mensagem, retry transitório ou percurso até DLQ."
+
+api_http_contract:
+  title: "Contrato HTTP de API"
+  objective: "Reunir instruções para semântica HTTP, erros e segurança de endpoints."
+  checklist:
+    - key: status_code_semantics
+      title: "Usar semântica HTTP consistente"
+      requirement_level: required
+      why: "Respostas inconsistentes aumentam acoplamento, retrabalho de cliente e bugs de integração."
+      instruction_ids:
+        - microservice-rest-http-semantics-and-status-codes
+        - microservice-api-validation-and-error-contracts
+      verification:
+        - "A API diferencia corretamente `2xx`, `4xx`, `5xx`, `401` e `403`."
+        - "Problemas de contrato não retornam `200` com erro no corpo."
+    - key: problem_details
+      title: "Expor erros estruturados com catálogo mínimo"
+      requirement_level: required
+      why: "Clientes precisam de contrato previsível para erro técnico e validação."
+      instruction_ids:
+        - microservice-api-validation-and-error-contracts
+        - microservice-api-error-catalog-baseline
+      verification:
+        - "A API usa `ProblemDetails` ou contrato equivalente consistente."
+        - "Há mapeamento mínimo de códigos/erros para cenários frequentes."
+    - key: auth_responses
+      title: "Alinhar autenticação e autorização com o contrato HTTP"
+      requirement_level: recommended
+      why: "Fluxos de auth sem semântica HTTP clara acabam vazando comportamento ou escondendo falhas."
+      instruction_ids:
+        - microservice-auth-jwt-bearer-and-authorization
+        - microservice-authorization-resource-scope-and-audit
+      verification:
+        - "`401` e `403` são usados de forma consistente."
+        - "A política para `404` vs `403` em recursos protegidos é explícita."
+    - key: collection_contracts
+      title: "Paginação, filtros e coleções devem ser previsíveis"
+      requirement_level: recommended
+      why: "Contratos de listagem costumam gerar churn quando não há convenção comum."
+      instruction_ids:
+        - microservice-api-collection-resources-pagination-filters
+      verification:
+        - "Listagens usam paginação e filtros previsíveis."
+        - "Parâmetros de consulta têm validação e defaults documentados."
+
+security_baseline:
+  title: "Linha de base de segurança"
+  objective: "Agrupar requisitos mínimos para segredos, autenticação e autorização rastreável."
+  checklist:
+    - key: secret_handling
+      title: "Tratar segredos e dados sensíveis corretamente"
+      requirement_level: required
+      why: "Exposição de segredo é falha grave e tende a vazar para logs, repositório ou pipeline."
+      instruction_ids:
+        - security-baseline-secrets
+      verification:
+        - "Tokens, senhas e connection strings não são commitados nem logados."
+        - "Existe política de rotação/revogação em caso de suspeita de vazamento."
+    - key: jwt_validation
+      title: "Validar JWT explicitamente"
+      requirement_level: required
+      why: "Aceitar token sem validação completa compromete todo o perímetro de segurança."
+      instruction_ids:
+        - microservice-auth-jwt-bearer-and-authorization
+      verification:
+        - "Issuer, audience, assinatura e lifetime são validados."
+        - "O header `Authorization` não é logado."
+    - key: resource_scope_audit
+      title: "Aplicar autorização por recurso e auditoria"
+      requirement_level: recommended
+      why: "Permissão global não substitui regra de propriedade de recurso nem trilha de auditoria."
+      instruction_ids:
+        - microservice-authorization-resource-scope-and-audit
+      verification:
+        - "Operações críticas verificam ownership ou policy equivalente."
+        - "Há auditoria reproduzível para ações mutáveis relevantes."
+    - key: error_leakage
+      title: "Evitar vazamento de detalhes sensíveis via contrato de erro"
+      requirement_level: recommended
+      why: "Erros inseguros podem expor tokens, claims, payloads ou estrutura interna."
+      instruction_ids:
+        - microservice-api-validation-and-error-contracts
+      verification:
+        - "Erros não expõem tokens, claims sensíveis ou detalhes internos indevidos."

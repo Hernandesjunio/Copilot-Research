@@ -1,0 +1,81 @@
+cache:
+  - imemorycache
+  - idistributedcache
+  - caching
+  - ttl
+  - invalidation
+persistencia:
+  - dapper
+  - sql
+  - repositorio
+  - data-access
+  - efcore
+validacao:
+  - validation
+  - error-contracts
+  - problem-details
+  - 400
+  - 422
+http:
+  - rest
+  - status-codes
+  - endpoint
+  - api
+  - patch
+resiliencia:
+  - polly
+  - retry
+  - circuit-breaker
+  - timeout
+  - tolerancia
+arquitetura:
+  - layering
+  - camadas
+  - clean-architecture
+  - solid
+  - dotnet
+testes:
+  - testing
+  - unit
+  - integration
+  - contract
+  - xunit
+observabilidade:
+  - opentelemetry
+  - health
+  - tracing
+  - metrics
+  - correlation
+mensageria:
+  - rabbitmq
+  - messaging
+  - publish
+  - consume
+  - outbox
+seguranca:
+  - security
+  - secrets
+  - jwt
+  - authentication
+  - authorization
+dns:
+  - nameserver
+  - resolver
+  - lookup
+  - network
+cep:
+  - zipcode
+  - postal-code
+  - endereco
+  - address
+  - validacao
+viacep:
+  - httpclient
+  - integration
+  - resiliencia
+  - timeout
+  - cache
+endereco:
+  - address
+  - validacao
+  - api

@@ -15,19 +15,27 @@ from typing import Any, cast
 from mcp.server.fastmcp import FastMCP
 
 from corporate_instructions_mcp import telemetry
+from corporate_instructions_mcp.config import RuntimeConfig, load_runtime_config
+from corporate_instructions_mcp.context_resolver import build_normative_checklist, build_resolved_context, resolve_conflicts
 from corporate_instructions_mcp.indexing import (
     PRIORITY_RANK,
+    CorpusSignature,
     InstructionRecord,
     build_index,
+    corpus_signature,
     excerpt_around_match,
     expand_query_with_metadata,
+    extract_exact_phrases,
+    normalize_text,
     score_record,
     score_record_breakdown,
     summarize_body,
     terms_with_positive_hits,
     tokenize_query,
 )
+from corporate_instructions_mcp.markdown_sections import compose_section_payload, filter_sections, split_markdown_sections
 from corporate_instructions_mcp.paths import require_existing_dir
+from corporate_instructions_mcp.search_contract import build_error, build_fallback_suggestions, search_confidence
 
 mcp = FastMCP(
     "corporate-instructions",
@@ -39,7 +47,9 @@ mcp = FastMCP(
 
 _index: dict[str, InstructionRecord] = {}
 _index_root: Path | None = None
-MAX_BATCH_TOTAL_CHARS = 120_000
+_index_signature: CorpusSignature | None = None
+_last_signature_check_mono = 0.0
+_config: RuntimeConfig | None = None
 
 # Documented absence: requires IDE/model-side instrumentation (see research methodology).
 _SERVER_UNOBSERVABLE_METRICS = [
@@ -102,6 +112,13 @@ def _root() -> Path:
     return root
 
 
+def _cfg() -> RuntimeConfig:
+    global _config
+    if _config is None:
+        _config = load_runtime_config()
+    return _config
+
+
 def _workspace_evidence_required(meta: dict[str, Any]) -> bool:
     v = meta.get("workspace_evidence_required")
     if v is True:
@@ -113,17 +130,32 @@ def _workspace_evidence_required(meta: dict[str, Any]) -> bool:
 
 def _ensure_index() -> tuple[dict[str, InstructionRecord], dict[str, Any]]:
     """Load corpus; second return value describes whether this call rebuilt the in-memory index."""
-    global _index, _index_root
+    global _index, _index_root, _index_signature, _last_signature_check_mono
     root = _root()
+    cfg = _cfg()
     call_meta: dict[str, Any] = {
         "index_build_triggered": False,
         "index_build_duration_ms": 0,
         "cold_start": False,
     }
-    if _index_root != root or not _index:
+    rebuild = _index_root != root or not _index
+    now = time.perf_counter()
+    if (
+        not rebuild
+        and cfg.index_staleness_check_seconds > 0
+        and (now - _last_signature_check_mono) >= cfg.index_staleness_check_seconds
+    ):
+        _last_signature_check_mono = now
+        latest_signature = corpus_signature(root)
+        if _index_signature is None or latest_signature.signature != _index_signature.signature:
+            rebuild = True
+            call_meta["index_stale_detected"] = True
+
+    if rebuild:
         log.info("rebuilding_index root=%s", root)
         rebuild_start = time.perf_counter()
         _index = build_index(root)
+        _index_signature = corpus_signature(root)
         rebuild_ms = int((time.perf_counter() - rebuild_start) * 1000)
         _index_root = root
         size_b = sum(len(r.body.encode("utf-8", errors="replace")) for r in _index.values())
@@ -139,6 +171,8 @@ def _ensure_index() -> tuple[dict[str, InstructionRecord], dict[str, Any]]:
         call_meta["index_build_triggered"] = True
         call_meta["index_build_duration_ms"] = rebuild_ms
         call_meta["cold_start"] = telemetry.index_rebuild_count() == 1
+    call_meta["corpus_version"] = _index_signature.signature if _index_signature else ""
+    call_meta["corpus_file_count"] = _index_signature.file_count if _index_signature else 0
     return _index, call_meta
 
 
@@ -146,6 +180,27 @@ def _parse_tags(tags: str | None) -> set[str] | None:
     if not tags or not str(tags).strip():
         return None
     return {t.strip().lower() for t in str(tags).split(",") if t.strip()}
+
+
+def _parse_bool(value: object | None) -> bool | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "off"}:
+            return False
+    return None
+
+
+def _normalize_list_filter(raw: str | None) -> set[str] | None:
+    if not raw:
+        return None
+    values = {normalize_text(part.strip()) for part in raw.split(",") if part.strip()}
+    return values or None
 
 
 def _clamp_int(value: object, default: int, lo: int, hi: int) -> int:
@@ -162,6 +217,29 @@ def _clamp_int(value: object, default: int, lo: int, hi: int) -> int:
         except (TypeError, ValueError):
             return default
     return max(lo, min(n, hi))
+
+
+def _legacy_error_enabled() -> bool:
+    return _cfg().include_legacy_error_field
+
+
+def _format_error(
+    *,
+    error_code: str,
+    message: str,
+    details: dict[str, Any] | None = None,
+    suggested_next_call: dict[str, Any] | None = None,
+) -> str:
+    return json.dumps(
+        build_error(
+            error_code=error_code,
+            message=message,
+            details=details,
+            suggested_next_call=suggested_next_call,
+            include_legacy_error_field=_legacy_error_enabled(),
+        ),
+        ensure_ascii=False,
+    )
 
 
 def _emit_tool_completed(
@@ -204,18 +282,44 @@ def _related_instruction_ids(
     max_related: int = 10,
 ) -> list[str]:
     tags = set(rec.tags)
-    if not tags:
-        return []
-    related: list[tuple[int, str, str]] = []
+    related: list[tuple[float, str, str]] = []
+    title_tokens = set(tokenize_query(rec.title))
     for candidate in idx.values():
         if candidate.id == rec.id:
             continue
         overlap = len(tags & set(candidate.tags))
-        if overlap <= 0:
+        kind_bonus = 1.0 if rec.kind and candidate.kind and rec.kind == candidate.kind else 0.0
+        priority_delta = abs(PRIORITY_RANK.get(rec.priority, 0) - PRIORITY_RANK.get(candidate.priority, 0))
+        priority_bonus = 1.0 - min(1.0, priority_delta / 3.0)
+        lexical_overlap = len(title_tokens & set(tokenize_query(candidate.title)))
+        combined = (overlap * 3.0) + kind_bonus + priority_bonus + (lexical_overlap * 0.5)
+        if combined <= 0:
             continue
-        related.append((overlap, candidate.id, candidate.rel_path))
+        related.append((combined, candidate.id, candidate.rel_path))
     related.sort(key=lambda item: (-item[0], item[2], item[1]))
     return [candidate_id for _, candidate_id, _ in related[:max_related]]
+
+
+def _metadata_filter_match(
+    rec: InstructionRecord,
+    *,
+    kind_filter: set[str] | None,
+    priority_filter: set[str] | None,
+    scope_filter: str | None,
+    workspace_evidence_required: bool | None,
+) -> bool:
+    if kind_filter and normalize_text(rec.kind or "") not in kind_filter:
+        return False
+    if priority_filter and normalize_text(rec.priority or "") not in priority_filter:
+        return False
+    if scope_filter:
+        scope_norm = normalize_text(rec.scope or "")
+        if scope_filter not in scope_norm:
+            return False
+    if workspace_evidence_required is not None:
+        if _workspace_evidence_required(rec.raw_frontmatter) != workspace_evidence_required:
+            return False
+    return True
 
 
 @mcp.tool()
@@ -226,7 +330,15 @@ def list_instructions_index() -> str:
     set INSTRUCTIONS_ROOT to a new path to refresh. JSON array of objects.
     """
     call_start = time.perf_counter()
-    idx, index_meta = _ensure_index()
+    try:
+        idx, index_meta = _ensure_index()
+    except Exception as exc:
+        return _format_error(
+            error_code="INDEX_LOAD_FAILED",
+            message="Unable to load instructions index.",
+            details={"reason": str(exc)},
+            suggested_next_call={"tool": "list_instructions_index", "args": {}},
+        )
     out = []
     by_tag: dict[str, list[str]] = {}
     kind_counts: dict[str, int] = {}
@@ -248,7 +360,16 @@ def list_instructions_index() -> str:
         for tag in rec.tags:
             by_tag.setdefault(tag, []).append(rec.id)
     by_tag = {tag: sorted(ids) for tag, ids in sorted(by_tag.items())}
-    raw = json.dumps({"instructions": out, "count": len(out), "by_tag": by_tag}, ensure_ascii=False)
+    raw = json.dumps(
+        {
+            "instructions": out,
+            "count": len(out),
+            "by_tag": by_tag,
+            "corpus_version": index_meta.get("corpus_version"),
+            "corpus_file_count": index_meta.get("corpus_file_count"),
+        },
+        ensure_ascii=False,
+    )
     duration_ms = int((time.perf_counter() - call_start) * 1000)
     payload = {
         "unique_instruction_ids_count": len(out),
@@ -278,6 +399,12 @@ def search_instructions(
     query: str,
     tags: str | None = None,
     max_results: int = 10,
+    include_diagnostics: bool = False,
+    tags_mode: str = "any",
+    kind: str | None = None,
+    scope: str | None = None,
+    priority: str | None = None,
+    workspace_evidence_required: bool | None = None,
     telemetry_expected_instruction_id: str | None = None,
 ) -> str:
     """Use when the user asks about architecture, patterns, DNS, security, style, or any org-specific guideline.
@@ -288,11 +415,31 @@ def search_instructions(
     ranking evaluation (expected instruction id).
     """
     call_start = time.perf_counter()
+    cfg = _cfg()
     args_summary = telemetry.search_args_summary(query, tags, max_results)
-    idx, index_meta = _ensure_index()
+    try:
+        idx, index_meta = _ensure_index()
+    except Exception as exc:
+        return _format_error(
+            error_code="SEARCH_INDEX_UNAVAILABLE",
+            message="Unable to search because index is unavailable.",
+            details={"reason": str(exc)},
+            suggested_next_call={"tool": "list_instructions_index", "args": {}},
+        )
     tokens = tokenize_query(query)
+    exact_phrases = extract_exact_phrases(query)
     tag_filter = _parse_tags(tags)
-    cap = _clamp_int(max_results, default=10, lo=1, hi=20)
+    tags_mode_normalized = "all" if str(tags_mode).strip().lower() == "all" else "any"
+    kind_filter = _normalize_list_filter(kind)
+    priority_filter = _normalize_list_filter(priority)
+    scope_filter = normalize_text(scope) if scope else None
+    evidence_filter = _parse_bool(workspace_evidence_required)
+    cap = _clamp_int(
+        max_results,
+        default=cfg.search_default_max_results,
+        lo=1,
+        hi=cfg.search_max_results_cap,
+    )
     expanded_info = expand_query_with_metadata(tokens) if tokens else None
 
     def _finish(
@@ -320,7 +467,9 @@ def search_instructions(
         top2 = top_scores[1] if len(top_scores) > 1 else None
         gap_1_2 = (top1 - top2) if top1 is not None and top2 is not None else None
 
-        low_conf = bool(top_rel and top_rel[0] < 0.2)
+        low_conf = bool(top_rel and top_rel[0] < cfg.low_confidence_relevance_threshold)
+        confidence = search_confidence(gap_1_2, top_rel[0] if top_rel else None, result_count)
+        ambiguous_gap = bool(gap_1_2 is not None and gap_1_2 <= cfg.ambiguous_score_gap_threshold)
 
         eval_extra: dict[str, Any] = {}
         exp_id = (telemetry_expected_instruction_id or "").strip()
@@ -356,8 +505,16 @@ def search_instructions(
                     rec = idx.get(str(rid)) if rid else None
                     if not rec:
                         continue
-                    bd = score_record_breakdown(rec, tokens, tag_filter, ei)
-                    mu, md = terms_with_positive_hits(rec, ei, tag_filter)
+                    bd = score_record_breakdown(
+                        rec,
+                        tokens,
+                        tag_filter,
+                        ei,
+                        tags_mode=tags_mode_normalized,
+                        exact_phrases=exact_phrases,
+                        expansion_penalty_ratio=cfg.expansion_only_penalty_ratio,
+                    )
+                    mu, md = terms_with_positive_hits(rec, ei, tag_filter, tags_mode=tags_mode_normalized)
                     breakdown_rows.append(
                         {
                             "id": rec.id,
@@ -367,6 +524,8 @@ def search_instructions(
                             "score_body": round(bd.score_body_blob, 4),
                             "score_priority": round(bd.score_priority, 4),
                             "score_synonym_bonus": round(bd.score_from_expansion_terms, 4),
+                            "score_exact_phrase": round(bd.score_exact_phrase, 4),
+                            "score_proximity": round(bd.score_proximity, 4),
                             "matched_user_terms": sorted(mu),
                             "matched_expansion_only_terms": sorted(md),
                         }
@@ -392,6 +551,7 @@ def search_instructions(
             "top1_score": top1,
             "top3_scores": top_scores[:3],
             "top_score_gap_1_2": gap_1_2,
+            "search_confidence": confidence,
             "topN_score_distribution": top_scores,
             "candidate_count_before_ranking": len(idx),
             "candidate_count_after_filtering": len(ranked_full),
@@ -409,6 +569,7 @@ def search_instructions(
             "results_only_from_expansion_no_user_term_overlap_count": results_only_expansion_no_user_match,
             "top_result_matched_original_terms_count": top1_mu,
             "top_result_matched_expanded_terms_count": top1_me,
+            "corpus_version": index_meta.get("corpus_version"),
             **index_meta,
             **eval_extra,
             **t_first,
@@ -436,7 +597,13 @@ def search_instructions(
         return out_raw
 
     if not tokens:
-        if not tag_filter:
+        if (
+            not tag_filter
+            and not kind_filter
+            and not priority_filter
+            and not scope_filter
+            and evidence_filter is None
+        ):
             return _finish(
                 failure=False,
                 search_mode="empty",
@@ -451,13 +618,50 @@ def search_instructions(
             )
         ranked = []
         for rec in idx.values():
-            if not (tag_filter & set(rec.tags)):
+            if not _metadata_filter_match(
+                rec,
+                kind_filter=kind_filter,
+                priority_filter=priority_filter,
+                scope_filter=scope_filter,
+                workspace_evidence_required=evidence_filter,
+            ):
+                continue
+            if tags_mode_normalized == "all":
+                if tag_filter and not tag_filter.issubset(set(rec.tags)):
+                    continue
+            elif tag_filter and not (tag_filter & set(rec.tags)):
                 continue
             pr = float(PRIORITY_RANK.get(rec.priority, 0))
             ranked.append((pr, rec))
         ranked.sort(key=lambda x: (-x[0], x[1].rel_path))
     else:
-        ranked = [(score_record(rec, tokens, tag_filter), rec) for rec in idx.values()]
+        ranked = []
+        normalized_query = normalize_text(query).strip()
+        for rec in idx.values():
+            if not _metadata_filter_match(
+                rec,
+                kind_filter=kind_filter,
+                priority_filter=priority_filter,
+                scope_filter=scope_filter,
+                workspace_evidence_required=evidence_filter,
+            ):
+                continue
+            score = score_record(
+                rec,
+                tokens,
+                tag_filter,
+                tags_mode=tags_mode_normalized,
+                exact_phrases=exact_phrases,
+                expansion_penalty_ratio=cfg.expansion_only_penalty_ratio,
+            )
+            if normalized_query:
+                if normalized_query == normalize_text(rec.id):
+                    score += 5.0
+                if normalized_query == normalize_text(rec.title):
+                    score += 4.0
+                if normalize_text(rec.id) in normalized_query:
+                    score += 2.0
+            ranked.append((score, rec))
         ranked = [(s, r) for s, r in ranked if s > 0.0]
         ranked.sort(key=lambda x: x[0], reverse=True)
 
@@ -490,6 +694,14 @@ def search_instructions(
                 "results": [],
                 "composed_context": "",
                 "note": "No matches; refine query or use list_instructions_index.",
+                "fallback_suggestions": build_fallback_suggestions(
+                    zero_results=True,
+                    low_confidence=False,
+                    ambiguous_gap=False,
+                    expansion_only_results=0,
+                    has_tags_filter=bool(tag_filter),
+                    max_results=cap,
+                ),
             },
         )
 
@@ -497,10 +709,27 @@ def search_instructions(
     composed_parts: list[str] = []
     for score, rec in ranked[:cap]:
         excerpt = excerpt_around_match(rec.body, tokens) if tokens else summarize_body(rec.body, 400)
+        breakdown = score_record_breakdown(
+            rec,
+            tokens,
+            tag_filter,
+            expanded_info,
+            tags_mode=tags_mode_normalized,
+            exact_phrases=exact_phrases,
+            expansion_penalty_ratio=cfg.expansion_only_penalty_ratio,
+        )
+        matched_user, matched_expansion = (
+            terms_with_positive_hits(rec, expanded_info, tag_filter, tags_mode=tags_mode_normalized)
+            if expanded_info
+            else (set(), set())
+        )
         results.append(
             {
                 "source": rec.rel_path,
                 "id": rec.id,
+                "title": rec.title,
+                "scope": rec.scope,
+                "priority": rec.priority,
                 "relevance": round(min(1.0, score / 10.0), 4),
                 "score": round(score, 4),
                 "summary": summarize_body(rec.body),
@@ -509,9 +738,19 @@ def search_instructions(
                 "tags": rec.tags,
                 "kind": rec.kind,
                 "related_ids": _related_instruction_ids(rec, idx),
+                "match_explanation": {
+                    "score_title": round(breakdown.score_title, 4),
+                    "score_tags": round(breakdown.score_tags, 4),
+                    "score_body": round(breakdown.score_body_blob, 4),
+                    "score_priority": round(breakdown.score_priority, 4),
+                    "score_exact_phrase": round(breakdown.score_exact_phrase, 4),
+                    "score_proximity": round(breakdown.score_proximity, 4),
+                    "matched_user_terms": sorted(matched_user),
+                    "matched_expansion_only_terms": sorted(matched_expansion),
+                },
             }
         )
-        composed_parts.append(f"### {rec.title} ({rec.id})\n{summarize_body(rec.body, 280)}")
+        composed_parts.append(f"- **{rec.title}** (`{rec.id}`): {summarize_body(rec.body, 220)}")
 
     expanded_payload: dict[str, Any] | None = None
     if expanded_info:
@@ -539,7 +778,74 @@ def search_instructions(
         expanded_for_telemetry=expanded_payload,
         payload={
             "results": results,
-            "composed_context": "\n\n".join(composed_parts),
+            "composed_context": (
+                "## Regras obrigatórias\n"
+                + "\n".join(composed_parts[:3])
+                + "\n\n## Recomendações\n"
+                + ("\n".join(composed_parts[3:6]) if len(composed_parts) > 3 else "- Nenhuma recomendação adicional.")
+                + "\n\n## Riscos comuns\n"
+                + ("- Resultado com baixa confiança, execute fallback." if results and results[0]["relevance"] < cfg.low_confidence_relevance_threshold else "- Sem riscos críticos no top result.")
+                + "\n\n## Lacunas detectadas\n"
+                + ("- Refine a consulta com filtros de metadado." if len(results) < 2 else "- Sem lacunas críticas iniciais.")
+            ),
+            "corpus_version": index_meta.get("corpus_version"),
+            **(
+                {
+                    "diagnostics": {
+                        "search_confidence": search_confidence(
+                            (results[0]["score"] - results[1]["score"]) if len(results) > 1 else None,
+                            results[0]["relevance"] if results else None,
+                            len(results),
+                        ),
+                        "top_score_gap_1_2": (results[0]["score"] - results[1]["score"]) if len(results) > 1 else None,
+                        "top3_scores": [r["score"] for r in results[:3]],
+                        "matched_user_terms": sorted(
+                            set().union(*[set(r["match_explanation"]["matched_user_terms"]) for r in results[:3]])
+                        )
+                        if results
+                        else [],
+                        "matched_expansion_only_terms": sorted(
+                            set().union(
+                                *[set(r["match_explanation"]["matched_expansion_only_terms"]) for r in results[:3]]
+                            )
+                        )
+                        if results
+                        else [],
+                        "results_only_from_expansion_count": sum(
+                            1
+                            for r in results
+                            if not r["match_explanation"]["matched_user_terms"]
+                            and r["match_explanation"]["matched_expansion_only_terms"]
+                        ),
+                    }
+                }
+                if include_diagnostics
+                else {}
+            ),
+            **(
+                {
+                    "fallback_suggestions": build_fallback_suggestions(
+                        zero_results=False,
+                        low_confidence=(
+                            bool(results) and float(results[0].get("relevance", 0.0)) < cfg.low_confidence_relevance_threshold
+                        ),
+                        ambiguous_gap=(
+                            len(results) > 1
+                            and (results[0]["score"] - results[1]["score"]) <= cfg.ambiguous_score_gap_threshold
+                        ),
+                        expansion_only_results=sum(
+                            1
+                            for r in results
+                            if not r["match_explanation"]["matched_user_terms"]
+                            and r["match_explanation"]["matched_expansion_only_terms"]
+                        ),
+                        has_tags_filter=bool(tag_filter),
+                        max_results=cap,
+                    )
+                }
+                if include_diagnostics
+                else {}
+            ),
         },
     )
 
@@ -548,6 +854,9 @@ def search_instructions(
 def get_instructions_batch(
     ids: str,
     max_chars_per_instruction: int = 8000,
+    section_contains: str | None = None,
+    include_headings: bool = True,
+    headings_only: bool = False,
 ) -> str:
     """Fetch multiple instructions in one call. Parameter ids: comma-separated instruction ids.
 
@@ -555,12 +864,26 @@ def get_instructions_batch(
     Each returned item includes a frontmatter object (parsed YAML header, JSON-safe).
     """
     call_start = time.perf_counter()
+    cfg = _cfg()
     args_summary = telemetry.get_batch_args_summary(ids, max_chars_per_instruction)
-    idx, index_meta = _ensure_index()
+    try:
+        idx, index_meta = _ensure_index()
+    except Exception as exc:
+        return _format_error(
+            error_code="BATCH_INDEX_UNAVAILABLE",
+            message="Unable to fetch instructions because index is unavailable.",
+            details={"reason": str(exc)},
+            suggested_next_call={"tool": "list_instructions_index", "args": {}},
+        )
     requested_ids = [candidate.strip() for candidate in str(ids).split(",") if candidate.strip()]
     if not requested_ids:
         duration_ms = int((time.perf_counter() - call_start) * 1000)
-        raw = json.dumps({"error": "Provide at least one instruction id."}, ensure_ascii=False)
+        raw = _format_error(
+            error_code="BATCH_EMPTY_IDS",
+            message="Provide at least one instruction id.",
+            details={"ids": ids},
+            suggested_next_call={"tool": "search_instructions", "args": {"query": "architecture patterns"}},
+        )
         _emit_tool_completed(
             "get_instructions_batch.completed",
             duration_ms,
@@ -579,8 +902,13 @@ def get_instructions_batch(
         )
         return raw
 
-    per_instruction_limit = _clamp_int(max_chars_per_instruction, default=8000, lo=500, hi=200_000)
-    total_remaining = MAX_BATCH_TOTAL_CHARS
+    per_instruction_limit = _clamp_int(
+        max_chars_per_instruction,
+        default=cfg.batch_default_max_chars_per_instruction,
+        lo=cfg.batch_min_chars_per_instruction,
+        hi=cfg.batch_max_chars_per_instruction,
+    )
+    total_remaining = cfg.batch_max_total_chars
     items: list[dict[str, object]] = []
     missing_ids: list[str] = []
     skipped_ids_due_to_total_cap: list[str] = []
@@ -595,10 +923,15 @@ def get_instructions_batch(
             continue
 
         effective_limit = min(per_instruction_limit, total_remaining)
-        body = rec.body
-        truncated = len(body) > effective_limit
-        if truncated:
-            body = body[: max(0, effective_limit - 20)] + "\n\n… [truncated]"
+        sections = split_markdown_sections(rec.body)
+        filtered_sections, matched_section_count = filter_sections(sections, section_contains)
+        selected_sections = filtered_sections if filtered_sections else sections
+        body, truncated, included_headings = compose_section_payload(
+            selected_sections,
+            include_headings=include_headings,
+            headings_only=headings_only,
+            max_chars=effective_limit,
+        )
         total_remaining -= len(body)
         items.append(
             {
@@ -612,6 +945,9 @@ def get_instructions_batch(
                 "content_sha256": rec.content_hash,
                 "truncated": truncated,
                 "content": body,
+                "section_filter_applied": bool(section_contains),
+                "section_match_count": matched_section_count,
+                "included_headings": included_headings,
                 "frontmatter": _json_safe_frontmatter(rec.raw_frontmatter),
             }
         )
@@ -627,7 +963,8 @@ def get_instructions_batch(
         "missing_ids": missing_ids,
         "skipped_ids_due_to_total_cap": skipped_ids_due_to_total_cap,
         "max_chars_per_instruction": per_instruction_limit,
-        "max_total_chars": MAX_BATCH_TOTAL_CHARS,
+        "max_total_chars": cfg.batch_max_total_chars,
+        "corpus_version": index_meta.get("corpus_version"),
     }
     raw = json.dumps(out_obj, ensure_ascii=False)
     gov_batch = sum(1 for it in items if _workspace_evidence_required(cast(dict[str, Any], it.get("frontmatter") or {})))
@@ -664,6 +1001,224 @@ def get_instructions_batch(
         },
     )
 
+    return raw
+
+
+@mcp.tool()
+def resolve_instruction_context(
+    query: str,
+    max_results: int = 5,
+    include_diagnostics: bool = True,
+) -> str:
+    """Run deterministic search + batch in one tool call."""
+    call_start = time.perf_counter()
+    search_raw = search_instructions(
+        query=query,
+        max_results=max_results,
+        include_diagnostics=include_diagnostics,
+    )
+    parsed = json.loads(search_raw)
+    if parsed.get("ok") is False:
+        duration_ms = int((time.perf_counter() - call_start) * 1000)
+        _emit_tool_completed(
+            "resolve_instruction_context.completed",
+            duration_ms,
+            failure=True,
+            args_key_payload={"query": telemetry.query_fingerprint(query), "max_results": max_results},
+            payload={
+                "selected_ids_count": 0,
+                "response_chars": len(search_raw),
+                "response_bytes": len(search_raw.encode("utf-8", errors="replace")),
+                "error_code": parsed.get("error_code"),
+            },
+        )
+        return search_raw
+    preliminary = build_resolved_context(
+        query=query,
+        max_results=max_results,
+        search_payload=parsed,
+        batch_payload={"instructions": []},
+    )
+    top_ids = [instruction_id for instruction_id in preliminary.get("selected_ids", []) if isinstance(instruction_id, str)]
+    if not top_ids:
+        raw = json.dumps(
+            {
+                "query": query,
+                "selected_ids": [],
+                "context": "",
+                "resolution": preliminary,
+                "note": "No results available for context resolution.",
+            },
+            ensure_ascii=False,
+        )
+        duration_ms = int((time.perf_counter() - call_start) * 1000)
+        _emit_tool_completed(
+            "resolve_instruction_context.completed",
+            duration_ms,
+            failure=False,
+            args_key_payload={"query": telemetry.query_fingerprint(query), "max_results": max_results},
+            payload={
+                "selected_ids_count": 0,
+                "search_confidence": preliminary.get("criteria", {}).get("search_confidence"),
+                "response_chars": len(raw),
+                "response_bytes": len(raw.encode("utf-8", errors="replace")),
+                "calls_with_non_empty_result": 0,
+                "empty_result_rate": 1.0,
+            },
+        )
+        return raw
+    section_focus = preliminary.get("selection", {}).get("section_focus")
+    batch_raw = get_instructions_batch(
+        ids=",".join(top_ids),
+        max_chars_per_instruction=4000,
+        section_contains=section_focus if isinstance(section_focus, str) and section_focus.strip() else None,
+        include_headings=True,
+    )
+    batch_parsed = json.loads(batch_raw)
+    resolution = build_resolved_context(
+        query=query,
+        max_results=max_results,
+        search_payload=parsed,
+        batch_payload=batch_parsed,
+    )
+    raw = json.dumps(
+        {
+            "query": query,
+            "selected_ids": top_ids,
+            "search": parsed,
+            "batch": batch_parsed,
+            "context": resolution.get("actionable_context", {}).get("implementation_brief")
+            or parsed.get("composed_context", ""),
+            "resolution": resolution,
+            "corpus_version": parsed.get("corpus_version"),
+        },
+        ensure_ascii=False,
+    )
+    duration_ms = int((time.perf_counter() - call_start) * 1000)
+    _emit_tool_completed(
+        "resolve_instruction_context.completed",
+        duration_ms,
+        failure=False,
+        args_key_payload={"query": telemetry.query_fingerprint(query), "max_results": max_results},
+        payload={
+            "selected_ids_count": len(top_ids),
+            "normative_ids_count": len(resolution.get("actionable_context", {}).get("normative_ids", [])),
+            "supporting_ids_count": len(resolution.get("actionable_context", {}).get("supporting_ids", [])),
+            "search_confidence": resolution.get("criteria", {}).get("search_confidence"),
+            "low_confidence": bool(resolution.get("criteria", {}).get("low_confidence")),
+            "response_chars": len(raw),
+            "response_bytes": len(raw.encode("utf-8", errors="replace")),
+            "calls_with_non_empty_result": 1 if top_ids else 0,
+            "empty_result_rate": 0.0 if top_ids else 1.0,
+            "corpus_version": parsed.get("corpus_version"),
+        },
+    )
+    return raw
+
+
+@mcp.tool()
+def get_normative_checklist(scenario: str) -> str:
+    """Return checklist for a scenario with evidence from current index."""
+    call_start = time.perf_counter()
+    try:
+        idx, index_meta = _ensure_index()
+    except Exception as exc:
+        raw = _format_error(
+            error_code="CHECKLIST_INDEX_UNAVAILABLE",
+            message="Unable to build checklist because index is unavailable.",
+            details={"reason": str(exc)},
+        )
+        duration_ms = int((time.perf_counter() - call_start) * 1000)
+        _emit_tool_completed(
+            "get_normative_checklist.completed",
+            duration_ms,
+            failure=True,
+            args_key_payload={"scenario": normalize_text(scenario)},
+            payload={
+                "scenario": scenario,
+                "items_count": 0,
+                "missing_instruction_ids_count": 0,
+                "response_chars": len(raw),
+                "response_bytes": len(raw.encode("utf-8", errors="replace")),
+                "error_code": "CHECKLIST_INDEX_UNAVAILABLE",
+            },
+        )
+        return raw
+    payload = build_normative_checklist(idx, scenario)
+    payload["corpus_version"] = index_meta.get("corpus_version")
+    raw = json.dumps(payload, ensure_ascii=False)
+    duration_ms = int((time.perf_counter() - call_start) * 1000)
+    summary = payload.get("summary", {}) if isinstance(payload.get("summary"), dict) else {}
+    _emit_tool_completed(
+        "get_normative_checklist.completed",
+        duration_ms,
+        failure=False,
+        args_key_payload={"scenario": normalize_text(scenario)},
+        payload={
+            "scenario": scenario,
+            "items_count": len(payload.get("items", [])),
+            "missing_instruction_ids_count": len(payload.get("missing_instruction_ids", [])),
+            "required_items": summary.get("required_items", 0),
+            "required_items_covered": summary.get("required_items_covered", 0),
+            "implementation_readiness": summary.get("implementation_readiness"),
+            "response_chars": len(raw),
+            "response_bytes": len(raw.encode("utf-8", errors="replace")),
+            "corpus_version": payload.get("corpus_version"),
+        },
+    )
+    return raw
+
+
+@mcp.tool()
+def detect_instruction_conflicts(ids: str) -> str:
+    """Detect potential conflicts and precedence among instruction ids."""
+    call_start = time.perf_counter()
+    try:
+        idx, index_meta = _ensure_index()
+    except Exception as exc:
+        raw = _format_error(
+            error_code="CONFLICT_INDEX_UNAVAILABLE",
+            message="Unable to detect conflicts because index is unavailable.",
+            details={"reason": str(exc)},
+        )
+        duration_ms = int((time.perf_counter() - call_start) * 1000)
+        _emit_tool_completed(
+            "detect_instruction_conflicts.completed",
+            duration_ms,
+            failure=True,
+            args_key_payload={"ids": sorted([part.strip() for part in ids.split(",") if part.strip()])},
+            payload={
+                "checked_ids_count": 0,
+                "missing_ids_count": 0,
+                "relationships_count": 0,
+                "potential_conflicts_count": 0,
+                "response_chars": len(raw),
+                "response_bytes": len(raw.encode("utf-8", errors="replace")),
+                "error_code": "CONFLICT_INDEX_UNAVAILABLE",
+            },
+        )
+        return raw
+    selected_ids = [part.strip() for part in ids.split(",") if part.strip()]
+    payload = resolve_conflicts(idx, selected_ids)
+    payload["corpus_version"] = index_meta.get("corpus_version")
+    raw = json.dumps(payload, ensure_ascii=False)
+    duration_ms = int((time.perf_counter() - call_start) * 1000)
+    summary = payload.get("summary", {}) if isinstance(payload.get("summary"), dict) else {}
+    _emit_tool_completed(
+        "detect_instruction_conflicts.completed",
+        duration_ms,
+        failure=False,
+        args_key_payload={"ids": sorted(selected_ids)},
+        payload={
+            "checked_ids_count": summary.get("checked_count", 0),
+            "missing_ids_count": summary.get("missing_count", 0),
+            "relationships_count": summary.get("relationships_count", 0),
+            "potential_conflicts_count": summary.get("potential_conflicts_count", 0),
+            "response_chars": len(raw),
+            "response_bytes": len(raw.encode("utf-8", errors="replace")),
+            "corpus_version": payload.get("corpus_version"),
+        },
+    )
     return raw
 
 

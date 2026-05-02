@@ -1,0 +1,8 @@
+- query: "retry DNS polly"
+  expected_id: "dns-retry-pattern"
+- query: "security secrets"
+  expected_id: "security-baseline-secrets"
+- query: "persistência sql"
+  expected_id: "microservice-data-access-and-sql-security"
+- query: "viacep retry timeout cache"
+  expected_id: "microservice-resilience-polly-timeouts-and-circuit-breaker"

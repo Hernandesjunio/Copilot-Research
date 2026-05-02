@@ -141,12 +141,121 @@ def test_search_instructions_invalid_max_results_uses_default() -> None:
     assert data["results"]
 
 
+def test_search_instructions_include_diagnostics() -> None:
+    from corporate_instructions_mcp.server import search_instructions
+
+    data = json.loads(search_instructions(query="retry DNS polly", include_diagnostics=True))
+    assert "diagnostics" in data
+    assert "search_confidence" in data["diagnostics"]
+    assert "results_only_from_expansion_count" in data["diagnostics"]
+
+
+def test_search_instructions_tags_mode_all() -> None:
+    from corporate_instructions_mcp.server import search_instructions
+
+    any_mode = json.loads(search_instructions(query="microservice", tags="security,microservice", tags_mode="any"))
+    all_mode = json.loads(search_instructions(query="microservice", tags="security,microservice", tags_mode="all"))
+    assert len(all_mode["results"]) <= len(any_mode["results"])
+
+
+def test_search_instructions_metadata_filters() -> None:
+    from corporate_instructions_mcp.server import search_instructions
+
+    data = json.loads(
+        search_instructions(
+            query="secrets",
+            kind="policy",
+            priority="high,medium",
+        )
+    )
+    assert isinstance(data["results"], list)
+
+
+def test_get_instructions_batch_section_contains() -> None:
+    from corporate_instructions_mcp.server import get_instructions_batch
+
+    data = json.loads(
+        get_instructions_batch(
+            ids="dns-retry-pattern",
+            section_contains="retry",
+            include_headings=True,
+        )
+    )
+    assert data["found_count"] == 1
+    assert "retry" in data["instructions"][0]["content"].lower()
+    assert data["instructions"][0]["section_match_count"] >= 1
+    assert isinstance(data["instructions"][0]["included_headings"], list)
+
+
+def test_search_instructions_zero_results_has_fallback_suggestions() -> None:
+    from corporate_instructions_mcp.server import search_instructions
+
+    data = json.loads(search_instructions(query="qvwxzplm", include_diagnostics=True))
+    assert data["results"] == []
+    assert data["fallback_suggestions"]
+
+
+def test_new_composite_tools() -> None:
+    from corporate_instructions_mcp.server import (
+        detect_instruction_conflicts,
+        get_normative_checklist,
+        resolve_instruction_context,
+    )
+
+    resolved = json.loads(resolve_instruction_context(query="retry DNS polly"))
+    assert "selected_ids" in resolved
+    assert resolved["selected_ids"]
+    assert "resolution" in resolved
+    assert resolved["resolution"]["actionable_context"]["normative_ids"]
+    assert any(item["id"] == "microservice-resilience-polly-timeouts-and-circuit-breaker" for item in resolved["resolution"]["evidence_bundle"])
+    assert resolved["resolution"]["selection"]["strategy"]
+
+    checklist = json.loads(get_normative_checklist(scenario="security_baseline"))
+    assert "items" in checklist
+    assert checklist["summary"]["required_items"] >= 2
+    assert checklist["summary"]["implementation_readiness"] in {"ready", "partial"}
+    first_required = next(item for item in checklist["items"] if item["requirement_level"] == "required")
+    assert first_required["evidence_ids"]
+    assert first_required["verification"]
+
+    conflicts = json.loads(
+        detect_instruction_conflicts(ids="dns-retry-pattern,microservice-resilience-polly-timeouts-and-circuit-breaker")
+    )
+    assert "conflicts" in conflicts
+    assert conflicts["relationships"]
+    pair = conflicts["relationships"][0]
+    assert pair["precedence"]["winner_id"] == "microservice-resilience-polly-timeouts-and-circuit-breaker"
+    assert "stronger_kind" in pair["precedence"]["reasons"]
+
+
 def test_search_instructions_persistencia_sql_returns_data_access() -> None:
     from corporate_instructions_mcp.server import search_instructions
 
     data = json.loads(search_instructions(query="persistência SQL"))
     ids = {result["id"] for result in data["results"]}
     assert "microservice-data-access-and-sql-security" in ids
+
+
+def test_search_instructions_cep_viacep_returns_relevant_bundle() -> None:
+    from corporate_instructions_mcp.server import search_instructions
+
+    data = json.loads(search_instructions(query="cep viacep retry timeout cache", max_results=5))
+    ids = [result["id"] for result in data["results"]]
+    assert set(ids[:3]) == {
+        "microservice-resilience-polly-timeouts-and-circuit-breaker",
+        "microservice-caching-imemorycache-policy",
+        "microservice-integration-httpclientfactory-contracts",
+    }
+
+
+def test_resolve_instruction_context_cep_viacep_surfaces_normative_bundle() -> None:
+    from corporate_instructions_mcp.server import resolve_instruction_context
+
+    data = json.loads(resolve_instruction_context(query="cep viacep retry timeout cache", max_results=5))
+    normative = set(data["resolution"]["actionable_context"]["normative_ids"])
+    assert "microservice-resilience-polly-timeouts-and-circuit-breaker" in normative
+    assert "microservice-caching-imemorycache-policy" in normative
+    assert "microservice-integration-httpclientfactory-contracts" in normative
 
 
 def test_get_instructions_batch_returns_multiple_documents() -> None:
@@ -181,5 +290,6 @@ def test_instructions_root_not_dir_raises(monkeypatch: pytest.MonkeyPatch, tmp_p
     srv._index_root = None
     from corporate_instructions_mcp.server import list_instructions_index
 
-    with pytest.raises(RuntimeError, match="not a directory"):
-        list_instructions_index()
+    payload = json.loads(list_instructions_index())
+    assert payload["ok"] is False
+    assert payload["error_code"] == "INDEX_LOAD_FAILED"

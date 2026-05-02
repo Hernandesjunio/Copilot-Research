@@ -55,11 +55,11 @@ def test_mcp_stdio_list_search_get_instruction() -> None:
 
             listed = await session.list_tools()
             names = {t.name for t in listed.tools}
-            assert names == {
+            assert {
                 "get_instructions_batch",
                 "list_instructions_index",
                 "search_instructions",
-            }
+            }.issubset(names)
 
             raw = _tool_text(await session.call_tool("list_instructions_index", {}))
             index = json.loads(raw)
@@ -172,5 +172,57 @@ def test_mcp_stdio_search_default_max_persistencia_sql_and_related_ids() -> None
             assert "related_ids" in first
             assert isinstance(first["related_ids"], list)
             assert "microservice-resilience-polly-timeouts-and-circuit-breaker" in first["related_ids"]
+
+    asyncio.run(_run())
+
+
+def test_mcp_stdio_composite_tools_expose_actionable_outputs() -> None:
+    """Composite tools should expose structured context, checklist evidence and precedence guidance over stdio."""
+
+    corpus = _corpus_root()
+    use_fixture_expectations = corpus == _FIXTURES.resolve()
+    if not use_fixture_expectations:
+        pytest.skip("fixture-only expectations (INSTRUCTIONS_ROOT override)")
+
+    async def _run() -> None:
+        params = StdioServerParameters(
+            command=sys.executable,
+            args=["-m", "corporate_instructions_mcp"],
+            cwd=str(_SERVER_DIR),
+            env={**os.environ, "INSTRUCTIONS_ROOT": str(corpus)},
+        )
+        async with (
+            stdio_client(params) as (read, write),
+            ClientSession(read, write) as session,
+        ):
+            await session.initialize()
+
+            raw = _tool_text(
+                await session.call_tool(
+                    "resolve_instruction_context",
+                    {"query": "retry DNS polly", "max_results": 3, "include_diagnostics": True},
+                )
+            )
+            resolved = json.loads(raw)
+            assert resolved["selected_ids"]
+            assert resolved["resolution"]["actionable_context"]["normative_ids"]
+            assert resolved["resolution"]["selection"]["strategy"]
+
+            raw = _tool_text(await session.call_tool("get_normative_checklist", {"scenario": "mensageria_outbox"}))
+            checklist = json.loads(raw)
+            assert checklist["summary"]["required_items"] >= 3
+            assert any(item["verification"] for item in checklist["items"])
+
+            raw = _tool_text(
+                await session.call_tool(
+                    "detect_instruction_conflicts",
+                    {"ids": "dns-retry-pattern,microservice-resilience-polly-timeouts-and-circuit-breaker"},
+                )
+            )
+            conflicts = json.loads(raw)
+            assert conflicts["relationships"]
+            relationship = conflicts["relationships"][0]
+            assert relationship["precedence"]["winner_id"] == "microservice-resilience-polly-timeouts-and-circuit-breaker"
+            assert relationship["agent_guidance"]
 
     asyncio.run(_run())
