@@ -16,7 +16,12 @@ from mcp.server.fastmcp import FastMCP
 
 from corporate_instructions_mcp import telemetry
 from corporate_instructions_mcp.config import RuntimeConfig, load_runtime_config
-from corporate_instructions_mcp.context_resolver import build_normative_checklist, build_resolved_context, resolve_conflicts
+from corporate_instructions_mcp.context_resolver import (
+    build_normative_checklist,
+    build_resolved_context,
+    resolve_conflicts,
+)
+from corporate_instructions_mcp.context_triggers import ContractError, build_context_triggers
 from corporate_instructions_mcp.indexing import (
     PRIORITY_RANK,
     CorpusSignature,
@@ -33,7 +38,11 @@ from corporate_instructions_mcp.indexing import (
     terms_with_positive_hits,
     tokenize_query,
 )
-from corporate_instructions_mcp.markdown_sections import compose_section_payload, filter_sections, split_markdown_sections
+from corporate_instructions_mcp.markdown_sections import (
+    compose_section_payload,
+    filter_sections,
+    split_markdown_sections,
+)
 from corporate_instructions_mcp.paths import require_existing_dir
 from corporate_instructions_mcp.search_contract import build_error, build_fallback_suggestions, search_confidence
 
@@ -1111,6 +1120,125 @@ def resolve_instruction_context(
             "calls_with_non_empty_result": 1 if top_ids else 0,
             "empty_result_rate": 0.0 if top_ids else 1.0,
             "corpus_version": parsed.get("corpus_version"),
+        },
+    )
+    return raw
+
+
+@mcp.tool()
+def get_context_triggers(input_payload: str) -> str:
+    """Return deterministic context-routing triggers from a structured contract payload.
+
+    This tool classifies the scenario and returns the recommended orchestration sequence. It does not
+    execute repo edits, run builds, or automatically call other tools.
+    """
+    call_start = time.perf_counter()
+    args_payload: dict[str, Any] = {"input_payload_len": len(str(input_payload))}
+    try:
+        parsed_input = json.loads(input_payload)
+    except json.JSONDecodeError:
+        example_payload = (
+            '{"schema_version":"1.0.0","request":{},"workspace":{},'
+            '"context_state":{},"constraints":{}}'
+        )
+        raw = _format_error(
+            error_code="INVALID_REQUEST_PAYLOAD",
+            message="input_payload must be a valid JSON object.",
+            details={"input_payload_len": len(str(input_payload))},
+            suggested_next_call={
+                "tool": "get_context_triggers",
+                "args": {"input_payload": example_payload},
+            },
+        )
+        duration_ms = int((time.perf_counter() - call_start) * 1000)
+        _emit_tool_completed(
+            "get_context_triggers.completed",
+            duration_ms,
+            failure=True,
+            args_key_payload=args_payload,
+            payload={
+                "response_chars": len(raw),
+                "response_bytes": len(raw.encode("utf-8", errors="replace")),
+                "error_code": "INVALID_REQUEST_PAYLOAD",
+            },
+        )
+        return raw
+
+    if isinstance(parsed_input, dict):
+        req = parsed_input.get("request", {})
+        if isinstance(req, dict):
+            args_payload.update(
+                {
+                    "schema_version": parsed_input.get("schema_version"),
+                    "operation_mode": req.get("operation_mode"),
+                    "wants_only_plan": req.get("wants_only_plan"),
+                    "mentions_cross_cutting_concerns": req.get("mentions_cross_cutting_concerns"),
+                }
+            )
+
+    try:
+        output = build_context_triggers(cast(dict[str, Any], parsed_input))
+    except ContractError as exc:
+        raw = _format_error(
+            error_code=exc.code,
+            message=exc.message,
+            details=exc.details or {},
+            suggested_next_call={"tool": "get_context_triggers", "args": {"input_payload": input_payload}},
+        )
+        duration_ms = int((time.perf_counter() - call_start) * 1000)
+        _emit_tool_completed(
+            "get_context_triggers.completed",
+            duration_ms,
+            failure=True,
+            args_key_payload=args_payload,
+            payload={
+                "response_chars": len(raw),
+                "response_bytes": len(raw.encode("utf-8", errors="replace")),
+                "error_code": exc.code,
+            },
+        )
+        return raw
+    except Exception as exc:
+        raw = _format_error(
+            error_code="CONTEXT_TRIGGER_INTERNAL_ERROR",
+            message="Unexpected error while computing context triggers.",
+            details={"reason": str(exc)},
+            suggested_next_call={"tool": "get_context_triggers", "args": {"input_payload": input_payload}},
+        )
+        duration_ms = int((time.perf_counter() - call_start) * 1000)
+        _emit_tool_completed(
+            "get_context_triggers.completed",
+            duration_ms,
+            failure=True,
+            args_key_payload=args_payload,
+            payload={
+                "response_chars": len(raw),
+                "response_bytes": len(raw.encode("utf-8", errors="replace")),
+                "error_code": "CONTEXT_TRIGGER_INTERNAL_ERROR",
+            },
+        )
+        return raw
+
+    raw = json.dumps(output, ensure_ascii=False)
+    duration_ms = int((time.perf_counter() - call_start) * 1000)
+    strategy = output.get("strategy", {}) if isinstance(output.get("strategy"), dict) else {}
+    scenario = output.get("scenario", {}) if isinstance(output.get("scenario"), dict) else {}
+    _emit_tool_completed(
+        "get_context_triggers.completed",
+        duration_ms,
+        failure=False,
+        args_key_payload=args_payload,
+        payload={
+            "response_chars": len(raw),
+            "response_bytes": len(raw.encode("utf-8", errors="replace")),
+            "tool_sequence_count": len(output.get("tool_sequence", [])),
+            "scenario_id": scenario.get("scenario_id"),
+            "scenario_family": scenario.get("scenario_family"),
+            "recommended_execution_mode": strategy.get("recommended_execution_mode"),
+            "should_use_mcp": strategy.get("should_use_mcp"),
+            "should_stop_for_human_input": strategy.get("should_stop_for_human_input"),
+            "calls_with_non_empty_result": 1,
+            "empty_result_rate": 0.0,
         },
     )
     return raw

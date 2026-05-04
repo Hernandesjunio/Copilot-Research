@@ -1,6 +1,7 @@
 """Smoke tests: set INSTRUCTIONS_ROOT to fixtures before running."""
 
 import json
+from copy import deepcopy
 from collections.abc import Generator
 from pathlib import Path
 
@@ -19,6 +20,31 @@ def _env_instructions_root(monkeypatch: pytest.MonkeyPatch) -> Generator[None, N
     srv._index = {}
     srv._index_root = None
     yield
+
+
+def _assert_context_trigger_invariants(data: dict[str, object]) -> None:
+    strategy = data["strategy"]
+    mcp_usage = data["mcp_usage"]
+    mcp_context = data["mcp_context_triggers"]
+    stop_rules = data["stop_rules"]
+    evidence_gate = data["evidence_gate"]
+
+    assert isinstance(strategy, dict)
+    assert isinstance(mcp_usage, dict)
+    assert isinstance(mcp_context, dict)
+    assert isinstance(stop_rules, dict)
+    assert isinstance(evidence_gate, dict)
+
+    if strategy["recommended_execution_mode"] == "plan_only":
+        assert strategy["should_plan_first"] is True
+        forbidden = {"apply_patch", "edit_file", "write_file", "run_build", "run_tests"}
+        assert forbidden.isdisjoint({step["tool"] for step in data["tool_sequence"]})
+    if mcp_usage["level"] == "not_needed":
+        assert mcp_context["batch_required"] is False
+    if stop_rules["stop_required"] is True:
+        assert stop_rules["stop_reasons"]
+    if evidence_gate["workspace_evidence_required_detected"] is True:
+        assert evidence_gate["must_verify_workspace_signals"] is True
 
 
 def test_list_instructions_index_count() -> None:
@@ -198,6 +224,7 @@ def test_search_instructions_zero_results_has_fallback_suggestions() -> None:
 def test_new_composite_tools() -> None:
     from corporate_instructions_mcp.server import (
         detect_instruction_conflicts,
+        get_context_triggers,
         get_normative_checklist,
         resolve_instruction_context,
     )
@@ -207,7 +234,10 @@ def test_new_composite_tools() -> None:
     assert resolved["selected_ids"]
     assert "resolution" in resolved
     assert resolved["resolution"]["actionable_context"]["normative_ids"]
-    assert any(item["id"] == "microservice-resilience-polly-timeouts-and-circuit-breaker" for item in resolved["resolution"]["evidence_bundle"])
+    assert any(
+        item["id"] == "microservice-resilience-polly-timeouts-and-circuit-breaker"
+        for item in resolved["resolution"]["evidence_bundle"]
+    )
     assert resolved["resolution"]["selection"]["strategy"]
 
     checklist = json.loads(get_normative_checklist(scenario="security_baseline"))
@@ -226,6 +256,180 @@ def test_new_composite_tools() -> None:
     pair = conflicts["relationships"][0]
     assert pair["precedence"]["winner_id"] == "microservice-resilience-polly-timeouts-and-circuit-breaker"
     assert "stronger_kind" in pair["precedence"]["reasons"]
+
+    payload = {
+        "schema_version": "1.0.0",
+        "request": {
+            "user_goal": "quero um plano detalhado para migrar este fluxo para processamento assíncrono",
+            "operation_mode": "plan_only",
+            "explicit_deliverable": "detailed plan",
+            "ambiguity_level": "medium",
+            "risk_level": "medium",
+            "mentions_current_file": False,
+            "mentions_specific_files": False,
+            "mentions_symbols": False,
+            "mentions_cross_cutting_concerns": True,
+            "mentions_public_contract": False,
+            "mentions_new_infrastructure": False,
+            "mentions_external_integration": False,
+            "wants_tests": False,
+            "wants_only_plan": True,
+        },
+        "workspace": {
+            "repo_known": False,
+            "current_file_available": False,
+            "solution_available": True,
+            "project_count_known": False,
+            "has_mcp": True,
+            "tech_stack_signals": [".NET 8"],
+            "workspace_signals_known": False,
+        },
+        "context_state": {
+            "repo_structure_loaded": False,
+            "current_file_loaded": False,
+            "target_files_loaded": False,
+            "symbols_loaded": False,
+            "mcp_index_loaded": False,
+            "mcp_batch_loaded": False,
+            "plan_already_created": False,
+        },
+        "constraints": {
+            "prefer_plan_first": True,
+            "prefer_minimal_context": True,
+            "allow_mcp_usage": True,
+            "allow_repo_scan": True,
+            "max_search_iterations": 5,
+            "max_instruction_ids": 6,
+        },
+    }
+    triggers = json.loads(get_context_triggers(input_payload=json.dumps(payload, ensure_ascii=False)))
+    assert triggers["contract_metadata"]["published_schema_version"] == "1.0.0"
+    assert triggers["advanced_signals"]["decision_stability"]["level"] in {"low", "medium", "high"}
+    assert triggers["scenario"]["scenario_id"] == "plan-crosscutting-async-migration"
+    assert triggers["strategy"]["recommended_execution_mode"] == "plan_only"
+    assert triggers["mcp_usage"]["level"] == "recommended"
+    assert triggers["tool_sequence_mode"] == "recommended_order"
+    assert "request_mentions_cross_cutting_concerns" in triggers["signal_sources"]["request_declared_signals"]
+    assert triggers["fallbacks"]["when_no_policy_found"] == "follow_repo_and_label_gap"
+    assert triggers["mcp_context_triggers"]["batch_required"] is True
+    assert triggers["evidence_gate"]["phase"] == "preliminary"
+    assert triggers["evidence_gate"]["reconciliation_status"] == "pending_batch"
+    assert all("failure_effect" in step and "fallback_on_failure" in step for step in triggers["tool_sequence"])
+    _assert_context_trigger_invariants(triggers)
+
+
+def test_get_context_triggers_functional_scenarios_matrix() -> None:
+    """Functional smoke: validate routing behavior across canonical scenarios."""
+    from corporate_instructions_mcp.server import get_context_triggers
+
+    base_payload = {
+        "schema_version": "1.0.0",
+        "request": {
+            "user_goal": "quero um plano detalhado para migrar este fluxo para processamento assíncrono",
+            "operation_mode": "plan_only",
+            "explicit_deliverable": "detailed plan",
+            "ambiguity_level": "medium",
+            "risk_level": "medium",
+            "mentions_current_file": False,
+            "mentions_specific_files": False,
+            "mentions_symbols": False,
+            "mentions_cross_cutting_concerns": True,
+            "mentions_public_contract": False,
+            "mentions_new_infrastructure": False,
+            "mentions_external_integration": False,
+            "wants_tests": False,
+            "wants_only_plan": True,
+        },
+        "workspace": {
+            "repo_known": False,
+            "current_file_available": False,
+            "solution_available": True,
+            "project_count_known": False,
+            "has_mcp": True,
+            "tech_stack_signals": [".NET 8"],
+            "workspace_signals_known": False,
+        },
+        "context_state": {
+            "repo_structure_loaded": False,
+            "current_file_loaded": False,
+            "target_files_loaded": False,
+            "symbols_loaded": False,
+            "mcp_index_loaded": False,
+            "mcp_batch_loaded": False,
+            "plan_already_created": False,
+        },
+        "constraints": {
+            "prefer_plan_first": True,
+            "prefer_minimal_context": True,
+            "allow_mcp_usage": True,
+            "allow_repo_scan": True,
+            "max_search_iterations": 5,
+            "max_instruction_ids": 6,
+        },
+    }
+
+    # Scenario A: cross-cutting plan request -> MCP recommended and batch required.
+    scenario_a = deepcopy(base_payload)
+    out_a = json.loads(get_context_triggers(input_payload=json.dumps(scenario_a, ensure_ascii=False)))
+    assert out_a["contract_metadata"]["catalog_resource_id"] == "context-orchestration-catalog"
+    assert out_a["strategy"]["recommended_execution_mode"] == "plan_only"
+    assert out_a["mcp_usage"]["level"] == "recommended"
+    assert out_a["tool_sequence_mode"] == "recommended_order"
+    assert "request_mentions_cross_cutting_concerns" in out_a["signal_sources"]["request_declared_signals"]
+    assert out_a["mcp_context_triggers"]["batch_required"] is True
+    assert out_a["evidence_gate"]["phase"] == "preliminary"
+    assert out_a["evidence_gate"]["must_reconcile_after_batch"] is True
+    assert out_a["tool_sequence"]
+    assert all("failure_effect" in step and "fallback_on_failure" in step for step in out_a["tool_sequence"])
+    _assert_context_trigger_invariants(out_a)
+
+    # Scenario B: local debug request -> MCP not needed and no batch required.
+    scenario_b = deepcopy(base_payload)
+    scenario_b["request"]["operation_mode"] = "debug"
+    scenario_b["request"]["wants_only_plan"] = False
+    scenario_b["request"]["mentions_cross_cutting_concerns"] = False
+    scenario_b["request"]["mentions_specific_files"] = True
+    scenario_b["request"]["mentions_current_file"] = True
+    scenario_b["workspace"]["repo_known"] = True
+    out_b = json.loads(get_context_triggers(input_payload=json.dumps(scenario_b, ensure_ascii=False)))
+    assert out_b["mcp_usage"]["level"] == "not_needed"
+    assert out_b["strategy"]["should_use_mcp"] is False
+    assert out_b["mcp_context_triggers"]["batch_required"] is False
+    assert out_b["evidence_gate"]["reconciliation_status"] == "not_required"
+    assert "repo_structure_known" in out_b["signal_sources"]["repo_observed_signals"]
+    assert out_b["advanced_signals"]["plan_granularity"]["level"] == "coarse"
+    _assert_context_trigger_invariants(out_b)
+
+    # Scenario C: public contract risk without workspace evidence -> stop + MCP required.
+    scenario_c = deepcopy(base_payload)
+    scenario_c["request"]["mentions_public_contract"] = True
+    scenario_c["workspace"]["workspace_signals_known"] = False
+    out_c = json.loads(get_context_triggers(input_payload=json.dumps(scenario_c, ensure_ascii=False)))
+    assert out_c["mcp_usage"]["level"] == "required"
+    assert out_c["strategy"]["should_stop_for_human_input"] is True
+    assert out_c["stop_rules"]["stop_required"] is True
+    assert out_c["evidence_gate"]["must_verify_workspace_signals"] is True
+    _assert_context_trigger_invariants(out_c)
+
+    # Scenario D: cross-cutting request with MCP unavailable -> not needed (availability bound).
+    scenario_d = deepcopy(base_payload)
+    scenario_d["workspace"]["has_mcp"] = False
+    out_d = json.loads(get_context_triggers(input_payload=json.dumps(scenario_d, ensure_ascii=False)))
+    assert out_d["mcp_usage"]["level"] == "not_needed"
+    assert out_d["strategy"]["should_use_mcp"] is False
+    assert out_d["mcp_context_triggers"]["batch_required"] is False
+    assert out_d["evidence_gate"]["reconciliation_status"] == "not_required"
+    _assert_context_trigger_invariants(out_d)
+
+    # Scenario E: when batch is already loaded, gate transitions to reconciled.
+    scenario_e = deepcopy(base_payload)
+    scenario_e["context_state"]["mcp_batch_loaded"] = True
+    out_e = json.loads(get_context_triggers(input_payload=json.dumps(scenario_e, ensure_ascii=False)))
+    assert out_e["mcp_usage"]["level"] == "recommended"
+    assert out_e["evidence_gate"]["phase"] == "reconciled"
+    assert out_e["evidence_gate"]["reconciliation_status"] == "reconciled"
+    assert "normative_batch_loaded" in out_e["signal_sources"]["batch_discovered_signals"]
+    _assert_context_trigger_invariants(out_e)
 
 
 def test_search_instructions_persistencia_sql_returns_data_access() -> None:
