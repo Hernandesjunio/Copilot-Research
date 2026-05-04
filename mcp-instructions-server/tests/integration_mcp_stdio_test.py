@@ -75,10 +75,12 @@ def test_mcp_stdio_list_search_get_instruction() -> None:
             listed = await session.list_tools()
             names = {t.name for t in listed.tools}
             assert {
+                "build_compliance_matrix",
                 "get_context_triggers",
                 "get_instructions_batch",
                 "list_instructions_index",
                 "search_instructions",
+                "validate_applicability",
             }.issubset(names)
 
             raw = _tool_text(await session.call_tool("list_instructions_index", {}))
@@ -227,6 +229,10 @@ def test_mcp_stdio_composite_tools_expose_actionable_outputs() -> None:
             assert resolved["selected_ids"]
             assert resolved["resolution"]["actionable_context"]["normative_ids"]
             assert resolved["resolution"]["selection"]["strategy"]
+            assert isinstance(resolved["resolution"].get("selection_rationale"), list)
+            assert isinstance(resolved["resolution"].get("pending_evidence"), list)
+            assert isinstance(resolved["resolution"].get("required_workspace_signals"), dict)
+            assert isinstance(resolved["resolution"].get("next_repo_evidence_actions"), list)
 
             raw = _tool_text(await session.call_tool("get_normative_checklist", {"scenario": "mensageria_outbox"}))
             checklist = json.loads(raw)
@@ -247,6 +253,44 @@ def test_mcp_stdio_composite_tools_expose_actionable_outputs() -> None:
                 == "microservice-resilience-polly-timeouts-and-circuit-breaker"
             )
             assert relationship["agent_guidance"]
+
+            raw = _tool_text(
+                await session.call_tool(
+                    "validate_applicability",
+                    {
+                        "instruction_ids": ["microservice-authorization-resource-scope-and-audit"],
+                        "target_artifact": {"path": "Api/Endpoints/ClienteEndpoints.cs"},
+                        "workspace_evidence": ["HttpContext.User"],
+                    },
+                )
+            )
+            applicability = json.loads(raw)
+            assert applicability["results"][0]["applicability"] == "applicable"
+
+            raw = _tool_text(
+                await session.call_tool(
+                    "build_compliance_matrix",
+                    {
+                        "target_artifact": {"path": "Api/Endpoints/ClienteEndpoints.cs"},
+                        "instruction_results": [
+                            {
+                                "instruction_id": "microservice-authorization-resource-scope-and-audit",
+                                "kind": "policy",
+                                "applicability": "applicable",
+                            }
+                        ],
+                        "artifact_observations": [
+                            {
+                                "instruction_id": "microservice-authorization-resource-scope-and-audit",
+                                "observation_type": "positive",
+                                "value": "Authorization requirement found",
+                            }
+                        ],
+                    },
+                )
+            )
+            matrix = json.loads(raw)
+            assert matrix["matrix"][0]["status"] == "conformant"
 
     asyncio.run(_run())
 

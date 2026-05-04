@@ -589,6 +589,43 @@ def build_resolved_context(
         + "."
     )
 
+    selection_rationale = [
+        {
+            "instruction_id": str(row.get("id")),
+            "why_selected": next(
+                (entry.split(":", 1)[1] for entry in strategy if entry.startswith(f"{str(row.get('id'))}:")),
+                "ranked_candidate",
+            ),
+        }
+        for row in selected
+        if row.get("id")
+    ]
+
+    required_workspace_signals: dict[str, list[str]] = {}
+    pending_evidence: list[dict[str, str]] = []
+    next_repo_evidence_actions: list[str] = []
+    seen_actions: set[str] = set()
+    for bundle_item in evidence_bundle:
+        instruction_id = str(bundle_item.get("id", "")).strip()
+        if not instruction_id:
+            continue
+        signals = [str(signal).strip() for signal in (bundle_item.get("workspace_signals") or []) if str(signal).strip()]
+        if not signals:
+            continue
+        required_workspace_signals[instruction_id] = signals
+        if bool(bundle_item.get("workspace_evidence_required")):
+            pending_evidence.append(
+                {
+                    "instruction_id": instruction_id,
+                    "reason": "Instruction requires workspace evidence before strong enforcement.",
+                }
+            )
+        for signal in signals[:5]:
+            action = f"search for {signal}"
+            if action not in seen_actions:
+                seen_actions.add(action)
+                next_repo_evidence_actions.append(action)
+
     return {
         "selected_ids": [str(row.get("id")) for row in selected],
         "selection": {
@@ -613,6 +650,10 @@ def build_resolved_context(
             "ambiguous_top_scores": ambiguous_gap,
         },
         "evidence_bundle": evidence_bundle,
+        "selection_rationale": selection_rationale,
+        "pending_evidence": pending_evidence,
+        "required_workspace_signals": required_workspace_signals,
+        "next_repo_evidence_actions": next_repo_evidence_actions,
         "actionable_context": {
             "normative_ids": normative_ids,
             "supporting_ids": supporting_ids,

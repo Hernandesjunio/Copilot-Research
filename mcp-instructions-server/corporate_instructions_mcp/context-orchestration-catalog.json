@@ -1,0 +1,124 @@
+{
+  "schema_version": "1.0.0",
+  "resource_id": "context-orchestration-catalog",
+  "title": "Catalogo canonico de gatilhos de contexto e roteamento de tools",
+  "status": "active",
+  "owner": "platform-architecture",
+  "last_reviewed": "2026-05-03",
+  "global_rules": {
+    "repo_is_fact": true,
+    "mcp_policy_requires_batch": true,
+    "inference_must_be_labeled": true,
+    "plan_before_execution_when_non_trivial": true
+  },
+  "scenario_taxonomy": [
+    {
+      "scenario_id": "plan-crosscutting-async-migration",
+      "family": "plan",
+      "signals": [
+        "analysis_or_plan_only",
+        "cross_cutting_domain"
+      ]
+    },
+    {
+      "scenario_id": "bug-current-file-local",
+      "family": "bugfix",
+      "signals": [
+        "mentions_current_file",
+        "local_scope"
+      ]
+    },
+    {
+      "scenario_id": "plan-public-contract-risk",
+      "family": "plan",
+      "signals": [
+        "public_contract_risk"
+      ]
+    },
+    {
+      "scenario_id": "plan-new-infrastructure-risk",
+      "family": "plan",
+      "signals": [
+        "new_infrastructure_risk"
+      ]
+    }
+  ],
+  "tool_routing_rules": [
+    {
+      "rule_id": "current-file-first",
+      "if": {
+        "mentions_current_file": true
+      },
+      "then": {
+        "prepend_tools": [
+          "get_currentfile"
+        ]
+      }
+    },
+    {
+      "rule_id": "repo-discovery-when-vague",
+      "if": {
+        "mentions_specific_files": false,
+        "repo_known": false
+      },
+      "then": {
+        "append_tools": [
+          "get_projects_in_solution",
+          "get_files_in_project"
+        ]
+      }
+    },
+    {
+      "rule_id": "cross-cutting-needs-mcp",
+      "if": {
+        "mentions_cross_cutting_concerns": true
+      },
+      "then": {
+        "append_tools": [
+          "corporate_instructions_search_instructions",
+          "corporate_instructions_get_instructions_batch"
+        ]
+      }
+    }
+  ],
+  "evidence_gate_rules": [
+    {
+      "rule_id": "batch-required-before-policy",
+      "if": {
+        "uses_mcp_policy": true
+      },
+      "then": {
+        "require_batch": true
+      }
+    },
+    {
+      "rule_id": "workspace-evidence-check",
+      "if": {
+        "workspace_evidence_required": true
+      },
+      "then": {
+        "require_workspace_signals": true
+      }
+    }
+  ],
+  "stop_rules": [
+    "public_contract_change_without_evidence",
+    "new_infrastructure_without_evidence",
+    "external_integration_without_evidence",
+    "public_technical_endpoint_creation",
+    "new_observability_stack"
+  ],
+  "fallback_rules": [
+    "follow_repo_and_label_gap",
+    "follow_repo_pattern_with_caveat",
+    "do_not_introduce_stack_by_inference"
+  ],
+  "anti_patterns": [
+    "mcp_by_ritual",
+    "search_without_batch",
+    "repo_skip_with_vague_request",
+    "edit_before_read",
+    "implement_when_user_requested_plan_only"
+  ],
+  "examples": []
+}

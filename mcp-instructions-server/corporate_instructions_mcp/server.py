@@ -15,6 +15,12 @@ from typing import Any, cast
 from mcp.server.fastmcp import FastMCP
 
 from corporate_instructions_mcp import telemetry
+from corporate_instructions_mcp.applicability import (
+    APPLICABILITY_STATES,
+    build_compliance_row,
+    decide_applicability,
+    parse_workspace_evidence,
+)
 from corporate_instructions_mcp.config import RuntimeConfig, load_runtime_config
 from corporate_instructions_mcp.context_resolver import (
     build_normative_checklist,
@@ -31,6 +37,7 @@ from corporate_instructions_mcp.indexing import (
     excerpt_around_match,
     expand_query_with_metadata,
     extract_exact_phrases,
+    get_index_warnings,
     normalize_text,
     score_record,
     score_record_breakdown,
@@ -59,6 +66,8 @@ _index_root: Path | None = None
 _index_signature: CorpusSignature | None = None
 _last_signature_check_mono = 0.0
 _config: RuntimeConfig | None = None
+_index_warnings: list[dict[str, Any]] = []
+_index_loaded_at_utc: str | None = None
 
 # Documented absence: requires IDE/model-side instrumentation (see research methodology).
 _SERVER_UNOBSERVABLE_METRICS = [
@@ -139,7 +148,7 @@ def _workspace_evidence_required(meta: dict[str, Any]) -> bool:
 
 def _ensure_index() -> tuple[dict[str, InstructionRecord], dict[str, Any]]:
     """Load corpus; second return value describes whether this call rebuilt the in-memory index."""
-    global _index, _index_root, _index_signature, _last_signature_check_mono
+    global _index, _index_root, _index_signature, _last_signature_check_mono, _index_warnings, _index_loaded_at_utc
     root = _root()
     cfg = _cfg()
     call_meta: dict[str, Any] = {
@@ -164,9 +173,11 @@ def _ensure_index() -> tuple[dict[str, InstructionRecord], dict[str, Any]]:
         log.info("rebuilding_index root=%s", root)
         rebuild_start = time.perf_counter()
         _index = build_index(root)
+        _index_warnings = get_index_warnings()
         _index_signature = corpus_signature(root)
         rebuild_ms = int((time.perf_counter() - rebuild_start) * 1000)
         _index_root = root
+        _index_loaded_at_utc = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         size_b = sum(len(r.body.encode("utf-8", errors="replace")) for r in _index.values())
         gov = sum(1 for r in _index.values() if _workspace_evidence_required(r.raw_frontmatter))
         telemetry.set_corpus_governance_snapshot(gov, len(_index))
@@ -210,6 +221,32 @@ def _normalize_list_filter(raw: str | None) -> set[str] | None:
         return None
     values = {normalize_text(part.strip()) for part in raw.split(",") if part.strip()}
     return values or None
+
+
+def _parse_instruction_ids(raw_ids: list[Any]) -> list[str]:
+    if not isinstance(raw_ids, list) or not raw_ids:
+        raise ValueError("instruction_ids must be a non-empty array.")
+    out: list[str] = []
+    seen: set[str] = set()
+    for candidate in raw_ids:
+        if not isinstance(candidate, str) or not candidate.strip():
+            raise ValueError("instruction_ids must contain non-empty strings.")
+        norm = candidate.strip()
+        if norm not in seen:
+            seen.add(norm)
+            out.append(norm)
+    if not out:
+        raise ValueError("instruction_ids must contain at least one distinct id.")
+    return out
+
+
+def _parse_target_path(target_artifact: dict[str, Any]) -> str:
+    if not isinstance(target_artifact, dict):
+        raise ValueError("target_artifact must be an object with path.")
+    path = str(target_artifact.get("path", "")).strip()
+    if not path:
+        raise ValueError("target_artifact.path is required.")
+    return path
 
 
 def _clamp_int(value: object, default: int, lo: int, hi: int) -> int:
@@ -342,11 +379,27 @@ def list_instructions_index() -> str:
     try:
         idx, index_meta = _ensure_index()
     except Exception as exc:
-        return _format_error(
-            error_code="INDEX_LOAD_FAILED",
-            message="Unable to load instructions index.",
-            details={"reason": str(exc)},
-            suggested_next_call={"tool": "list_instructions_index", "args": {}},
+        return json.dumps(
+            {
+                "ok": False,
+                "status": "error",
+                "index_health": {
+                    "loaded": False,
+                    "documents_total": 0,
+                    "documents_usable": 0,
+                    "documents_with_warnings": 0,
+                    "loaded_at_utc": None,
+                },
+                "instructions": [],
+                "count": 0,
+                "by_tag": {},
+                "corpus_version": "",
+                "warnings": [],
+                "errors": [{"code": "INDEX_LOAD_FAILED", "reason": str(exc)}],
+                "error": "Unable to load instructions index.",
+                "error_code": "INDEX_LOAD_FAILED",
+            },
+            ensure_ascii=False,
         )
     out = []
     by_tag: dict[str, list[str]] = {}
@@ -369,13 +422,25 @@ def list_instructions_index() -> str:
         for tag in rec.tags:
             by_tag.setdefault(tag, []).append(rec.id)
     by_tag = {tag: sorted(ids) for tag, ids in sorted(by_tag.items())}
+    index_warnings = list(_index_warnings)
+    status = "partial" if index_warnings else "ok"
     raw = json.dumps(
         {
+            "status": status,
+            "index_health": {
+                "loaded": True,
+                "documents_total": index_meta.get("corpus_file_count", len(out)),
+                "documents_usable": len(out),
+                "documents_with_warnings": len(index_warnings),
+                "loaded_at_utc": _index_loaded_at_utc,
+            },
             "instructions": out,
             "count": len(out),
             "by_tag": by_tag,
             "corpus_version": index_meta.get("corpus_version"),
             "corpus_file_count": index_meta.get("corpus_file_count"),
+            "warnings": index_warnings,
+            "errors": [],
         },
         ensure_ascii=False,
     )
@@ -415,6 +480,8 @@ def search_instructions(
     priority: str | None = None,
     workspace_evidence_required: bool | None = None,
     telemetry_expected_instruction_id: str | None = None,
+    queries: list[str] | None = None,
+    max_results_per_query: int = 5,
 ) -> str:
     """Use when the user asks about architecture, patterns, DNS, security, style, or any org-specific guideline.
 
@@ -424,6 +491,98 @@ def search_instructions(
     ranking evaluation (expected instruction id).
     """
     call_start = time.perf_counter()
+    if isinstance(queries, list) and queries:
+        cleaned_queries = [q.strip() for q in queries if isinstance(q, str) and q.strip()]
+        if not cleaned_queries:
+            return _format_error(
+                error_code="INVALID_MULTI_QUERY_INPUT",
+                message="queries must include at least one non-empty string.",
+                details={"queries": queries},
+            )
+        per_query = _clamp_int(
+            max_results_per_query,
+            default=5,
+            lo=1,
+            hi=20,
+        )
+        rows: list[dict[str, Any]] = []
+        grouped: dict[str, dict[str, dict[str, Any]]] = {
+            "policy": {},
+            "reference": {},
+        }
+        coverage_gaps: list[str] = []
+        for q in cleaned_queries:
+            payload = json.loads(
+                search_instructions(
+                    query=q,
+                    tags=tags,
+                    max_results=per_query,
+                    include_diagnostics=include_diagnostics,
+                    tags_mode=tags_mode,
+                    kind=kind,
+                    scope=scope,
+                    priority=priority,
+                    workspace_evidence_required=workspace_evidence_required,
+                    telemetry_expected_instruction_id=telemetry_expected_instruction_id,
+                    queries=None,
+                    max_results_per_query=per_query,
+                )
+            )
+            query_results = payload.get("results", [])
+            rows.append(
+                {
+                    "query": q,
+                    "results": query_results,
+                }
+            )
+            if not query_results:
+                coverage_gaps.append(f"No matches for query: {q}")
+            for result in query_results:
+                if not isinstance(result, dict):
+                    continue
+                rec_id = str(result.get("id", "")).strip()
+                rec_kind = str(result.get("kind", "")).strip().lower()
+                if rec_kind not in grouped:
+                    continue
+                relevance = float(result.get("relevance", 0.0))
+                current = grouped[rec_kind].get(rec_id)
+                if current is None or float(current.get("relevance", 0.0)) < relevance:
+                    grouped[rec_kind][rec_id] = result
+        top_policies = sorted(
+            grouped["policy"].values(),
+            key=lambda item: (-float(item.get("relevance", 0.0)), str(item.get("id", ""))),
+        )[:per_query]
+        top_references = sorted(
+            grouped["reference"].values(),
+            key=lambda item: (-float(item.get("relevance", 0.0)), str(item.get("id", ""))),
+        )[:per_query]
+        duration_ms = int((time.perf_counter() - call_start) * 1000)
+        raw = json.dumps(
+            {
+                "queries": rows,
+                "consolidated": {
+                    "top_policies": top_policies,
+                    "top_references": top_references,
+                    "coverage_gaps": coverage_gaps,
+                },
+            },
+            ensure_ascii=False,
+        )
+        _emit_tool_completed(
+            "search_instructions.completed",
+            duration_ms,
+            failure=False,
+            args_key_payload={"queries_count": len(cleaned_queries), "multi_query": True},
+            payload={
+                "search_mode": "multi_query",
+                "search_results_count": sum(len(row["results"]) for row in rows),
+                "queries_count": len(cleaned_queries),
+                "response_chars": len(raw),
+                "response_bytes": len(raw.encode("utf-8", errors="replace")),
+            },
+        )
+        return raw
+
     cfg = _cfg()
     args_summary = telemetry.search_args_summary(query, tags, max_results)
     try:
@@ -1120,6 +1279,204 @@ def resolve_instruction_context(
             "calls_with_non_empty_result": 1 if top_ids else 0,
             "empty_result_rate": 0.0 if top_ids else 1.0,
             "corpus_version": parsed.get("corpus_version"),
+        },
+    )
+    return raw
+
+
+@mcp.tool()
+def validate_applicability(
+    instruction_ids: list[Any],
+    target_artifact: dict[str, Any],
+    workspace_evidence: list[Any] | None = None,
+) -> str:
+    """Evaluate applicability of instructions using scope + workspace evidence gate."""
+    call_start = time.perf_counter()
+    try:
+        idx, _ = _ensure_index()
+    except Exception as exc:
+        return _format_error(
+            error_code="APPLICABILITY_INDEX_UNAVAILABLE",
+            message="Unable to validate applicability because index is unavailable.",
+            details={"reason": str(exc)},
+            suggested_next_call={"tool": "list_instructions_index", "args": {}},
+        )
+    try:
+        requested_ids = _parse_instruction_ids(instruction_ids)
+        target_path = _parse_target_path(target_artifact)
+        evidence_items = parse_workspace_evidence(workspace_evidence)
+    except ValueError as exc:
+        raw = _format_error(
+            error_code="INVALID_APPLICABILITY_INPUT",
+            message=str(exc),
+            details={
+                "instruction_ids": instruction_ids,
+                "target_artifact": target_artifact,
+            },
+            suggested_next_call={
+                "tool": "validate_applicability",
+                "args": {
+                    "instruction_ids": ["microservice-authorization-resource-scope-and-audit"],
+                    "target_artifact": {"path": "Api/Endpoints/ClienteEndpoints.cs"},
+                    "workspace_evidence": ["HttpContext.User"],
+                },
+            },
+        )
+        duration_ms = int((time.perf_counter() - call_start) * 1000)
+        _emit_tool_completed(
+            "validate_applicability.completed",
+            duration_ms,
+            failure=True,
+            args_key_payload={"instruction_ids_count": len(instruction_ids) if isinstance(instruction_ids, list) else 0},
+            payload={"error_code": "INVALID_APPLICABILITY_INPUT"},
+        )
+        return raw
+
+    missing_ids = [instruction_id for instruction_id in requested_ids if instruction_id not in idx]
+    if missing_ids:
+        raw = _format_error(
+            error_code="INSTRUCTION_IDS_NOT_FOUND",
+            message="One or more instruction_ids were not found in the current index.",
+            details={"missing_instruction_ids": missing_ids},
+            suggested_next_call={"tool": "list_instructions_index", "args": {}},
+        )
+        duration_ms = int((time.perf_counter() - call_start) * 1000)
+        _emit_tool_completed(
+            "validate_applicability.completed",
+            duration_ms,
+            failure=True,
+            args_key_payload={"instruction_ids_count": len(requested_ids)},
+            payload={"error_code": "INSTRUCTION_IDS_NOT_FOUND", "missing_ids_count": len(missing_ids)},
+        )
+        return raw
+
+    results = [decide_applicability(idx[instruction_id], target_path=target_path, evidence_items=evidence_items) for instruction_id in requested_ids]
+    raw = json.dumps(
+        {
+            "results": results,
+            "summary": {
+                "requested_count": len(requested_ids),
+                "resolved_count": len(results),
+                "target_path": target_path,
+                "by_applicability": {
+                    state: sum(1 for row in results if row.get("applicability") == state)
+                    for state in sorted(APPLICABILITY_STATES)
+                },
+            },
+        },
+        ensure_ascii=False,
+    )
+    duration_ms = int((time.perf_counter() - call_start) * 1000)
+    _emit_tool_completed(
+        "validate_applicability.completed",
+        duration_ms,
+        failure=False,
+        args_key_payload={"instruction_ids_count": len(requested_ids)},
+        payload={
+            "resolved_count": len(results),
+            "target_path": target_path,
+            "response_chars": len(raw),
+            "response_bytes": len(raw.encode("utf-8", errors="replace")),
+        },
+    )
+    return raw
+
+
+@mcp.tool()
+def build_compliance_matrix(
+    target_artifact: dict[str, Any],
+    instruction_results: list[dict[str, Any]],
+    artifact_observations: list[dict[str, Any]] | None = None,
+) -> str:
+    """Build operational compliance matrix from applicability and artifact observations."""
+    call_start = time.perf_counter()
+    try:
+        target_path = _parse_target_path(target_artifact)
+    except ValueError as exc:
+        return _format_error(
+            error_code="INVALID_COMPLIANCE_MATRIX_INPUT",
+            message=str(exc),
+            details={"target_artifact": target_artifact},
+            suggested_next_call={
+                "tool": "build_compliance_matrix",
+                "args": {
+                    "target_artifact": {"path": "Api/Endpoints/ClienteEndpoints.cs"},
+                    "instruction_results": [
+                        {
+                            "instruction_id": "microservice-api-openfinance-patterns",
+                            "kind": "policy",
+                            "applicability": "applicable",
+                        }
+                    ],
+                },
+            },
+        )
+    if not isinstance(instruction_results, list) or not instruction_results:
+        return _format_error(
+            error_code="INVALID_COMPLIANCE_MATRIX_INPUT",
+            message="instruction_results must be a non-empty array.",
+            details={"instruction_results": instruction_results},
+        )
+    observations = artifact_observations if isinstance(artifact_observations, list) else []
+    by_instruction_id: dict[str, list[dict[str, Any]]] = {}
+    for row in observations:
+        instruction_id = str(row.get("instruction_id", "")).strip() if isinstance(row, dict) else ""
+        if not instruction_id:
+            continue
+        by_instruction_id.setdefault(instruction_id, []).append(row)
+
+    matrix: list[dict[str, Any]] = []
+    for item in instruction_results:
+        if not isinstance(item, dict):
+            return _format_error(
+                error_code="INVALID_COMPLIANCE_MATRIX_INPUT",
+                message="Each instruction_results entry must be an object.",
+            )
+        instruction_id = str(item.get("instruction_id", "")).strip()
+        kind = str(item.get("kind", "")).strip()
+        applicability = str(item.get("applicability", "")).strip().lower()
+        if not instruction_id or not kind or applicability not in APPLICABILITY_STATES:
+            return _format_error(
+                error_code="INVALID_COMPLIANCE_MATRIX_INPUT",
+                message=(
+                    "Each instruction_results entry must contain instruction_id, kind, "
+                    "and applicability in the official applicability states."
+                ),
+                details={"instruction_result": item},
+            )
+        matrix.append(build_compliance_row(item, by_instruction_id.get(instruction_id, [])))
+
+    summary = {
+        "conformant": 0,
+        "partial_conformance": 0,
+        "non_conformance": 0,
+        "not_enforceable": 0,
+        "not_applicable": 0,
+        "insufficient_evidence": 0,
+    }
+    for row in matrix:
+        status = str(row.get("status", "")).strip()
+        if status in summary:
+            summary[status] += 1
+
+    raw = json.dumps(
+        {
+            "target_artifact": {"path": target_path},
+            "matrix": matrix,
+            "summary": summary,
+        },
+        ensure_ascii=False,
+    )
+    duration_ms = int((time.perf_counter() - call_start) * 1000)
+    _emit_tool_completed(
+        "build_compliance_matrix.completed",
+        duration_ms,
+        failure=False,
+        args_key_payload={"instruction_results_count": len(instruction_results)},
+        payload={
+            "matrix_rows_count": len(matrix),
+            "response_chars": len(raw),
+            "response_bytes": len(raw.encode("utf-8", errors="replace")),
         },
     )
     return raw

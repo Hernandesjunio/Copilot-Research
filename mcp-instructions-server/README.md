@@ -84,9 +84,9 @@ Alternativa equivalente: `"command": "C:\\path\\to\\venv\\Scripts\\corporate-ins
 ### Visual Studio: tools no catálogo vs chat
 
 1. Confirme o interpretador: `pip show corporate-instructions-mcp` e `python -c "import corporate_instructions_mcp.server as s; assert hasattr(s, 'get_instructions_batch')"`.
-2. Valide o protocolo: na pasta `mcp-instructions-server`, `python -m pytest tests/integration_mcp_stdio_test.py::test_mcp_stdio_list_search_get_instruction` — verifica que `tools/list` expõe as três tools.
-3. **Evidência JSON para suporte:** com o mesmo `INSTRUCTIONS_ROOT` que usa no VS, execute `python scripts/print_mcp_tools_list.py` (a partir de `mcp-instructions-server/`). A saída deve listar `get_instructions_batch`, `list_instructions_index` e `search_instructions` com `inputSchema`. Anexe ao reporte de bug.
-4. Se o `pytest` e o script mostram as **três** tools mas o **chat** do Visual Studio continua a negar (incluindo após `command` absoluto ao `python.exe` onde correu o `pip`): confira no painel de MCP do VS se **cada tool está activada** (por predefinição podem vir desligadas após mudar o nome do servidor ou das tools).
+2. Valide o protocolo: na pasta `mcp-instructions-server`, `python -m pytest tests/integration_mcp_stdio_test.py::test_mcp_stdio_list_search_get_instruction` — verifica que `tools/list` expõe as tools base (`get_context_triggers`, `get_instructions_batch`, `list_instructions_index`, `search_instructions`, `validate_applicability`, `build_compliance_matrix`).
+3. **Evidência JSON para suporte:** com o mesmo `INSTRUCTIONS_ROOT` que usa no VS, execute `python scripts/print_mcp_tools_list.py` (a partir de `mcp-instructions-server/`). A saída deve listar pelo menos `get_context_triggers`, `get_instructions_batch`, `list_instructions_index` e `search_instructions` com `inputSchema`. Anexe ao reporte de bug.
+4. Se o `pytest` e o script mostram as tools mas o **chat** do Visual Studio continua a negar (incluindo após `command` absoluto ao `python.exe` onde correu o `pip`): confira no painel de MCP do VS se **cada tool está activada** (por predefinição podem vir desligadas após mudar o nome do servidor ou das tools).
 5. Se após o passo anterior o chat ainda negar: o servidor pode estar conforme o MCP e o sintoma ser **do host Copilot no VS** (modo de chat vs agente, sessão antiga, ou regressão). Tente conversa nova; modo **agente** se estiver só em perguntas rápidas; confirmar que o servidor MCP está ligado para essa sessão; actualizar Visual Studio e GitHub Copilot. Para isolar, configure o **mesmo** comando/`env` no VS Code (`.vscode/mcp.json` ou definições MCP) — se lá as tools aparecem ao modelo, o problema é específico do VS.
 6. Relatos semelhantes no ecossistema (VS Code): [Chat does not see all MCP tools](https://github.com/microsoft/vscode/issues/293598) — útil como referência ao abrir ticket na Microsoft / Developer Community para o Visual Studio.
 
@@ -94,9 +94,15 @@ Alternativa equivalente: `"command": "C:\\path\\to\\venv\\Scripts\\corporate-ins
 
 | Tool | Função |
 |------|--------|
-| `list_instructions_index` | Metadados de todos os `.md` (id, path, tags, hash) + agrupamento `by_tag` para navegação por tema. |
-| `search_instructions` | Busca por palavras-chave (com expansão por sinónimos), `tags` opcional (lista separada por vírgulas), `max_results` 1–20 (default 10), e `related_ids` por interseção de tags. |
+| `list_instructions_index` | Metadados de todos os `.md` (id, path, tags, hash) + `status`, `index_health`, `warnings`, `errors` e agrupamento `by_tag` para navegação por tema. |
+| `search_instructions` | Busca por palavras-chave (com expansão por sinónimos), `tags` opcional (lista separada por vírgulas), `max_results` 1–20 (default 10), `related_ids` por interseção de tags e modo multi-query opcional (`queries` + `consolidated`). |
 | `get_instructions_batch` | Conteúdo completo de 1 ou mais instructions por `ids` separados por vírgula; `max_chars_per_instruction` para truncagem individual e teto de payload total da resposta. Cada item inclui `frontmatter` (YAML parseado completo, com chaves extra além dos metadados listados no índice). |
+| `resolve_instruction_context` | Pipeline determinístico search + batch com resolução consolidada e campos aditivos de evidência (`selection_rationale`, `pending_evidence`, `required_workspace_signals`, `next_repo_evidence_actions`). |
+| `get_context_triggers` | Recebe `input_payload` JSON estruturado (`request`, `workspace`, `context_state`, `constraints`), valida enums/tipos e devolve contrato explícito para o host (`scenario`, `strategy`, `tool_sequence`, `evidence_gate`, `stop_rules`, `fallbacks`). Não executa patch/build/test nem chama outras tools automaticamente. |
+| `validate_applicability` | Evidence gate formal: decide `applicable`/`non_applicable`/`hypothesis_only`/`blocked_by_missing_evidence` por instruction com base em `scope`, frontmatter e `workspace_evidence`. |
+| `build_compliance_matrix` | Consolida estado operacional (`conformant`, `partial_conformance`, `non_conformance`, `not_enforceable`, `not_applicable`, `insufficient_evidence`) a partir de `instruction_results` + `artifact_observations`. |
+| `get_normative_checklist` | Checklist por cenário com suporte indexado e lacunas (gaps) por instruction ausente/parcial. |
+| `detect_instruction_conflicts` | Relações de conflito/precedência entre instructions com orientação para uso seguro pelo agente. |
 
 **Reindexação:** o índice é reconstruído quando `INSTRUCTIONS_ROOT` muda entre chamadas. Reinicie o processo após alterações grandes no corpus se quiser libertar memória ou garantir estado limpo.
 
@@ -145,6 +151,16 @@ para validar as tools localmente (`pytest` em `mcp-instructions-server/`).
 ## Testes
 
 Descrição de cada ficheiro e teste, corpus assumido e limites da cobertura: **[docs/TESTS.md](docs/TESTS.md)**.
+
+### Validação real de consumo MCP STDIO
+
+Para um teste ponta-a-ponta de consumo real (subprocess MCP + cliente), execute:
+
+```bash
+python scripts/run_epic05_stdio_real_check.py
+```
+
+Esse script valida os requisitos de P0/P1/P2 com entradas concretas e checagem de saída esperada (`validate_applicability`, `build_compliance_matrix`, campos P1 em `resolve_instruction_context`, status/health em `list_instructions_index` e multi-query em `search_instructions`).
 
 ## Pesquisa e análises
 

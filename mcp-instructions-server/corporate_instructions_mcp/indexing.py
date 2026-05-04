@@ -25,6 +25,8 @@ MAX_FRONTMATTER_SECTION_CHARS = 65536
 
 log = logging.getLogger(__name__)
 
+_INDEX_WARNINGS: list[dict[str, Any]] = []
+
 PRIORITY_RANK = {"high": 3, "medium": 2, "low": 1, None: 0}
 EXPANSION_CAP_PER_TOKEN = 5
 
@@ -151,6 +153,21 @@ def _token_variants(token: str) -> list[str]:
     )
 
 
+def _record_index_warning(code: str, path: str, details: dict[str, Any] | None = None) -> None:
+    warning = {"code": code, "path": path}
+    if details:
+        warning["details"] = details
+    _INDEX_WARNINGS.append(warning)
+
+
+def clear_index_warnings() -> None:
+    _INDEX_WARNINGS.clear()
+
+
+def get_index_warnings() -> list[dict[str, Any]]:
+    return [dict(item) for item in _INDEX_WARNINGS]
+
+
 @dataclass
 class InstructionRecord:
     """Single instruction document with parsed frontmatter and body."""
@@ -217,12 +234,21 @@ def _parse_markdown(path: Path, root: Path) -> InstructionRecord:
                 len(fm_raw),
                 MAX_FRONTMATTER_SECTION_CHARS,
             )
+            _record_index_warning(
+                "FRONTMATTER_TOO_LARGE",
+                rel,
+                {
+                    "frontmatter_chars": len(fm_raw),
+                    "max_frontmatter_chars": MAX_FRONTMATTER_SECTION_CHARS,
+                },
+            )
             meta = {}
         else:
             try:
                 loaded = yaml.safe_load(fm_raw)
                 meta = loaded if isinstance(loaded, dict) else {}
             except yaml.YAMLError:
+                _record_index_warning("FRONTMATTER_PARSE_FAILED", rel)
                 meta = {}
         body = parts[2].lstrip("\n")
 
@@ -259,17 +285,20 @@ def build_index(root: Path) -> dict[str, InstructionRecord]:
     if not root.is_dir():
         return {}
 
+    clear_index_warnings()
     by_id: dict[str, InstructionRecord] = {}
     for path in sorted(root.rglob("*.md")):
         if not path.is_file():
             continue
         if not is_path_under_root(path, root):
             log.warning("skipped_path_outside_root path=%s", path)
+            _record_index_warning("SKIPPED_PATH_OUTSIDE_ROOT", str(path))
             continue
         try:
             st = path.stat()
         except OSError as exc:
             log.warning("skipped_unreadable path=%s error=%s", path, exc)
+            _record_index_warning("SKIPPED_UNREADABLE", str(path), {"reason": str(exc)})
             continue
         if st.st_size > MAX_INSTRUCTION_FILE_BYTES:
             log.warning(
@@ -278,11 +307,17 @@ def build_index(root: Path) -> dict[str, InstructionRecord]:
                 st.st_size,
                 MAX_INSTRUCTION_FILE_BYTES,
             )
+            _record_index_warning(
+                "SKIPPED_LARGE_FILE",
+                str(path.relative_to(root)).replace("\\", "/"),
+                {"size_bytes": st.st_size, "max_size_bytes": MAX_INSTRUCTION_FILE_BYTES},
+            )
             continue
         try:
             rec = _parse_markdown(path, root)
         except OSError as exc:
             log.warning("skipped_read_error path=%s error=%s", path, exc)
+            _record_index_warning("SKIPPED_READ_ERROR", str(path), {"reason": str(exc)})
             continue
         if rec.id in by_id:
             msg = f"Duplicate instruction id {rec.id!r}: {by_id[rec.id].rel_path} vs {rec.rel_path}"

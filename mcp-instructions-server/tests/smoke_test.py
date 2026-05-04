@@ -51,6 +51,10 @@ def test_list_instructions_index_count() -> None:
     from corporate_instructions_mcp.server import list_instructions_index
 
     data = json.loads(list_instructions_index())
+    assert data["status"] == "ok"
+    assert data["index_health"]["loaded"] is True
+    assert isinstance(data["warnings"], list)
+    assert isinstance(data["errors"], list)
     assert data["count"] >= 3
     assert "by_tag" in data
     assert isinstance(data["by_tag"], dict)
@@ -219,6 +223,31 @@ def test_search_instructions_zero_results_has_fallback_suggestions() -> None:
     data = json.loads(search_instructions(query="qvwxzplm", include_diagnostics=True))
     assert data["results"] == []
     assert data["fallback_suggestions"]
+
+
+def test_search_instructions_multi_query_consolidated_output() -> None:
+    from corporate_instructions_mcp.server import search_instructions
+
+    data = json.loads(
+        search_instructions(
+            query="",
+            queries=[
+                "minimal api rest status codes",
+                "response envelope global error handling",
+            ],
+            max_results_per_query=3,
+            include_diagnostics=True,
+        )
+    )
+    assert "queries" in data
+    assert len(data["queries"]) == 2
+    assert data["queries"][0]["query"] == "minimal api rest status codes"
+    assert "consolidated" in data
+    consolidated = data["consolidated"]
+    assert set(consolidated.keys()) == {"top_policies", "top_references", "coverage_gaps"}
+    assert isinstance(consolidated["top_policies"], list)
+    assert isinstance(consolidated["top_references"], list)
+    assert isinstance(consolidated["coverage_gaps"], list)
 
 
 def test_new_composite_tools() -> None:
@@ -462,6 +491,21 @@ def test_resolve_instruction_context_cep_viacep_surfaces_normative_bundle() -> N
     assert "microservice-integration-httpclientfactory-contracts" in normative
 
 
+def test_resolve_instruction_context_exposes_p1_evidence_fields() -> None:
+    from corporate_instructions_mcp.server import resolve_instruction_context
+
+    data = json.loads(resolve_instruction_context(query="authorization owner audit endpoint", max_results=3))
+    resolution = data["resolution"]
+    assert "selection_rationale" in resolution
+    assert isinstance(resolution["selection_rationale"], list)
+    assert "pending_evidence" in resolution
+    assert isinstance(resolution["pending_evidence"], list)
+    assert "required_workspace_signals" in resolution
+    assert isinstance(resolution["required_workspace_signals"], dict)
+    assert "next_repo_evidence_actions" in resolution
+    assert isinstance(resolution["next_repo_evidence_actions"], list)
+
+
 def test_get_instructions_batch_returns_multiple_documents() -> None:
     from corporate_instructions_mcp.server import get_instructions_batch
 
@@ -496,4 +540,32 @@ def test_instructions_root_not_dir_raises(monkeypatch: pytest.MonkeyPatch, tmp_p
 
     payload = json.loads(list_instructions_index())
     assert payload["ok"] is False
+    assert payload["status"] == "error"
     assert payload["error_code"] == "INDEX_LOAD_FAILED"
+
+
+def test_list_instructions_index_status_partial_when_warnings_present(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import corporate_instructions_mcp.server as srv
+    from corporate_instructions_mcp.indexing import MAX_INSTRUCTION_FILE_BYTES
+    from corporate_instructions_mcp.server import list_instructions_index
+
+    valid = """---
+id: tiny-policy
+title: Tiny Policy
+scope: "**/*.cs"
+kind: policy
+---
+Body.
+"""
+    (tmp_path / "tiny-policy.md").write_text(valid, encoding="utf-8")
+    (tmp_path / "huge.md").write_text("x" * (MAX_INSTRUCTION_FILE_BYTES + 32), encoding="utf-8")
+    monkeypatch.setenv("INSTRUCTIONS_ROOT", str(tmp_path))
+    srv._index = {}
+    srv._index_root = None
+
+    payload = json.loads(list_instructions_index())
+    assert payload["status"] == "partial"
+    assert payload["index_health"]["documents_with_warnings"] >= 1
+    assert payload["warnings"]

@@ -30,10 +30,12 @@ Com `minimal` ou `full`, o servidor escreve linhas **NDJSON** em **stderr** (por
 |----------|------|--------|
 | [`tests/smoke_test.py`](../tests/smoke_test.py) | Smoke | Importação directa do módulo `corporate_instructions_mcp.server`; sem subprocess. |
 | [`tests/integration_mcp_stdio_test.py`](../tests/integration_mcp_stdio_test.py) | Integração | Processo real `python -m corporate_instructions_mcp` com JSON-RPC sobre stdio. |
+| [`tests/test_context_triggers.py`](../tests/test_context_triggers.py) | Unitário | Contrato e motor determinístico da tool `get_context_triggers` (cenários, invariantes e erros). |
 | [`tests/test_indexing.py`](../tests/test_indexing.py) | Unitário | Funções puras e `build_index` em directórios temporários. |
 | [`tests/test_paths.py`](../tests/test_paths.py) | Unitário | Validação de caminhos e segurança. |
 | [`tests/test_server_frontmatter.py`](../tests/test_server_frontmatter.py) | Unitário | Normalização JSON de frontmatter (`date`, `datetime`, `Decimal`, listas aninhadas). |
 | [`tests/test_telemetry_ndjson.py`](../tests/test_telemetry_ndjson.py) | Unitário | Eventos NDJSON em stderr (`CORPORATE_INSTRUCTIONS_TELEMETRY`) sem subprocess MCP. |
+| [`tests/test_epic05_tools.py`](../tests/test_epic05_tools.py) | Unitário/aceite | Aceite de P0 (`validate_applicability` + `build_compliance_matrix`) com 17 cenários obrigatórios. |
 
 ---
 
@@ -43,7 +45,7 @@ Executa as tools com `INSTRUCTIONS_ROOT` no fixture; reinicia o índice em memó
 
 | Teste | O que valida |
 |-------|----------------|
-| `test_list_instructions_index_count` | Resposta JSON com `count`, `by_tag`, e presença mínima de IDs conhecidos (incl. `dns-retry-pattern`, `security-baseline-secrets`, `csharp-async-style`). |
+| `test_list_instructions_index_count` | Resposta JSON com `status/index_health/warnings/errors`, `count`, `by_tag`, e presença mínima de IDs conhecidos (incl. `dns-retry-pattern`, `security-baseline-secrets`, `csharp-async-style`). |
 | `test_search_instructions_finds_dns` | Busca por texto encontra `dns-retry-pattern` no topo e devolve `composed_context`. |
 | `test_search_results_have_related_ids_shape` | Cada resultado de busca inclui `related_ids` (lista de strings), sem o próprio `id`. |
 | `test_search_dns_top_result_related_ids_include_resilience_policy` | Para o hit DNS, `related_ids` contém `microservice-resilience-polly-timeouts-and-circuit-breaker` (partilha de tags com a policy Polly). |
@@ -57,9 +59,12 @@ Executa as tools com `INSTRUCTIONS_ROOT` no fixture; reinicia o índice em memó
 | `test_search_tags_only` | Query vazia com `tags=security` filtra e inclui `security-baseline-secrets`. |
 | `test_search_instructions_invalid_max_results_uses_default` | `max_results` inválido cai no default e ainda devolve resultados. |
 | `test_search_instructions_persistencia_sql_returns_data_access` | Expansão por sinónimos / domínio: `persistência SQL` ranqueia `microservice-data-access-and-sql-security`. |
+| `test_search_instructions_multi_query_consolidated_output` | Modo `queries` devolve saída consolidada estável (`top_policies`, `top_references`, `coverage_gaps`). |
 | `test_get_instructions_batch_returns_multiple_documents` | Vários IDs separados por vírgula; `found_count` e `missing_ids` coerentes. |
 | `test_get_instructions_batch_errors` | `ids` vazio → erro JSON; ID inexistente → `missing_ids` e `found_count` zero. |
-| `test_instructions_root_not_dir_raises` | `INSTRUCTIONS_ROOT` inexistente → `RuntimeError` ao chamar a tool (fail-fast). |
+| `test_instructions_root_not_dir_raises` | `INSTRUCTIONS_ROOT` inexistente → payload com `status=error`, `ok=false` e `error_code=INDEX_LOAD_FAILED`. |
+| `test_list_instructions_index_status_partial_when_warnings_present` | Quando há ficheiro ignorado por tamanho, `status=partial` e `warnings` é preenchido. |
+| `test_resolve_instruction_context_exposes_p1_evidence_fields` | Campos P1 aditivos (`selection_rationale`, `pending_evidence`, `required_workspace_signals`, `next_repo_evidence_actions`). |
 
 ---
 
@@ -69,8 +74,26 @@ Valida o mesmo comportamento através do **transporte MCP real** (stdio), útil 
 
 | Teste | O que valida |
 |-------|----------------|
-| `test_mcp_stdio_list_search_get_instruction` | `list_tools` expõe exactamente as três tools; `list_instructions_index` com `by_tag`; `search_instructions` (DNS); `get_instructions_batch` com conteúdo não vazio. Com corpus alternativo, relaxa asserts que dependem de IDs fixos. |
+| `test_mcp_stdio_list_search_get_instruction` | `list_tools` expõe pelo menos as tools base (`get_context_triggers`, `list_instructions_index`, `search_instructions`, `get_instructions_batch`, `validate_applicability`, `build_compliance_matrix`); valida também `list_instructions_index`, `search_instructions` (DNS) e `get_instructions_batch` com conteúdo não vazio. Com corpus alternativo, relaxa asserts que dependem de IDs fixos. |
 | `test_mcp_stdio_search_default_max_persistencia_sql_and_related_ids` | **Só com o fixture por omissão** (caso contrário `skip`): `search_instructions` sem `max_results` para `microservice` → 10 resultados; `persistência SQL` inclui `microservice-data-access-and-sql-security` e `composed_context` não vazio; busca DNS com `related_ids` e policy Polly listada. |
+| `test_mcp_stdio_get_context_triggers_contract_output` | Chama `get_context_triggers` via stdio com payload JSON, valida `schema_version`, `scenario`, `strategy` (`plan_only`) e `batch_required=true` para cenário transversal. |
+| `test_mcp_stdio_composite_tools_expose_actionable_outputs` | `resolve_instruction_context` com campos P1 + chamadas reais a `validate_applicability` e `build_compliance_matrix` via stdio. |
+
+## `test_context_triggers.py`
+
+Suite unitária da nova tool de orquestração, escrita em ciclo TDD Red/Green/Refactor.
+
+| Teste | O que valida |
+|-------|----------------|
+| `test_catalog_contains_required_sections` | Catálogo canónico carregável com secções obrigatórias de roteamento/evidence/stop. |
+| `test_build_context_triggers_plan_cross_cutting_shape` | Output principal para cenário `plan_only` transversal com shape e campos críticos do contrato. |
+| `test_tool_sequence_ordered_and_contains_only_read_tools_for_plan_only` | Ordem determinística da sequência e ausência de tools de execução em pedidos de plano. |
+| `test_mentions_current_file_prepends_get_currentfile` | Regra de precedência para `mentions_current_file=true`. |
+| `test_public_contract_without_workspace_signals_forces_human_stop` | Stop rule para risco de contrato público sem evidência local. |
+| `test_mentions_new_infrastructure_without_workspace_signals_sets_fallback` | Fallback de não introduzir stack por inferência e stop rule para infraestrutura nova sem evidência. |
+| `test_invalid_schema_version_raises_contract_error` | Rejeição de versão de contrato inválida com código de erro explícito. |
+| `test_conflicting_plan_only_flags_raise_contract_error` | Rejeição de conflito `wants_only_plan=true` com modo de execução incompatível. |
+| `test_missing_required_section_raises_contract_error` | Rejeição de payload incompleto (`INVALID_REQUEST_PAYLOAD`). |
 
 ---
 
@@ -119,6 +142,42 @@ Testa `_json_safe_frontmatter` sem corpus (datas e decimais YAML → valores JSO
 | `test_is_path_under_root` | Ficheiro dentro da raiz é aceite. |
 
 ---
+
+## `test_epic05_tools.py`
+
+Aceite obrigatório de P0 (secção 16.1 da especificação), sem subprocess:
+
+| Teste | O que valida |
+|-------|----------------|
+| `test_validate_applicability_scope_no_match_returns_non_applicable` | `scope` fora do artefacto → `non_applicable`. |
+| `test_validate_applicability_policy_in_scope_without_workspace_requirement_returns_applicable` | policy sem evidence gate em escopo → `applicable`. |
+| `test_validate_applicability_policy_with_sufficient_evidence_returns_applicable` | evidência positiva suficiente → `applicable`. |
+| `test_validate_applicability_policy_on_absence_hypothesis_only` | `on_absence=hypothesis_only` aplicado quando faltam sinais. |
+| `test_validate_applicability_policy_without_on_absence_defaults_blocked` | sem `on_absence` e sem sinais suficientes → `blocked_by_missing_evidence`. |
+| `test_validate_applicability_reference_in_scope_returns_hypothesis_only` | `kind=reference` em escopo → `hypothesis_only`. |
+| `test_validate_applicability_accepts_simple_string_evidence` | contrato backward-compatible para evidência em lista de strings. |
+| `test_validate_applicability_accepts_structured_evidence` | contrato com objetos ricos (`value`, `path`, `symbol`, `source`, `evidence_type`). |
+| `test_validate_applicability_accepts_negative_evidence` | evidência negativa tratada de forma conservadora (sem forçar não conformidade). |
+| `test_validate_applicability_normalizes_windows_path` | normalização de path Windows (`\`) no matching de `scope`. |
+| `test_build_compliance_matrix_non_applicable_maps_not_applicable` | mapeamento `non_applicable -> not_applicable`. |
+| `test_build_compliance_matrix_hypothesis_only_maps_not_enforceable` | mapeamento `hypothesis_only -> not_enforceable`. |
+| `test_build_compliance_matrix_blocked_maps_not_enforceable` | mapeamento `blocked_by_missing_evidence -> not_enforceable`. |
+| `test_build_compliance_matrix_applicable_positive_maps_conformant` | `applicable + positive` -> `conformant`. |
+| `test_build_compliance_matrix_applicable_positive_and_gap_maps_partial` | `applicable + positive + gap` -> `partial_conformance`. |
+| `test_build_compliance_matrix_applicable_deviation_maps_non_conformance` | `applicable + deviation` -> `non_conformance`. |
+| `test_build_compliance_matrix_applicable_without_observation_maps_insufficient_evidence` | `applicable` sem observação suficiente -> `insufficient_evidence`. |
+
+---
+
+## Validação real por agente (STDIO)
+
+Além do `pytest`, existe uma verificação de consumo real no script:
+
+- [`scripts/run_epic05_stdio_real_check.py`](../scripts/run_epic05_stdio_real_check.py)
+
+O script sobe `python -m corporate_instructions_mcp`, chama as tools por cliente MCP real e valida saída esperada para P0/P1/P2.
+
+Plano detalhado para repetir em outros contextos: [`STDIO-REAL-TEST-PLAN.md`](STDIO-REAL-TEST-PLAN.md).
 
 ## O que não é coberto por estes testes
 
