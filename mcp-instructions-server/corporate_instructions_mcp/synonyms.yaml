@@ -13,9 +13,9 @@ persistencia:
 validacao:
   - validation
   - error-contracts
-  - problem-details
   - 400
   - 422
+  - problem-details
 http:
   - rest
   - status-codes
@@ -43,9 +43,9 @@ testes:
 observabilidade:
   - opentelemetry
   - health
-  - tracing
-  - metrics
-  - correlation
+  - readiness
+  - production
+  - deployment
 mensageria:
   - rabbitmq
   - messaging
@@ -58,11 +58,96 @@ seguranca:
   - jwt
   - authentication
   - authorization
+api:
+  - problem-details
+  - rfc7807
+  - pagination
+  - filtering
+  - minimal-api
+configuracao:
+  - configuration
+  - options
+  - ioptions
+  - feature-flags
+  - deployment
+healthcheck:
+  - health
+  - live
+  - ready
+  - readiness
+  - production
+dominio:
+  - domain
+  - repository
+  - interfaces
+  - models
+  - table-storage
+integracao:
+  - integration
+  - httpclient
+  - contracts
+  - serialization
+  - resilience
+saga:
+  - orchestration
+  - process-manager
+  - consistency
+  - idempotency
+  - compensation
+governanca:
+  - governance
+  - bmad
+  - corpus
+  - instructions
+  - mcp
+encoding:
+  - utf-8
+  - unicode
+  - markdown
+  - line-endings
+  - repository
+csharp:
+  - dotnet
+  - async
+  - style
+  - generics
+  - performance
+planejamento:
+  - planning
+  - assistant
+  - inference
+  - confidence
+  - legacy
+conformidade:
+  - compliance
+  - secrets
+  - audit
+  - ownership
+  - resource-scope
 dns:
   - nameserver
   - resolver
   - lookup
   - network
+  - ttl
+paginacao:
+  - pagination
+  - filtering
+  - ordering
+  - collection
+  - envelope
+colecoes:
+  - collection
+  - pagination
+  - filtering
+  - api-collection
+  - ordering
+estruturar:
+  - arquitetura
+  - layering
+  - camadas
+  - clean-architecture
+  - dominio
 cep:
   - zipcode
   - postal-code

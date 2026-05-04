@@ -33,6 +33,17 @@ _REQUEST_REQUIRED_BOOL_FIELDS = (
     "wants_only_plan",
 )
 _REQUEST_OPTIONAL_FIELDS: dict[str, Any] = {
+    "operation_mode": "unknown",
+    "ambiguity_level": "unknown",
+    "risk_level": "unknown",
+    "mentions_current_file": False,
+    "mentions_specific_files": False,
+    "mentions_symbols": False,
+    "mentions_cross_cutting_concerns": False,
+    "mentions_public_contract": False,
+    "mentions_new_infrastructure": False,
+    "mentions_external_integration": False,
+    "wants_only_plan": False,
     "user_goal": "",
     "explicit_deliverable": "",
     "wants_tests": False,
@@ -45,10 +56,25 @@ _WORKSPACE_REQUIRED_BOOL_FIELDS = (
     "has_mcp",
     "workspace_signals_known",
 )
-_WORKSPACE_OPTIONAL_FIELDS: dict[str, Any] = {"tech_stack_signals": []}
+_WORKSPACE_OPTIONAL_FIELDS: dict[str, Any] = {
+    "repo_known": False,
+    "current_file_available": False,
+    "solution_available": False,
+    "project_count_known": False,
+    "has_mcp": False,
+    "workspace_signals_known": False,
+    "tech_stack_signals": [],
+}
 _CONSTRAINTS_REQUIRED_BOOL_FIELDS = ("prefer_plan_first", "allow_mcp_usage", "allow_repo_scan")
 _CONSTRAINTS_REQUIRED_INT_FIELDS = ("max_search_iterations", "max_instruction_ids")
-_CONSTRAINTS_OPTIONAL_FIELDS: dict[str, Any] = {"prefer_minimal_context": True}
+_CONSTRAINTS_OPTIONAL_FIELDS: dict[str, Any] = {
+    "prefer_plan_first": False,
+    "allow_mcp_usage": True,
+    "allow_repo_scan": True,
+    "max_search_iterations": 5,
+    "max_instruction_ids": 6,
+    "prefer_minimal_context": True,
+}
 _CONTEXT_STATE_ALLOWED_BOOL_FIELDS = (
     "repo_structure_loaded",
     "current_file_loaded",
@@ -90,15 +116,12 @@ def build_context_triggers(payload: dict[str, Any], *, catalog: dict[str, Any] |
     scenario = _classify_scenario(req, cat)
     mcp_usage = _determine_mcp_usage(req, workspace, constraints, cat)
     should_use_mcp = bool(mcp_usage["level"] in {"required", "recommended"})
+    evidence_gate = _build_evidence_gate(req, context_state, should_use_mcp)
+    should_stop = _should_stop_for_human_input(req, workspace, evidence_gate)
     signal_sources = _build_signal_sources(req, workspace, context_state, should_use_mcp)
     internal_derivations = {
         "should_use_mcp": should_use_mcp,
     }
-    should_stop = bool(
-        (req["mentions_public_contract"] and not workspace["workspace_signals_known"])
-        or (req["mentions_new_infrastructure"] and not workspace["workspace_signals_known"])
-        or (req["mentions_external_integration"] and not workspace["workspace_signals_known"])
-    )
     should_plan_first = bool(
         req["wants_only_plan"]
         or constraints["prefer_plan_first"]
@@ -145,7 +168,6 @@ def build_context_triggers(payload: dict[str, Any], *, catalog: dict[str, Any] |
         "batch_required": should_use_mcp,
     }
 
-    evidence_gate = _build_evidence_gate(req, context_state, should_use_mcp)
     advanced_signals = _build_advanced_signals(req, scenario, should_use_mcp, should_stop, evidence_gate)
 
     tool_sequence = _build_tool_sequence(req, workspace, should_use_mcp)
@@ -189,7 +211,7 @@ def build_context_triggers(payload: dict[str, Any], *, catalog: dict[str, Any] |
         },
         "stop_rules": {
             "stop_required": should_stop,
-            "stop_reasons": _stop_reasons(req, should_stop),
+            "stop_reasons": _stop_reasons(req, workspace, evidence_gate, should_stop),
             "human_input_required_if": list(cat["stop_rules"]),
         },
         "fallbacks": _build_fallbacks(cat),
@@ -237,24 +259,23 @@ def _validate_catalog(catalog: dict[str, Any]) -> None:
 
 
 def _validate_input_payload(payload: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
-    required_sections = {"schema_version", "request", "workspace", "context_state", "constraints"}
     if not isinstance(payload, dict):
         raise ContractError("INVALID_REQUEST_PAYLOAD", "Payload must be a JSON object.")
-    missing = sorted(required_sections - set(payload))
-    if missing:
-        raise ContractError("INVALID_REQUEST_PAYLOAD", "Payload is missing required sections.", {"missing": missing})
+    normalized_payload = dict(payload)
+    if "schema_version" not in normalized_payload:
+        normalized_payload["schema_version"] = SUPPORTED_SCHEMA_VERSION
 
-    if payload["schema_version"] != SUPPORTED_SCHEMA_VERSION:
+    if normalized_payload["schema_version"] != SUPPORTED_SCHEMA_VERSION:
         raise ContractError(
             "INVALID_SCHEMA_VERSION",
             "Unsupported schema_version for get_context_triggers.",
-            {"schema_version": payload["schema_version"]},
+            {"schema_version": normalized_payload["schema_version"]},
         )
 
-    request = _normalize_request(_require_dict(payload, "request"))
-    workspace = _normalize_workspace(_require_dict(payload, "workspace"))
-    context_state = _normalize_context_state(_require_dict(payload, "context_state"))
-    constraints = _normalize_constraints(_require_dict(payload, "constraints"))
+    request = _normalize_request(_optional_dict(normalized_payload, "request"))
+    workspace = _normalize_workspace(_optional_dict(normalized_payload, "workspace"))
+    context_state = _normalize_context_state(_optional_dict(normalized_payload, "context_state"))
+    constraints = _normalize_constraints(_optional_dict(normalized_payload, "constraints"))
 
     if request["operation_mode"] not in _OPERATION_MODE:
         raise ContractError("INVALID_REQUEST_PAYLOAD", "Invalid request.operation_mode.")
@@ -364,6 +385,15 @@ def _require_dict(payload: dict[str, Any], key: str) -> dict[str, Any]:
     return value
 
 
+def _optional_dict(payload: dict[str, Any], key: str) -> dict[str, Any]:
+    value = payload.get(key)
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ContractError("INVALID_REQUEST_PAYLOAD", f"Section '{key}' must be an object.")
+    return value
+
+
 def _classify_scenario(req: dict[str, Any], catalog: dict[str, Any]) -> dict[str, Any]:
     catalog_scenarios = _scenario_id_by_signals(catalog)
     if req["wants_only_plan"] and req["mentions_cross_cutting_concerns"]:
@@ -454,6 +484,26 @@ def _build_tool_sequence(req: dict[str, Any], workspace: dict[str, Any], should_
                 "instruction bodies and frontmatter",
                 "normative_evidence_incomplete",
                 "defer_policy_application_and_request_additional_evidence",
+            )
+        )
+        tools.append(
+            (
+                "normative_gate",
+                "corporate_instructions_validate_applicability",
+                "batch content requires formal applicability decision before enforcement",
+                "applicability states with evidence diagnostics",
+                "applicability_not_reconciled",
+                "request_workspace_evidence_and_treat_policy_as_hypothesis",
+            )
+        )
+        tools.append(
+            (
+                "normative_matrix",
+                "corporate_instructions_build_compliance_matrix",
+                "convert applicability and observations into operational status",
+                "compliance matrix with enforceability state",
+                "compliance_status_inconclusive",
+                "collect stronger observations_before_claiming_conformance",
             )
         )
 
@@ -753,6 +803,32 @@ def _validate_output_invariants(output: dict[str, Any]) -> None:
             "Output invariant failed: workspace evidence detection requires workspace verification.",
         )
 
+    # Invariant 5: MCP-enabled flows must carry full evidence-gate sequence.
+    if mcp_usage.get("level") in {"required", "recommended"}:
+        expected_order = [
+            "corporate_instructions_search_instructions",
+            "corporate_instructions_get_instructions_batch",
+            "corporate_instructions_validate_applicability",
+            "corporate_instructions_build_compliance_matrix",
+        ]
+        order_map = {
+            str(step.get("tool")): int(step.get("order", 0))
+            for step in tool_sequence
+            if isinstance(step, dict) and isinstance(step.get("tool"), str)
+        }
+        missing_tools = [tool for tool in expected_order if tool not in order_map]
+        if missing_tools:
+            raise ContractError(
+                "INVARIANT_VIOLATION",
+                "Output invariant failed: MCP flow missing evidence-gate tools.",
+                {"missing_tools": missing_tools},
+            )
+        if not all(order_map[expected_order[i]] < order_map[expected_order[i + 1]] for i in range(len(expected_order) - 1)):
+            raise ContractError(
+                "INVARIANT_VIOLATION",
+                "Output invariant failed: MCP evidence-gate tool order is invalid.",
+            )
+
 
 def _determine_mcp_usage(
     req: dict[str, Any], workspace: dict[str, Any], constraints: dict[str, Any], catalog: dict[str, Any]
@@ -807,16 +883,41 @@ def _catalog_indicates_cross_cutting_requires_mcp(req: dict[str, Any], catalog: 
     return False
 
 
-def _stop_reasons(req: dict[str, Any], should_stop: bool) -> list[str]:
+def _should_stop_for_human_input(
+    req: dict[str, Any],
+    workspace: dict[str, Any],
+    evidence_gate: dict[str, Any],
+) -> bool:
+    policy_sensitive_change = bool(
+        req["mentions_public_contract"] or req["mentions_new_infrastructure"] or req["mentions_external_integration"]
+    )
+    if not policy_sensitive_change:
+        return False
+    reconciled = str(evidence_gate.get("reconciliation_status", "")).strip().lower() == "reconciled"
+    workspace_signals_known = bool(workspace.get("workspace_signals_known", False))
+    return not (reconciled and workspace_signals_known)
+
+
+def _stop_reasons(
+    req: dict[str, Any],
+    workspace: dict[str, Any],
+    evidence_gate: dict[str, Any],
+    should_stop: bool,
+) -> list[str]:
     if not should_stop:
         return []
+    reasons_suffix = "without_reconciled_evidence"
+    if str(evidence_gate.get("reconciliation_status", "")).strip().lower() == "reconciled":
+        reasons_suffix = "without_verified_workspace_signals"
     reasons: list[str] = []
     if req["mentions_public_contract"]:
-        reasons.append("public_contract_change_without_evidence")
+        reasons.append(f"public_contract_change_{reasons_suffix}")
     if req["mentions_new_infrastructure"]:
-        reasons.append("new_infrastructure_without_evidence")
+        reasons.append(f"new_infrastructure_{reasons_suffix}")
     if req["mentions_external_integration"]:
-        reasons.append("external_integration_without_evidence")
+        reasons.append(f"external_integration_{reasons_suffix}")
+    if not workspace.get("workspace_signals_known", False):
+        reasons.append("workspace_signals_not_verified")
     return reasons
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from fnmatch import fnmatch
+import re
 from typing import Any
 
 from corporate_instructions_mcp.indexing import InstructionRecord, normalize_text
@@ -102,7 +103,23 @@ def _normalize_signals(raw_signals: object) -> list[str]:
 def _signal_matches_signal_value(signal_norm: str, evidence_norm: str) -> bool:
     if not signal_norm or not evidence_norm:
         return False
-    return signal_norm == evidence_norm or signal_norm in evidence_norm or evidence_norm in signal_norm
+    if signal_norm == evidence_norm:
+        return True
+
+    signal_tokens = set(re.findall(r"[a-z0-9_]+", signal_norm))
+    evidence_tokens = set(re.findall(r"[a-z0-9_]+", evidence_norm))
+    if not signal_tokens or not evidence_tokens:
+        return False
+
+    shared_tokens = signal_tokens & evidence_tokens
+    if not shared_tokens:
+        return False
+
+    # Accept only strong token coverage to avoid permissive substring-only matches
+    # such as "http" matching "httpclientfactory".
+    signal_coverage = len(shared_tokens) / len(signal_tokens)
+    evidence_coverage = len(shared_tokens) / len(evidence_tokens)
+    return signal_coverage >= 1.0 and evidence_coverage >= 0.5
 
 
 def _match_signals_by_type(signals: list[str], evidence_items: list[EvidenceItem], evidence_type: str) -> list[str]:
@@ -207,6 +224,7 @@ def build_compliance_row(
     positives = [item for item in observations if str(item.get("observation_type", "")).strip().lower() == "positive"]
     gaps = [item for item in observations if str(item.get("observation_type", "")).strip().lower() == "gap"]
     deviations = [item for item in observations if str(item.get("observation_type", "")).strip().lower() == "deviation"]
+    substantive_positives = [item for item in positives if _is_substantive_positive_observation(item)]
 
     status = "insufficient_evidence"
     reason = "Applicable instruction without enough artifact observation."
@@ -225,14 +243,18 @@ def build_compliance_row(
             status = "non_conformance"
             reason = "Applicable instruction has at least one direct deviation observation."
             allowed_action = "Address the deviation before claiming conformance."
-        elif positives and gaps:
+        elif substantive_positives and gaps:
             status = "partial_conformance"
             reason = "Applicable instruction has positive adherence signals and identified gaps."
             allowed_action = "Preserve positives and close identified gaps."
-        elif positives and not gaps:
+        elif substantive_positives and not gaps:
             status = "conformant"
             reason = "Applicable instruction has positive evidence with no identified gaps."
             allowed_action = "Keep current implementation and guard with tests."
+        elif positives and not substantive_positives:
+            status = "insufficient_evidence"
+            reason = "Positive observations are too generic to assert conformance."
+            allowed_action = "Capture direct, traceable observations before asserting conformance."
 
     evidence: list[str] = []
     if base_reason:
@@ -251,3 +273,11 @@ def build_compliance_row(
         "allowed_action": allowed_action,
         "reason": reason,
     }
+
+
+def _is_substantive_positive_observation(observation: dict[str, Any]) -> bool:
+    raw_value = str(observation.get("value", "")).strip()
+    if len(raw_value) < 12:
+        return False
+    token_count = len(re.findall(r"[A-Za-z0-9_]+", raw_value))
+    return token_count >= 3

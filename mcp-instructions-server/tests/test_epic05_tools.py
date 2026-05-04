@@ -268,3 +268,97 @@ def test_build_compliance_matrix_applicable_deviation_maps_non_conformance() -> 
 
 def test_build_compliance_matrix_applicable_without_observation_maps_insufficient_evidence() -> None:
     assert _matrix_status(applicability="applicable") == "insufficient_evidence"
+
+
+def test_validate_applicability_generic_substring_evidence_does_not_match_specific_signal(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from corporate_instructions_mcp.server import validate_applicability
+    import corporate_instructions_mcp.server as srv
+
+    policy = """---
+id: policy-httpclient-factory
+title: Use HttpClientFactory
+scope: "**/*.cs"
+kind: policy
+workspace_evidence_required: true
+workspace_signals: [httpclientfactory]
+---
+Body.
+"""
+    (tmp_path / "policy-httpclient-factory.md").write_text(policy, encoding="utf-8")
+    monkeypatch.setenv("INSTRUCTIONS_ROOT", str(tmp_path))
+    srv._index = {}
+    srv._index_root = None
+
+    data = json.loads(
+        validate_applicability(
+            instruction_ids=["policy-httpclient-factory"],
+            target_artifact={"path": "Api/Services/ClienteService.cs"},
+            workspace_evidence=["http"],
+        )
+    )
+    assert data["results"][0]["applicability"] == "blocked_by_missing_evidence"
+
+
+def test_validate_applicability_specific_tokenized_evidence_matches_signal(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from corporate_instructions_mcp.server import validate_applicability
+    import corporate_instructions_mcp.server as srv
+
+    policy = """---
+id: policy-httpcontext-user
+title: Use HttpContext User checks
+scope: "**/*.cs"
+kind: policy
+workspace_evidence_required: true
+workspace_signals: [HttpContext.User]
+---
+Body.
+"""
+    (tmp_path / "policy-httpcontext-user.md").write_text(policy, encoding="utf-8")
+    monkeypatch.setenv("INSTRUCTIONS_ROOT", str(tmp_path))
+    srv._index = {}
+    srv._index_root = None
+
+    data = json.loads(
+        validate_applicability(
+            instruction_ids=["policy-httpcontext-user"],
+            target_artifact={"path": "Api/Endpoints/ClienteEndpoints.cs"},
+            workspace_evidence=["HttpContext.User.Identity.IsAuthenticated"],
+        )
+    )
+    assert data["results"][0]["applicability"] == "applicable"
+
+
+def test_build_compliance_matrix_applicable_trivial_positive_maps_insufficient_evidence() -> None:
+    assert (
+        _matrix_status(
+            applicability="applicable",
+            observations=[
+                {
+                    "instruction_id": "microservice-api-openfinance-patterns",
+                    "observation_type": "positive",
+                    "value": "ok",
+                }
+            ],
+        )
+        == "insufficient_evidence"
+    )
+
+
+def test_build_compliance_matrix_applicable_substantive_positive_maps_conformant() -> None:
+    assert (
+        _matrix_status(
+            applicability="applicable",
+            observations=[
+                {
+                    "instruction_id": "microservice-api-openfinance-patterns",
+                    "observation_type": "positive",
+                    "value": "Api/Endpoints/ClienteEndpoints.cs returns standardized response envelope for 2xx and 4xx cases.",
+                }
+            ],
+        )
+        == "conformant"
+    )

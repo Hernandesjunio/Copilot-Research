@@ -1,12 +1,12 @@
 ---
 id: assistant-workflow-bmad-planning-and-controlled-inference
 title: "Fluxo de assistência — BMAD/spec-driven, refinamento e inferência controlada"
-tags: [assistant, planning, bmad, spec-driven, governance, inference, legacy, confidence]
-scope: "**/*"
+tags: [assistant, planning, bmad, spec-driven, governance, meta-governance, inference, legacy, confidence]
+scope: "**/*.md"
 priority: high
 kind: policy
 owner: platform-architecture
-last_reviewed: 2026-05-03
+last_reviewed: 2026-05-04
 status: active
 ---
 

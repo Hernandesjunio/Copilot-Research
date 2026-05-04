@@ -45,7 +45,7 @@ Executa as tools com `INSTRUCTIONS_ROOT` no fixture; reinicia o índice em memó
 
 | Teste | O que valida |
 |-------|----------------|
-| `test_list_instructions_index_count` | Resposta JSON com `status/index_health/warnings/errors`, `count`, `by_tag`, e presença mínima de IDs conhecidos (incl. `dns-retry-pattern`, `security-baseline-secrets`, `csharp-async-style`). |
+| `test_list_instructions_index_count` | Resposta JSON com `status/index_health/warnings/errors`, `count`, `by_tag`, e presença mínima de IDs conhecidos (incl. `dns-retry-pattern`, `example-security-baseline`, `csharp-async-style`). |
 | `test_search_instructions_finds_dns` | Busca por texto encontra `dns-retry-pattern` no topo e devolve `composed_context`. |
 | `test_search_results_have_related_ids_shape` | Cada resultado de busca inclui `related_ids` (lista de strings), sem o próprio `id`. |
 | `test_search_dns_top_result_related_ids_include_resilience_policy` | Para o hit DNS, `related_ids` contém `microservice-resilience-polly-timeouts-and-circuit-breaker` (partilha de tags com a policy Polly). |
@@ -56,7 +56,7 @@ Executa as tools com `INSTRUCTIONS_ROOT` no fixture; reinicia o índice em memó
 | `test_get_instructions_batch_single_document` | Batch com um único ID devolve conteúdo esperado (ex.: menção a Polly). |
 | `test_get_instructions_batch_includes_frontmatter_with_extra_keys` | Cada item inclui `frontmatter` com chaves extra do YAML (ex.: `owner`, `last_reviewed` como ISO). |
 | `test_get_instructions_batch_frontmatter_round_trips_json` | `frontmatter` é serializável em JSON após `json.loads` do payload da tool. |
-| `test_search_tags_only` | Query vazia com `tags=security` filtra e inclui `security-baseline-secrets`. |
+| `test_search_tags_only` | Query vazia com `tags=security` filtra e inclui `example-security-baseline`. |
 | `test_search_instructions_invalid_max_results_uses_default` | `max_results` inválido cai no default e ainda devolve resultados. |
 | `test_search_instructions_persistencia_sql_returns_data_access` | Expansão por sinónimos / domínio: `persistência SQL` ranqueia `microservice-data-access-and-sql-security`. |
 | `test_search_instructions_multi_query_consolidated_output` | Modo `queries` devolve saída consolidada estável (`top_policies`, `top_references`, `coverage_gaps`). |

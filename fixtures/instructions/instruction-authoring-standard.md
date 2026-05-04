@@ -1,12 +1,12 @@
 ---
 id: instruction-authoring-standard
 title: "Corpus — padrão de autoria de instructions"
-tags: [governance, instructions, frontmatter, corpus, mcp]
+tags: [governance, meta-governance, instructions, frontmatter, corpus, mcp]
 scope: "**/*.md"
 priority: medium
 kind: policy
 owner: platform-architecture
-last_reviewed: 2026-04-12
+last_reviewed: 2026-05-04
 status: active
 ---
 

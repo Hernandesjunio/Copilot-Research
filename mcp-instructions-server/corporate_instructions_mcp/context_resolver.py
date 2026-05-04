@@ -37,6 +37,20 @@ _LOW_SIGNAL_REFERENCE_TERMS = {
     "validation",
 }
 
+_THEME_QUERY_HINTS: dict[str, set[str]] = {
+    "architecture": {"arquitetura", "architecture", "estruturar", "camadas", "layering", "dominio", "projeto"},
+    "observability": {"observabilidade", "observability", "instrumentar", "opentelemetry", "tracing", "metrics"},
+    "integration": {"integracao", "integration", "externa", "api", "httpclient", "resiliencia", "resilience"},
+}
+
+_THEME_TAG_HINTS: dict[str, set[str]] = {
+    "architecture": {"architecture", "layering", "clean-architecture", "domain", "repository", "interfaces"},
+    "observability": {"observability", "opentelemetry", "tracing", "metrics", "health", "logging"},
+    "integration": {"integration", "httpclient", "api", "contracts", "resilience", "serialization"},
+}
+
+_THEME_MIN_STRENGTH = 2
+
 
 @dataclass(frozen=True)
 class ChecklistScenarioItem:
@@ -77,6 +91,21 @@ def _has_specific_reference_signal(row: dict[str, Any]) -> bool:
 
 def _quoted_phrases(text: str) -> list[str]:
     return [p.strip() for p in re.findall(r'"([^"]{3,80})"', text) if p.strip()]
+
+
+def _query_themes(query: str) -> set[str]:
+    query_tokens = {normalize_text(token) for token in tokenize_query(query)}
+    return {theme for theme, hints in _THEME_QUERY_HINTS.items() if query_tokens & hints}
+
+
+def _row_theme_strength(row: dict[str, Any], theme: str) -> int:
+    hints = _THEME_TAG_HINTS.get(theme, set())
+    if not hints:
+        return 0
+    tags = {normalize_text(str(tag)) for tag in (row.get("tags") or []) if isinstance(tag, str)}
+    title = str(row.get("title") or row.get("source_title") or "")
+    title_tokens = {normalize_text(token) for token in tokenize_query(title)}
+    return len(tags & hints) + len(title_tokens & hints)
 
 
 def _literal_scope_segments(scope: str | None) -> list[str]:
@@ -489,6 +518,28 @@ def build_resolved_context(
     if reference_candidate:
         add(reference_candidate, "ensure_supporting_reference")
 
+    requested_themes = _query_themes(query)
+    if len(requested_themes) >= 3:
+        for theme in sorted(requested_themes):
+            top5_strength = max((_row_theme_strength(row, theme) for row in selected[:5]), default=0)
+            if top5_strength >= _THEME_MIN_STRENGTH:
+                continue
+            candidates = [
+                row
+                for row in pool
+                if row.get("id") not in selected_ids and _row_theme_strength(row, theme) > 0
+            ]
+            if not candidates:
+                continue
+            candidates.sort(
+                key=lambda row: (
+                    -_row_theme_strength(row, theme),
+                    -float(row.get("score", 0.0)),
+                    str(row.get("id", "")),
+                )
+            )
+            add(candidates[0], f"ensure_theme_diversity_{theme}")
+
     for row in pool:
         if len(selected) >= target:
             break
@@ -562,8 +613,20 @@ def build_resolved_context(
             }
         )
 
-    next_actions = [f"Apply `{instruction_id}` as normative baseline." for instruction_id in normative_ids]
-    next_actions.extend(f"Use `{instruction_id}` as supporting reference while implementing." for instruction_id in supporting_ids)
+    requires_applicability_gate = bool(normative_ids)
+    next_actions: list[str] = []
+    if requires_applicability_gate:
+        next_actions.append(
+            "Run `validate_applicability` for selected normative ids before asserting or applying any policy."
+        )
+    next_actions.extend(
+        f"After applicability is reconciled, apply `{instruction_id}` as normative baseline."
+        for instruction_id in normative_ids
+    )
+    next_actions.extend(
+        f"Use `{instruction_id}` as supporting reference after normative applicability is confirmed."
+        for instruction_id in supporting_ids
+    )
     if section_focus:
         next_actions.append(f"Inspect the batched sections focused on `{section_focus}` first.")
     if low_confidence or ambiguous_gap:
@@ -586,7 +649,8 @@ def build_resolved_context(
         + (", ".join(f"`{instruction_id}`" for instruction_id in normative_ids) or "none")
         + ". Supporting references: "
         + (", ".join(f"`{instruction_id}`" for instruction_id in supporting_ids) or "none")
-        + "."
+        + ". Applicability gate required: "
+        + ("yes." if requires_applicability_gate else "no.")
     )
 
     selection_rationale = [
@@ -657,6 +721,7 @@ def build_resolved_context(
         "actionable_context": {
             "normative_ids": normative_ids,
             "supporting_ids": supporting_ids,
+            "requires_applicability_gate": requires_applicability_gate,
             "implementation_brief": implementation_brief,
             "next_actions": next_actions,
             "gaps": gaps,

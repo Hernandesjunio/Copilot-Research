@@ -1,6 +1,6 @@
 ---
-id: security-baseline-secrets
-title: "Linha de base — segredos e dados sensíveis"
+id: example-security-baseline
+title: "Linha de base de segurança — segredos e dados sensíveis"
 tags: [security, secrets, compliance]
 priority: high
 kind: policy

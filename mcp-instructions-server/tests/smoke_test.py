@@ -45,6 +45,10 @@ def _assert_context_trigger_invariants(data: dict[str, object]) -> None:
         assert stop_rules["stop_reasons"]
     if evidence_gate["workspace_evidence_required_detected"] is True:
         assert evidence_gate["must_verify_workspace_signals"] is True
+    if mcp_usage["level"] in {"required", "recommended"}:
+        tools = [step["tool"] for step in data["tool_sequence"]]
+        assert "corporate_instructions_validate_applicability" in tools
+        assert "corporate_instructions_build_compliance_matrix" in tools
 
 
 def test_list_instructions_index_count() -> None:
@@ -59,7 +63,7 @@ def test_list_instructions_index_count() -> None:
     assert "by_tag" in data
     assert isinstance(data["by_tag"], dict)
     ids = {x["id"] for x in data["instructions"]}
-    assert {"dns-retry-pattern", "security-baseline-secrets", "csharp-async-style"}.issubset(ids)
+    assert {"dns-retry-pattern", "example-security-baseline", "csharp-async-style"}.issubset(ids)
 
 
 def test_search_instructions_finds_dns() -> None:
@@ -145,7 +149,7 @@ def test_get_instructions_batch_includes_frontmatter_with_extra_keys() -> None:
     assert fm["id"] == "dns-retry-pattern"
     assert fm["owner"] == "platform-architecture"
     assert fm["status"] == "active"
-    assert fm["last_reviewed"] == "2026-04-12"
+    assert fm["last_reviewed"] == "2026-05-04"
 
 
 def test_get_instructions_batch_frontmatter_round_trips_json() -> None:
@@ -161,7 +165,7 @@ def test_search_tags_only() -> None:
     from corporate_instructions_mcp.server import search_instructions
 
     data = json.loads(search_instructions(query="", tags="security", max_results=5))
-    assert any(r["id"] == "security-baseline-secrets" for r in data["results"])
+    assert any(r["id"] == "example-security-baseline" for r in data["results"])
 
 
 def test_search_instructions_invalid_max_results_uses_default() -> None:
@@ -461,6 +465,25 @@ def test_get_context_triggers_functional_scenarios_matrix() -> None:
     _assert_context_trigger_invariants(out_e)
 
 
+def test_get_context_triggers_accepts_partial_payload_with_defaults() -> None:
+    from corporate_instructions_mcp.server import get_context_triggers
+
+    partial_payload = {
+        "request": {
+            "operation_mode": "implement",
+            "mentions_cross_cutting_concerns": True,
+            "mentions_external_integration": True,
+            "ambiguity_level": "medium",
+            "risk_level": "medium",
+        },
+        "workspace": {"has_mcp": True},
+    }
+    output = json.loads(get_context_triggers(input_payload=json.dumps(partial_payload, ensure_ascii=False)))
+    assert output["schema_version"] == "1.0.0"
+    assert output["mcp_usage"]["level"] in {"required", "recommended"}
+    assert output["tool_sequence"]
+
+
 def test_search_instructions_persistencia_sql_returns_data_access() -> None:
     from corporate_instructions_mcp.server import search_instructions
 
@@ -504,6 +527,29 @@ def test_resolve_instruction_context_exposes_p1_evidence_fields() -> None:
     assert isinstance(resolution["required_workspace_signals"], dict)
     assert "next_repo_evidence_actions" in resolution
     assert isinstance(resolution["next_repo_evidence_actions"], list)
+
+
+def test_resolve_instruction_context_requires_applicability_gate_for_normative_ids() -> None:
+    from corporate_instructions_mcp.server import resolve_instruction_context
+
+    data = json.loads(resolve_instruction_context(query="authorization owner audit endpoint", max_results=3))
+    actionable = data["resolution"]["actionable_context"]
+    assert actionable["normative_ids"]
+    assert actionable["requires_applicability_gate"] is True
+    assert any("validate_applicability" in step for step in actionable["next_actions"])
+
+
+def test_resolve_instruction_context_next_actions_do_not_apply_before_gate() -> None:
+    from corporate_instructions_mcp.server import resolve_instruction_context
+
+    data = json.loads(resolve_instruction_context(query="cep viacep retry timeout cache", max_results=5))
+    next_actions = data["resolution"]["actionable_context"]["next_actions"]
+    lower_actions = [action.lower() for action in next_actions]
+    gate_idx = next((idx for idx, action in enumerate(lower_actions) if "validate_applicability" in action), None)
+    assert gate_idx is not None
+    for idx, action in enumerate(lower_actions):
+        if "apply `" in action:
+            assert gate_idx < idx
 
 
 def test_get_instructions_batch_returns_multiple_documents() -> None:

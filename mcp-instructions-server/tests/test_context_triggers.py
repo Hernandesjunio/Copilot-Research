@@ -107,6 +107,14 @@ def test_tool_sequence_ordered_and_contains_only_read_tools_for_plan_only() -> N
     for step in sequence:
         assert isinstance(step["failure_effect"], str) and step["failure_effect"]
         assert isinstance(step["fallback_on_failure"], str) and step["fallback_on_failure"]
+    assert "corporate_instructions_validate_applicability" in tool_names
+    assert "corporate_instructions_build_compliance_matrix" in tool_names
+    assert tool_names.index("corporate_instructions_get_instructions_batch") < tool_names.index(
+        "corporate_instructions_validate_applicability"
+    )
+    assert tool_names.index("corporate_instructions_validate_applicability") < tool_names.index(
+        "corporate_instructions_build_compliance_matrix"
+    )
 
 
 def test_mentions_current_file_prepends_get_currentfile() -> None:
@@ -161,9 +169,10 @@ def test_missing_required_section_raises_contract_error() -> None:
     payload = _sample_payload()
     payload_no_constraints = deepcopy(payload)
     payload_no_constraints.pop("constraints")
-    with pytest.raises(ContractError) as exc_info:
-        build_context_triggers(payload_no_constraints)
-    assert exc_info.value.code == "INVALID_REQUEST_PAYLOAD"
+    output = build_context_triggers(payload_no_constraints)
+    assert output["schema_version"] == "1.0.0"
+    assert output["strategy"]["recommended_execution_mode"] == "plan_only"
+    assert output["mcp_usage"]["level"] == "recommended"
 
 
 def test_optional_fields_can_be_omitted_with_defaults() -> None:
@@ -377,3 +386,31 @@ def test_advanced_signals_reflect_local_low_risk_case() -> None:
     output = build_context_triggers(payload)
     assert output["advanced_signals"]["decision_stability"]["level"] == "high"
     assert output["advanced_signals"]["plan_granularity"]["level"] == "coarse"
+
+
+def test_policy_sensitive_change_keeps_stop_when_workspace_signals_claimed_without_batch() -> None:
+    payload = _sample_payload()
+    payload["request"]["wants_only_plan"] = False
+    payload["request"]["operation_mode"] = "implement"
+    payload["request"]["mentions_cross_cutting_concerns"] = False
+    payload["request"]["mentions_public_contract"] = True
+    payload["workspace"]["workspace_signals_known"] = True
+    payload["context_state"]["mcp_batch_loaded"] = False
+
+    output = build_context_triggers(payload)
+    assert output["stop_rules"]["stop_required"] is True
+    assert "public_contract_change_without_reconciled_evidence" in output["stop_rules"]["stop_reasons"]
+
+
+def test_policy_sensitive_change_releases_stop_after_reconciled_batch_and_verified_workspace() -> None:
+    payload = _sample_payload()
+    payload["request"]["wants_only_plan"] = False
+    payload["request"]["operation_mode"] = "implement"
+    payload["request"]["mentions_cross_cutting_concerns"] = False
+    payload["request"]["mentions_public_contract"] = True
+    payload["workspace"]["workspace_signals_known"] = True
+    payload["context_state"]["mcp_batch_loaded"] = True
+
+    output = build_context_triggers(payload)
+    assert output["evidence_gate"]["reconciliation_status"] == "reconciled"
+    assert output["stop_rules"]["stop_required"] is False

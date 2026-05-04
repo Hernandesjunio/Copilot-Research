@@ -29,6 +29,7 @@ _INDEX_WARNINGS: list[dict[str, Any]] = []
 
 PRIORITY_RANK = {"high": 3, "medium": 2, "low": 1, None: 0}
 EXPANSION_CAP_PER_TOKEN = 5
+_DNS_QUERY_SIGNAL_TERMS = {"dns", "resolver", "nameserver", "lookup", "ttl"}
 
 STOPWORDS = {
     "the",
@@ -53,6 +54,21 @@ STOPWORDS = {
     "dos",
     "e",
     "em",
+    "como",
+    "deve",
+    "ser",
+    "que",
+    "me",
+    "mostre",
+    "quando",
+    "qual",
+    "quais",
+    "fazer",
+    "usar",
+    "implementar",
+    "configurar",
+    "retornar",
+    "tratar",
     "na",
     "no",
     "nas",
@@ -72,11 +88,14 @@ DEFAULT_SYNONYMS: dict[str, list[str]] = {
     "resiliencia": ["polly", "retry", "circuit-breaker", "timeout", "tolerancia"],
     "arquitetura": ["layering", "camadas", "clean-architecture", "solid", "dotnet"],
     "testes": ["testing", "unit", "integration", "contract", "xunit"],
-    "observabilidade": ["opentelemetry", "health", "correlation", "tracing", "metrics"],
+    # Link observability requests to production-readiness docs.
+    "observabilidade": ["opentelemetry", "health", "readiness", "production", "deployment"],
     "mensageria": ["rabbitmq", "messaging", "publish", "consume", "outbox"],
     "seguranca": ["security", "secrets", "jwt", "authentication", "authorization"],
     "api": ["problem-details", "rfc7807", "pagination", "filtering", "minimal-api"],
     "configuracao": ["configuration", "options", "ioptions", "feature-flags", "deployment"],
+    # Ensure /health/live/ready queries reach operational configuration guidance.
+    "healthcheck": ["health", "live", "ready", "readiness", "production"],
     "dominio": ["domain", "repository", "interfaces", "models", "table-storage"],
     "integracao": ["integration", "httpclient", "contracts", "serialization", "resilience"],
     "saga": ["orchestration", "process-manager", "consistency", "idempotency", "compensation"],
@@ -85,7 +104,13 @@ DEFAULT_SYNONYMS: dict[str, list[str]] = {
     "csharp": ["dotnet", "async", "style", "generics", "performance"],
     "planejamento": ["planning", "assistant", "inference", "confidence", "legacy"],
     "conformidade": ["compliance", "secrets", "audit", "ownership", "resource-scope"],
-    "dns": ["nameserver", "resolver", "lookup", "network", "retry"],
+    # Avoid "retry" -> "dns" cross-contamination in generic resilience searches.
+    "dns": ["nameserver", "resolver", "lookup", "network", "ttl"],
+    # Improve coverage for pagination/collection contract queries in Portuguese.
+    "paginacao": ["pagination", "filtering", "ordering", "collection", "envelope"],
+    "colecoes": ["collection", "pagination", "filtering", "api-collection", "ordering"],
+    # Map "estruturar projeto" style prompts to architecture guidance.
+    "estruturar": ["arquitetura", "layering", "camadas", "clean-architecture", "dominio"],
 }
 
 
@@ -546,6 +571,7 @@ def score_record_breakdown(
 
     info = expanded_info if expanded_info is not None else expand_query_with_metadata(tokens)
     user_set = frozenset(info.user_tokens)
+    normalized_user_terms = {_normalize_for_index(token) for token in user_set}
 
     blob = rec.search_blob()
     title_l = _normalize_for_index(rec.title)
@@ -566,6 +592,18 @@ def score_record_breakdown(
             from_user += part
         else:
             from_exp += part
+
+    # DNS retry guidance is intentionally domain-scoped.
+    if "dns" in rec.tags:
+        if normalized_user_terms & _DNS_QUERY_SIGNAL_TERMS:
+            score_tags += 1.0
+            from_user += 1.0
+        else:
+            score_body *= 0.6
+            score_title *= 0.6
+            score_tags *= 0.6
+            from_user *= 0.6
+            from_exp *= 0.6
 
     pr = 0.5 * PRIORITY_RANK.get(rec.priority, 0) if (score_body + score_title + score_tags) > 0.0 else 0.0
     phrase_bonus = _count_exact_phrase_bonus(rec, exact_phrases or [])

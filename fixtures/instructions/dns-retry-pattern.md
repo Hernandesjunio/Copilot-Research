@@ -1,12 +1,12 @@
 ---
 id: dns-retry-pattern
 title: "Padrão de retry para resolução DNS"
-tags: [dns, retry, resilience, polly]
+tags: [dns, resilience, polly]
 scope: "**/*.cs"
 priority: high
 kind: reference
 owner: platform-architecture
-last_reviewed: 2026-04-12
+last_reviewed: 2026-05-04
 status: active
 ---
 
@@ -20,5 +20,5 @@ Em resolvers DNS internos, usar política de retry com backoff exponencial alinh
 
 ## Anti-padrões
 
-- Retry infinito sem circuit breaker.
+- Retry infinito sem escalonamento por domínio/falha DNS.
 - Logs com dados pessoais ou domínios completos em claro quando a política de privacidade proíbe.

@@ -27,7 +27,7 @@ from corporate_instructions_mcp.context_resolver import (
     build_resolved_context,
     resolve_conflicts,
 )
-from corporate_instructions_mcp.context_triggers import ContractError, build_context_triggers
+from corporate_instructions_mcp.context_triggers import ContractError, SUPPORTED_SCHEMA_VERSION, build_context_triggers
 from corporate_instructions_mcp.indexing import (
     PRIORITY_RANK,
     CorpusSignature,
@@ -1491,16 +1491,47 @@ def get_context_triggers(input_payload: str) -> str:
     """
     call_start = time.perf_counter()
     args_payload: dict[str, Any] = {"input_payload_len": len(str(input_payload))}
-    try:
-        parsed_input = json.loads(input_payload)
-    except json.JSONDecodeError:
+    if isinstance(input_payload, dict):
+        parsed_input: Any = input_payload
+    else:
+        try:
+            parsed_input = json.loads(str(input_payload))
+        except json.JSONDecodeError:
+            example_payload = (
+                '{"schema_version":"1.0.0","request":{},"workspace":{},'
+                '"context_state":{},"constraints":{}}'
+            )
+            raw = _format_error(
+                error_code="INVALID_REQUEST_PAYLOAD",
+                message="input_payload must be a valid JSON object.",
+                details={"input_payload_len": len(str(input_payload))},
+                suggested_next_call={
+                    "tool": "get_context_triggers",
+                    "args": {"input_payload": example_payload},
+                },
+            )
+            duration_ms = int((time.perf_counter() - call_start) * 1000)
+            _emit_tool_completed(
+                "get_context_triggers.completed",
+                duration_ms,
+                failure=True,
+                args_key_payload=args_payload,
+                payload={
+                    "response_chars": len(raw),
+                    "response_bytes": len(raw.encode("utf-8", errors="replace")),
+                    "error_code": "INVALID_REQUEST_PAYLOAD",
+                },
+            )
+            return raw
+
+    if not isinstance(parsed_input, dict):
         example_payload = (
             '{"schema_version":"1.0.0","request":{},"workspace":{},'
             '"context_state":{},"constraints":{}}'
         )
         raw = _format_error(
             error_code="INVALID_REQUEST_PAYLOAD",
-            message="input_payload must be a valid JSON object.",
+            message="input_payload must decode to a JSON object.",
             details={"input_payload_len": len(str(input_payload))},
             suggested_next_call={
                 "tool": "get_context_triggers",
@@ -1521,17 +1552,17 @@ def get_context_triggers(input_payload: str) -> str:
         )
         return raw
 
-    if isinstance(parsed_input, dict):
-        req = parsed_input.get("request", {})
-        if isinstance(req, dict):
-            args_payload.update(
-                {
-                    "schema_version": parsed_input.get("schema_version"),
-                    "operation_mode": req.get("operation_mode"),
-                    "wants_only_plan": req.get("wants_only_plan"),
-                    "mentions_cross_cutting_concerns": req.get("mentions_cross_cutting_concerns"),
-                }
-            )
+    parsed_input.setdefault("schema_version", SUPPORTED_SCHEMA_VERSION)
+    req = parsed_input.get("request", {})
+    if isinstance(req, dict):
+        args_payload.update(
+            {
+                "schema_version": parsed_input.get("schema_version"),
+                "operation_mode": req.get("operation_mode"),
+                "wants_only_plan": req.get("wants_only_plan"),
+                "mentions_cross_cutting_concerns": req.get("mentions_cross_cutting_concerns"),
+            }
+        )
 
     try:
         output = build_context_triggers(cast(dict[str, Any], parsed_input))

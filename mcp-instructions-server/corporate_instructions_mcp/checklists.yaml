@@ -104,7 +104,7 @@ security_baseline:
       requirement_level: required
       why: "Exposição de segredo é falha grave e tende a vazar para logs, repositório ou pipeline."
       instruction_ids:
-        - security-baseline-secrets
+        - example-security-baseline
       verification:
         - "Tokens, senhas e connection strings não são commitados nem logados."
         - "Existe política de rotação/revogação em caso de suspeita de vazamento."
