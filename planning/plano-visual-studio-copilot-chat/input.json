@@ -1,0 +1,48 @@
+{
+    "schema_version": "1.0.0",
+    "request": {
+      "user_goal": "quero um plano detalhado para migrar este fluxo para processamento assíncrono",
+      "operation_mode": "plan_only",
+      "explicit_deliverable": "detailed plan",
+      "ambiguity_level": "medium",
+      "risk_level": "medium",
+      "mentions_current_file": false,
+      "mentions_specific_files": false,
+      "mentions_symbols": false,
+      "mentions_cross_cutting_concerns": true,
+      "mentions_public_contract": false,
+      "mentions_new_infrastructure": false,
+      "mentions_external_integration": false,
+      "wants_tests": false,
+      "wants_only_plan": true
+    },
+    "workspace": {
+      "repo_known": false,
+      "current_file_available": false,
+      "solution_available": true,
+      "project_count_known": false,
+      "has_mcp": true,
+      "tech_stack_signals": [
+        ".NET 8"
+      ],
+      "workspace_signals_known": false
+    },
+    "context_state": {
+      "repo_structure_loaded": false,
+      "current_file_loaded": false,
+      "target_files_loaded": false,
+      "symbols_loaded": false,
+      "mcp_index_loaded": false,
+      "mcp_batch_loaded": false,
+      "plan_already_created": false
+    },
+    "constraints": {
+      "prefer_plan_first": true,
+      "prefer_minimal_context": true,
+      "allow_mcp_usage": true,
+      "allow_repo_scan": true,
+      "max_search_iterations": 5,
+      "max_instruction_ids": 6
+    }
+  }
+  

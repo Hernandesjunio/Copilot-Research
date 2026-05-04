@@ -1,0 +1,114 @@
+{
+    "schema_version": "1.0.0",
+    "scenario": {
+      "scenario_id": "plan-crosscutting-async-migration",
+      "scenario_family": "plan",
+      "scenario_confidence": 0.96
+    },
+    "strategy": {
+      "should_plan_first": true,
+      "should_use_repo_tools_first": true,
+      "should_use_mcp": true,
+      "should_stop_for_human_input": false,
+      "should_ask_for_clarification_before_patch": false,
+      "recommended_execution_mode": "plan_only"
+    },
+    "tool_sequence": [
+      {
+        "order": 1,
+        "phase": "repo_discovery",
+        "tool": "get_projects_in_solution",
+        "required": true,
+        "why": "repo structure unknown and no explicit target files",
+        "expected_output": "project list",
+        "success_condition": "at least one project identified"
+      },
+      {
+        "order": 2,
+        "phase": "repo_discovery",
+        "tool": "get_files_in_project",
+        "required": true,
+        "why": "enumerate likely target areas",
+        "expected_output": "file list in selected project",
+        "success_condition": "relevant API/domain/repository files identified"
+      },
+      {
+        "order": 3,
+        "phase": "normative_discovery",
+        "tool": "corporate_instructions_search_instructions",
+        "required": true,
+        "why": "cross-cutting concern detected",
+        "expected_output": "candidate instruction ids",
+        "success_condition": "3 to 6 relevant ids selected"
+      },
+      {
+        "order": 4,
+        "phase": "normative_read",
+        "tool": "corporate_instructions_get_instructions_batch",
+        "required": true,
+        "why": "policy cannot be applied from search results alone",
+        "expected_output": "instruction bodies and frontmatter",
+        "success_condition": "policy kind and evidence requirements known"
+      }
+    ],
+    "repo_context_triggers": {
+      "must_read_current_file": false,
+      "must_scan_solution": true,
+      "must_scan_projects": true,
+      "must_search_symbols": false,
+      "must_search_concepts": true
+    },
+    "mcp_context_triggers": {
+      "triggered": true,
+      "reasons": [
+        "cross_cutting_policy_domain_detected"
+      ],
+      "retrieve_mode": "resolve_or_search",
+      "search_query_count_min": 3,
+      "search_query_count_max": 5,
+      "max_instruction_ids": 6,
+      "batch_required": true
+    },
+    "evidence_gate": {
+      "required": true,
+      "workspace_evidence_required_detected": false,
+      "must_verify_frontmatter": true,
+      "must_verify_workspace_signals": false,
+      "apply_policy_without_batch": false,
+      "apply_policy_without_repo_evidence": false
+    },
+    "decision_output_requirements": {
+      "must_label_fact_vs_hypothesis": true,
+      "must_produce_bmad": true,
+      "must_build_evidence_matrix": true,
+      "must_cite_instruction_ids": true
+    },
+    "stop_rules": {
+      "stop_required": false,
+      "stop_reasons": [],
+      "human_input_required_if": [
+        "public_contract_change_without_evidence",
+        "new_infrastructure_without_evidence",
+        "external_integration_without_evidence",
+        "public_technical_endpoint_creation",
+        "new_observability_stack"
+      ]
+    },
+    "fallbacks": {
+      "when_no_policy_found": "follow_repo_and_label_gap",
+      "when_only_reference_found": "follow_repo_pattern_with_caveat",
+      "when_workspace_evidence_missing": "do_not_introduce_stack_by_inference"
+    },
+    "anti_patterns": [
+      "mcp_by_ritual",
+      "search_without_batch",
+      "repo_skip_with_vague_request",
+      "edit_before_read",
+      "implement_when_user_requested_plan_only"
+    ],
+    "explanation": {
+      "short_rationale": "Cross-cutting change with no explicit files requires repo discovery, MCP retrieval and evidence gate before planning.",
+      "machine_summary": "plan_first=true; repo_tools_first=true; mcp_required=true; batch_required=true; stop_required=false"
+    }
+  }
+  

@@ -17,6 +17,7 @@ Esta pasta agrupa a documentação de planeamento **BMAD** em dois eixos:
 - [EPIC-02 — Servidor MCP (MVP)](epicos/EPIC-02-mcp-server.md)
 - [EPIC-03 — Rollout em muitos repositórios](epicos/EPIC-03-rollout-playbook.md)
 - [EPIC-04 — Protocolo de experimentos](epicos/EPIC-04-experiments-protocol.md)
+- [EPIC-05 — Evidence gate + compliance matrix](epicos/EPIC-05-normative-evidence-gate-and-compliance-matrix.md)
 - [Template de inventário (EPIC-01)](epicos/INVENTORY-TEMPLATE.md)
 
 ## Pesquisa e análises
