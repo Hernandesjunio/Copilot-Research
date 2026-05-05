@@ -26,6 +26,10 @@ Use data `YYYY-MM-DD` e um `slug` em minúsculas com hífens.
 
 Exemplo preenchido (pasta por ensaio, alinhado ao padrão `2026-04-16-analise-comparativa-instructions-mcp-vertical-slice/`): [`2026-04-05-mcp-corporate-instructions-avaliacao-tools/notas.md`](2026-04-05-mcp-corporate-instructions-avaliacao-tools/notas.md) — relatório principal em [`2026-04-05-mcp-corporate-instructions-avaliacao-tools/2026-04-05-mcp-corporate-instructions-avaliacao-tools.md`](2026-04-05-mcp-corporate-instructions-avaliacao-tools/2026-04-05-mcp-corporate-instructions-avaliacao-tools.md).
 
+Experimento guiado por fases com foco em MCP como compositor de contexto: [`2026-05-03-mcp-compositor-contexto-implementacao/README.md`](2026-05-03-mcp-compositor-contexto-implementacao/README.md).
+
+Arquivo de tentativa (cenários complexos A/B/C; não atingiu critério de aceite e foi arquivado em 2026-05-04): [`2026-05-04-tentativa-montagem-contexto-mcp/README.md`](2026-05-04-tentativa-montagem-contexto-mcp/README.md).
+
 ## Ligações
 
 - Análises técnicas datadas (índice): [`../analises/README.md`](../analises/README.md)

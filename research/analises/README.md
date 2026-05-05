@@ -11,5 +11,6 @@
 | 2026-04-12 | [`2026-04-12-analise-tecnica-mcp-tools-prompts-resources-corpus-instructions.md`](2026-04-12-analise-tecnica-mcp-tools-prompts-resources-corpus-instructions.md) | Por tool do servidor `corporate-instructions`: por que não é substituível 1:1 por prompt ou resource; híbridos e roadmap. |
 | 2026-04-16 | [`2026-04-16-pitch-tecnico-mcp-stdio-contexto-github-instructions.md`](2026-04-16-pitch-tecnico-mcp-stdio-contexto-github-instructions.md) | Pitch curto (~5 min): MCP local STDIO, foco em tools, valor observado e limites do estágio atual. |
 | 2026-04-16 | [`2026-04-16-defesa-arquitetural-mcp-stdio-tools-prompts-resources.md`](2026-04-16-defesa-arquitetural-mcp-stdio-tools-prompts-resources.md) | Defesa arquitetural alinhada ao pitch: premissas, escopo das tools, baseline, Q&A e evolução. |
+| 2026-05-05 | [`2026-05-05-redirecionamento-mcp-instruction-retrieval-v1.md`](2026-05-05-redirecionamento-mcp-instruction-retrieval-v1.md) | Mudança de direção: pausar compositor de contexto e reforçar as 3 tools básicas (Instruction Retrieval v1) para reduzir overfitting ao corpus. |
 
 Para citar: prefira **caminho + data** (e revisão, se existir no próprio artefato), conforme [`../README.md`](../README.md) secção 10.

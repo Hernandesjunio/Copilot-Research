@@ -15,6 +15,7 @@ Esta pasta agrega **temas** em subpastas: cada tema liga **observação** (o que
 | Pasta | Resumo |
 |-------|--------|
 | [`indexing-busca-sinonimos/`](indexing-busca-sinonimos/) | Busca por palavras-chave, mapa `SYNONYMS` e expansão de consulta em `indexing.py`. |
+| [`instruction-retrieval-v1/`](instruction-retrieval-v1/) | Direção técnica: pausar compositor e fortalecer retrieval por metadados + aplicabilidade (schema, evolução das 3 tools, métricas). |
 
 ## Novo tema
 

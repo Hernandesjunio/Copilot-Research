@@ -20,22 +20,22 @@ O épico deixou de ser apenas hipótese de experimento. A implementação atual 
 ### Linha base e comparativos
 
 - smoke local atual:
-  - [`2026-05-02__smoke-mcp-stdio__local-atual.md`](../../../research/experimentos-mcp/proximo-experimento/relatorio-cursor-teste/2026-05-02__smoke-mcp-stdio__local-atual.md)
-  - [`2026-05-02__smoke-mcp-stdio__local-atual-iteracao-2.md`](../../../research/experimentos-mcp/proximo-experimento/relatorio-cursor-teste/2026-05-02__smoke-mcp-stdio__local-atual-iteracao-2.md)
-  - [`2026-05-02__smoke-mcp-stdio__local-atual-iteracao-3.md`](../../../research/experimentos-mcp/proximo-experimento/relatorio-cursor-teste/2026-05-02__smoke-mcp-stdio__local-atual-iteracao-3.md)
+  - [`2026-05-02__smoke-mcp-stdio__local-atual.md`](../../../research/experimentos-mcp/2026-05-04-tentativa-montagem-contexto-mcp/relatorio-cursor-teste/2026-05-02__smoke-mcp-stdio__local-atual.md)
+  - [`2026-05-02__smoke-mcp-stdio__local-atual-iteracao-2.md`](../../../research/experimentos-mcp/2026-05-04-tentativa-montagem-contexto-mcp/relatorio-cursor-teste/2026-05-02__smoke-mcp-stdio__local-atual-iteracao-2.md)
+  - [`2026-05-02__smoke-mcp-stdio__local-atual-iteracao-3.md`](../../../research/experimentos-mcp/2026-05-04-tentativa-montagem-contexto-mcp/relatorio-cursor-teste/2026-05-02__smoke-mcp-stdio__local-atual-iteracao-3.md)
 - comparativos:
-  - [`2026-05-02__comparativo-smoke-mcp-stdio__local-atual-vs-iteracao-2.md`](../../../research/experimentos-mcp/proximo-experimento/relatorio-cursor-teste/2026-05-02__comparativo-smoke-mcp-stdio__local-atual-vs-iteracao-2.md)
-  - [`2026-05-02__comparativo-smoke-mcp-stdio__local-atual-iteracao-2-vs-iteracao-3.md`](../../../research/experimentos-mcp/proximo-experimento/relatorio-cursor-teste/2026-05-02__comparativo-smoke-mcp-stdio__local-atual-iteracao-2-vs-iteracao-3.md)
-  - [`2026-05-02__comparativo-smoke-mcp-stdio__global-antigo-vs-local-atual.md`](../../../research/experimentos-mcp/proximo-experimento/relatorio-cursor-teste/2026-05-02__comparativo-smoke-mcp-stdio__global-antigo-vs-local-atual.md)
+  - [`2026-05-02__comparativo-smoke-mcp-stdio__local-atual-vs-iteracao-2.md`](../../../research/experimentos-mcp/2026-05-04-tentativa-montagem-contexto-mcp/relatorio-cursor-teste/2026-05-02__comparativo-smoke-mcp-stdio__local-atual-vs-iteracao-2.md)
+  - [`2026-05-02__comparativo-smoke-mcp-stdio__local-atual-iteracao-2-vs-iteracao-3.md`](../../../research/experimentos-mcp/2026-05-04-tentativa-montagem-contexto-mcp/relatorio-cursor-teste/2026-05-02__comparativo-smoke-mcp-stdio__local-atual-iteracao-2-vs-iteracao-3.md)
+  - [`2026-05-02__comparativo-smoke-mcp-stdio__global-antigo-vs-local-atual.md`](../../../research/experimentos-mcp/2026-05-04-tentativa-montagem-contexto-mcp/relatorio-cursor-teste/2026-05-02__comparativo-smoke-mcp-stdio__global-antigo-vs-local-atual.md)
 
 ### Cenários de negócio avaliados
 
 - cenário 2:
-  - [`2026-05-02__comparativo-smoke-mcp-stdio__cenario-02-cep-viacep-local-atual-antes-vs-pos-tuning.md`](../../../research/experimentos-mcp/proximo-experimento/relatorio-cursor-teste/2026-05-02__comparativo-smoke-mcp-stdio__cenario-02-cep-viacep-local-atual-antes-vs-pos-tuning.md)
+  - [`2026-05-02__comparativo-smoke-mcp-stdio__cenario-02-cep-viacep-local-atual-antes-vs-pos-tuning.md`](../../../research/experimentos-mcp/2026-05-04-tentativa-montagem-contexto-mcp/relatorio-cursor-teste/2026-05-02__comparativo-smoke-mcp-stdio__cenario-02-cep-viacep-local-atual-antes-vs-pos-tuning.md)
 - cenários 2, 3 e 4:
-  - [`2026-05-02__smoke-mcp-stdio__local-atual-cenarios-2-3-4.md`](../../../research/experimentos-mcp/proximo-experimento/relatorio-cursor-teste/2026-05-02__smoke-mcp-stdio__local-atual-cenarios-2-3-4.md)
-  - [`2026-05-02__comparativo-smoke-mcp-stdio__global-antigo-vs-local-atual-cenarios-2-3-4.md`](../../../research/experimentos-mcp/proximo-experimento/relatorio-cursor-teste/2026-05-02__comparativo-smoke-mcp-stdio__global-antigo-vs-local-atual-cenarios-2-3-4.md)
-  - [`2026-05-02__consolidado-comparativo-melhoria__global-antigo-vs-local-atual-cenarios-2-3-4.md`](../../../research/experimentos-mcp/proximo-experimento/relatorio-cursor-teste/2026-05-02__consolidado-comparativo-melhoria__global-antigo-vs-local-atual-cenarios-2-3-4.md)
+  - [`2026-05-02__smoke-mcp-stdio__local-atual-cenarios-2-3-4.md`](../../../research/experimentos-mcp/2026-05-04-tentativa-montagem-contexto-mcp/relatorio-cursor-teste/2026-05-02__smoke-mcp-stdio__local-atual-cenarios-2-3-4.md)
+  - [`2026-05-02__comparativo-smoke-mcp-stdio__global-antigo-vs-local-atual-cenarios-2-3-4.md`](../../../research/experimentos-mcp/2026-05-04-tentativa-montagem-contexto-mcp/relatorio-cursor-teste/2026-05-02__comparativo-smoke-mcp-stdio__global-antigo-vs-local-atual-cenarios-2-3-4.md)
+  - [`2026-05-02__consolidado-comparativo-melhoria__global-antigo-vs-local-atual-cenarios-2-3-4.md`](../../../research/experimentos-mcp/2026-05-04-tentativa-montagem-contexto-mcp/relatorio-cursor-teste/2026-05-02__consolidado-comparativo-melhoria__global-antigo-vs-local-atual-cenarios-2-3-4.md)
 
 ## O que foi endurecido no produto por causa dos experimentos
 

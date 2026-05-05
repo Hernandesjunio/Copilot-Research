@@ -1,5 +1,14 @@
 # Experimento — cenários complexos (MCP vs instructions locais vs baseline)
 
+> **STATUS: INVALIDADO / ARQUIVADO (tentativa de 2026-05-04).**
+>
+> Esta pasta foi criada inicialmente como “próximo experimento” e depois **renomeada** para refletir o status real: **`2026-05-04-tentativa-montagem-contexto-mcp`**.
+> Ela virou um **arquivo de tentativa**: a montagem completa de contexto não atingiu o critério de aceite (chegou a ~9/24 na melhor leitura), e a causa principal foi atribuída ao **resultado de recuperação/ranking do MCP**, não à orquestração (`copilot-instructions-mcp.md`) em si.
+>
+> Decisão registrada em:
+> - `research/analises/2026-05-05-redirecionamento-mcp-instruction-retrieval-v1.md`
+> - `research/nucleo-pesquisa/instruction-retrieval-v1/plano_mcp_instruction_retrieval_v1.md`
+
 Este diretório contém a **especificação** (`experimento.md`), os **orquestradores** reutilizáveis no GitHub Copilot para Visual Studio e os **prompts** autocontidos por cenário.
 
 ## Onde está cada coisa
@@ -28,3 +37,10 @@ Este diretório contém a **especificação** (`experimento.md`), os **orquestra
 - `Prompts/cenario-04-saga-onboarding/`
 
 Cada uma contém `prompt-com-mcp.md`, `prompt-com-instrucoes-locais.md`, `prompt-sem-mcp-e-instructions.md`.
+
+## Nota sobre os relatórios (origem das execuções)
+
+- `relatorio-cursor-teste/2026-05-02__*.md`: relatórios gerados via **Cursor** (smoke/comparativos).
+- `relatorio-cursor-teste/2026-05-04__*.md`: análises e rebaselines derivados de execuções e leituras realizadas no **GitHub Copilot do Visual Studio** (incluindo auditorias e épicos 07–09).
+
+Esta distinção existe para evitar a leitura equivocada de que todos os relatórios vieram do mesmo agente/IDE/modelo.
