@@ -1,0 +1,13 @@
+domain: configuration
+version: "1"
+entries:
+  - canonical: configuracao
+    aliases:
+      - configuration
+    strong_terms:
+      - options
+      - ioptions
+      - feature-flags
+    weak_terms:
+      - deployment
+    contexts: []

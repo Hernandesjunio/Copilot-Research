@@ -1,0 +1,36 @@
+# Mesclado de 00-core.yml — apenas termos transversais não cobertos por outros domínios.
+domain: core
+version: "1"
+entries:
+  - canonical: encoding-texto
+    applies_to:
+      - "**/*.md"
+      - "**/*.yml"
+      - "**/*.yaml"
+      - "**/*.json"
+      - "**/*.cs"
+      - "**/*.csproj"
+      - "**/*.sh"
+      - "**/*.ps1"
+      - "**/*.bat"
+      - "**/*.txt"
+    aliases:
+      - encoding
+      - charset
+      - "fim de linha"
+      - "end of line"
+      - "line endings"
+      - eol
+    strong_terms:
+      - "utf-8"
+      - utf8
+      - unicode
+      - bom
+      - "sem bom"
+      - lf
+      - crlf
+      - editorconfig
+      - gitattributes
+      - interoperabilidade
+    weak_terms: []
+    contexts: []

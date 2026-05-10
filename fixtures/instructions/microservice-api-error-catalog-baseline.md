@@ -16,6 +16,7 @@ Centralizar o **mapeamento canónico** de códigos HTTP mais usados em microserv
 
 ## TL;DR
 
+- **Baseline** complementar para APIs JWT **bearer**: alinhar códigos HTTP com **authorization** por **claims** e com este **error catalog** interno.
 - Usar este ficheiro como **referência rápida** para escolher `Status` HTTP.
 - Para semântica REST e verbos/idempotência, seguir `microservice-rest-http-semantics-and-status-codes`.
 - Para contratos de validação e erro (`400` vs `422`, ProblemDetails/envelope), seguir `microservice-api-validation-and-error-contracts`.

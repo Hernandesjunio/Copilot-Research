@@ -1,0 +1,70 @@
+# Mesclado de 30-data.yml
+domain: persistence
+version: "1"
+entries:
+  - canonical: persistencia
+    aliases: []
+    strong_terms:
+      - dapper
+      - sql
+      - data
+      - data-access
+      - repositorio
+    weak_terms: []
+    contexts: []
+
+  - canonical: banco
+    aliases: []
+    strong_terms:
+      - sql
+      - dapper
+      - efcore
+    weak_terms:
+      - transactions
+    contexts: []
+
+  - canonical: transacao
+    aliases:
+      - transactions
+    strong_terms:
+      - configuracao
+      - configuration
+    weak_terms:
+      - readiness
+      - producao
+    contexts: []
+
+  - canonical: queries
+    aliases: []
+    strong_terms:
+      - sql
+      - transactions
+    weak_terms:
+      - configuration
+      - production
+    contexts: []
+
+  - canonical: sql-parameterization-timeouts-transactions
+    applies_to:
+      - "**/*.cs"
+    aliases:
+      - sql-security
+      - data-access
+      - dapper
+      - efcore
+    strong_terms:
+      - sql-injection
+      - parameterization
+      - CommandDefinition
+      - commandTimeout
+      - IDbConnection
+      - DbContext
+      - AsNoTracking
+      - "OFFSET"
+      - "FETCH"
+    weak_terms:
+      - "SELECT *"
+      - n-plus-one
+      - ExecuteUpdate
+      - ExecuteDelete
+    contexts: []

@@ -107,13 +107,14 @@ def test_tool_sequence_ordered_and_contains_only_read_tools_for_plan_only() -> N
     for step in sequence:
         assert isinstance(step["failure_effect"], str) and step["failure_effect"]
         assert isinstance(step["fallback_on_failure"], str) and step["fallback_on_failure"]
-    assert "corporate_instructions_validate_applicability" in tool_names
-    assert "corporate_instructions_build_compliance_matrix" in tool_names
-    assert tool_names.index("corporate_instructions_get_instructions_batch") < tool_names.index(
-        "corporate_instructions_validate_applicability"
+    assert "corporate_instructions_list_instructions_index" in tool_names
+    assert "corporate_instructions_search_instructions" in tool_names
+    assert "corporate_instructions_get_instructions_batch" in tool_names
+    assert tool_names.index("corporate_instructions_list_instructions_index") < tool_names.index(
+        "corporate_instructions_search_instructions"
     )
-    assert tool_names.index("corporate_instructions_validate_applicability") < tool_names.index(
-        "corporate_instructions_build_compliance_matrix"
+    assert tool_names.index("corporate_instructions_search_instructions") < tool_names.index(
+        "corporate_instructions_get_instructions_batch"
     )
 
 

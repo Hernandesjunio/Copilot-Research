@@ -1,0 +1,84 @@
+# Mesclado de 10-dotnet.yml (schema ADR-002: domain + entries)
+domain: dotnet
+version: "1"
+entries:
+  - canonical: csharp-async-naming-style
+    applies_to:
+      - "**/*.cs"
+    aliases:
+      - async-style
+      - "Async suffix"
+    strong_terms:
+      - async
+      - await
+      - "Async"
+      - async-void
+    weak_terms:
+      - ConfigureAwait
+      - ConfigureAwait(false)
+    contexts: []
+
+  - canonical: dotnet-testing-unit-integration-contract
+    applies_to:
+      - "**/*Tests/**/*.cs"
+    aliases:
+      - testing-strategy
+      - unit-testing
+      - integration-testing
+      - contract-testing
+    strong_terms:
+      - xUnit
+      - Fact
+      - WebApplicationFactory
+      - Testcontainers
+      - Pact
+    weak_terms:
+      - negative-tests
+      - toxiproxy
+      - "400"
+      - "422"
+      - "403"
+    contexts: []
+
+  - canonical: dotnet-options-validateonstart-featureflags
+    applies_to:
+      - "**/*.cs"
+    aliases:
+      - configuration
+      - options
+      - production-readiness
+      - feature-flags
+    strong_terms:
+      - IOptions
+      - ValidateOnStart
+      - ValidateDataAnnotations
+      - IConfiguration
+      - AddFeatureManagement
+      - IFeatureManager
+      - fail-fast
+    weak_terms:
+      - appsettings
+      - environment-variables
+      - KeyVault
+    contexts: []
+
+  - canonical: dotnet-di-options-extension-methods
+    applies_to:
+      - "**/*.cs"
+    aliases:
+      - dependency-injection
+      - IServiceCollection
+      - extension-methods
+    strong_terms:
+      - AddOptions
+      - Bind
+      - ValidateOnStart
+      - IServiceCollection
+      - IOptions
+      - IOptionsSnapshot
+      - IOptionsMonitor
+    weak_terms:
+      - Program.cs
+      - AddApi
+      - AddDomain
+    contexts: []

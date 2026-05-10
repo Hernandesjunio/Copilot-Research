@@ -1,10 +1,60 @@
-version: 1
-namespace: api
-description: "Expansões relacionadas a APIs e contratos HTTP."
+# Mesclado de 20-api.yml (contratos HTTP / REST)
+domain: api
+version: "1"
+entries:
+  - canonical: baseline
+    aliases: []
+    strong_terms:
+      - error-catalog
+    weak_terms: []
+    contexts: []
 
-terms:
-  # source: microservice-api-error-catalog-baseline
-  api-error-catalog:
+  - canonical: api
+    aliases: []
+    strong_terms:
+      - problem-details
+      - rfc7807
+      - pagination
+    weak_terms:
+      - minimal-api
+      - filtering
+    contexts: []
+
+  - canonical: paginacao
+    aliases:
+      - pagination
+    strong_terms:
+      - filtering
+      - ordering
+      - collection
+    weak_terms:
+      - envelope
+    contexts: []
+
+  - canonical: colecoes
+    aliases:
+      - collection
+    strong_terms:
+      - pagination
+      - filtering
+      - ordering
+    weak_terms:
+      - api-collection
+    contexts: []
+
+  - canonical: problemdetails
+    aliases:
+      - problem-details
+    strong_terms:
+      - rfc7807
+      - error-catalog
+      - errors
+    weak_terms:
+      - status-codes
+    contexts: []
+
+  # --- origem 20-api.yml ---
+  - canonical: api-error-catalog
     applies_to:
       - "**/Api/**/*.cs"
     aliases:
@@ -21,10 +71,9 @@ terms:
       - problem-details
       - error-contracts
     weak_terms: []
-    expansion_mode: normal
+    contexts: []
 
-  # source: microservice-api-collection-resources-pagination-filters
-  api-pagination-filters-sorting:
+  - canonical: api-pagination-filters-sorting
     applies_to:
       - "**/Api/**/*.cs"
     aliases:
@@ -36,7 +85,7 @@ terms:
     strong_terms:
       - cursor
       - "page"
-      - "pageSize"
+      - pageSize
       - sort
       - filters
       - backward-compatibility
@@ -44,10 +93,9 @@ terms:
     weak_terms:
       - whitelist
       - stable-ordering
-    expansion_mode: normal
+    contexts: []
 
-  # source: microservice-api-openfinance-patterns
-  api-response-envelope-problemdetails:
+  - canonical: api-response-envelope-problemdetails
     applies_to:
       - "**/Api/**/*.cs"
     aliases:
@@ -65,10 +113,9 @@ terms:
       - minimal-api
       - "traceId"
       - correlationId
-    expansion_mode: normal
+    contexts: []
 
-  # source: microservice-api-validation-and-error-contracts
-  api-400-422-validation-and-error-contracts:
+  - canonical: api-400-422-validation-and-error-contracts
     applies_to:
       - "**/Api/**/*.cs"
     aliases:
@@ -84,10 +131,9 @@ terms:
     weak_terms:
       - "409"
       - "412"
-    expansion_mode: normal
+    contexts: []
 
-  # source: microservice-rest-http-semantics-and-status-codes
-  rest-http-semantics-and-status-codes:
+  - canonical: rest-http-semantics-and-status-codes
     applies_to:
       - "**/Api/**/*.cs"
     aliases:
@@ -107,4 +153,4 @@ terms:
     weak_terms:
       - Idempotency-Key
       - Location
-    expansion_mode: normal
+    contexts: []

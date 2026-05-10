@@ -15,6 +15,8 @@ Com verbosidade e só smoke: `pytest tests/smoke_test.py -v`. Integração STDIO
 
 Para gravar o catálogo `tools/list` em JSON (útil quando um IDE mostra tools nas definições mas o chat nega): `python scripts/print_mcp_tools_list.py` (defina `INSTRUCTIONS_ROOT` como no IDE).
 
+**Bateria manual / semi-automatizada (expansão de query, 3 tools):** plano em [`MCP-QUERY-EXPANSION-MANUAL-TEST-PLAN.md`](MCP-QUERY-EXPANSION-MANUAL-TEST-PLAN.md); script `python scripts/run_query_expansion_manual_battery.py` (tabela Markdown no stdout; opções `--json`, `--strict`).
+
 ### Telemetria estruturada (`CORPORATE_INSTRUCTIONS_TELEMETRY`)
 
 Com `minimal` ou `full`, o servidor escreve linhas **NDJSON** em **stderr** (por exemplo `server_start`, `index_rebuilt`, eventos `*.completed` por tool). Guia prático (ver, gravar em ficheiro, filtrar, IDE): [`HOW-TO-TELEMETRY-LOGS.md`](HOW-TO-TELEMETRY-LOGS.md). Não misture stderr com stdout (protocolo MCP).
@@ -36,6 +38,7 @@ Com `minimal` ou `full`, o servidor escreve linhas **NDJSON** em **stderr** (por
 | [`tests/test_server_frontmatter.py`](../tests/test_server_frontmatter.py) | Unitário | Normalização JSON de frontmatter (`date`, `datetime`, `Decimal`, listas aninhadas). |
 | [`tests/test_telemetry_ndjson.py`](../tests/test_telemetry_ndjson.py) | Unitário | Eventos NDJSON em stderr (`CORPORATE_INSTRUCTIONS_TELEMETRY`) sem subprocess MCP. |
 | [`tests/test_epic05_tools.py`](../tests/test_epic05_tools.py) | Unitário/aceite | Aceite de P0 (`validate_applicability` + `build_compliance_matrix`) com 17 cenários obrigatórios. |
+| [`tests/test_corpus_expansion_map_merged.py`](../tests/test_corpus_expansion_map_merged.py) | Unitário | Mapa `metadata/corpus-query-expansion-map/*.yaml` mesclado (schema ADR-002, ausência de `.yml` legado, spot-checks de expansão). |
 
 ---
 

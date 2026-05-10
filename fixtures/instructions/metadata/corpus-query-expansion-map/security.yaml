@@ -1,0 +1,82 @@
+# Mesclado de 60-security.yml + entries PT existentes
+domain: security
+version: "1"
+entries:
+  - canonical: seguranca
+    aliases:
+      - security
+    strong_terms:
+      - secrets
+      - jwt
+      - authentication
+    weak_terms:
+      - authorization
+    contexts: []
+
+  - canonical: segredos
+    aliases:
+      - secrets
+    strong_terms:
+      - security
+      - logging
+    weak_terms:
+      - readiness
+      - configuration
+    contexts: []
+
+  - canonical: claims
+    aliases: []
+    strong_terms:
+      - jwt
+      - authorization
+      - error-catalog
+    weak_terms: []
+    contexts: []
+
+  - canonical: secrets-and-sensitive-data-baseline
+    aliases:
+      - secrets
+      - credentials
+      - connection-strings
+      - sensitive-data
+    strong_terms:
+      - token
+      - password
+      - rotation
+    weak_terms:
+      - pii
+      - keyvault
+    contexts: []
+
+  - canonical: jwt-bearer-token-validation-and-policies
+    applies_to:
+      - "**/*.cs"
+    aliases:
+      - jwt
+      - bearer
+      - authentication
+      - authorization
+      - claims
+    strong_terms:
+      - AddJwtBearer
+      - TokenValidationParameters
+      - AddAuthorization
+    weak_terms:
+      - "401"
+      - "403"
+    contexts: []
+
+  - canonical: resource-scope-authorization-and-audit
+    applies_to:
+      - "**/*.cs"
+    aliases:
+      - resource-scope
+      - ownership
+      - audit
+    strong_terms:
+      - IAuthorizationHandler
+      - UserContext
+      - CorrelationId
+    weak_terms:
+      - TraceId
+    contexts: []

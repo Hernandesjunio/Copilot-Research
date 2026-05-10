@@ -1,21 +1,19 @@
-version: 1
-namespace: messaging
-description: "Expansões relacionadas a mensageria, filas, eventos e integração assíncrona."
-
-terms:
-  mensageria:
+# Mesclado de 40-messaging.yml (contextos como lista ADR-002)
+domain: messaging
+version: "1"
+entries:
+  - canonical: mensageria
     aliases:
       - messaging
     strong_terms:
+      - rabbitmq
       - publish
       - consume
       - outbox
     weak_terms:
       - event
-    expansion_mode: contextual
     contexts:
-      rabbitmq:
-        activation_terms:
+      - activation_terms:
           - rabbitmq
           - amqp
           - exchange
@@ -28,9 +26,7 @@ terms:
           - queue
           - consumer
           - dlq
-
-      fix:
-        activation_terms:
+      - activation_terms:
           - fix-protocol
           - heartbeat
           - session
@@ -41,8 +37,7 @@ terms:
           - session
           - heartbeat
 
-  # source: microservice-messaging-rabbitmq-publish-consume
-  rabbitmq-idempotency-dlq-outbox:
+  - canonical: rabbitmq-idempotency-dlq-outbox
     applies_to:
       - "**/*.cs"
     aliases:
@@ -65,10 +60,9 @@ terms:
       - consumer
       - exchange
       - queue
-    expansion_mode: normal
+    contexts: []
 
-  # source: microservice-saga-process-manager-and-compensation
-  saga-process-manager-compensation:
+  - canonical: saga-process-manager-compensation
     applies_to:
       - "**/*.cs"
     aliases:
@@ -86,4 +80,4 @@ terms:
       - timeout
       - retry
       - cancelafter
-    expansion_mode: normal
+    contexts: []

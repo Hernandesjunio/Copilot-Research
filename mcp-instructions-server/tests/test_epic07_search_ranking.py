@@ -23,6 +23,7 @@ def _env_instructions_root(monkeypatch: pytest.MonkeyPatch) -> Generator[None, N
 
     srv._index = {}
     srv._index_root = None
+    srv._expansion_map = None
     yield
 
 
@@ -34,16 +35,20 @@ def test_stopwords_pt_contains_common_connectives() -> None:
 
 
 def test_stopwords_pt_do_not_conflict_with_expansion_keys() -> None:
-    from corporate_instructions_mcp.indexing import QUERY_EXPANSION_MAP, STOPWORDS
+    from corporate_instructions_mcp.expansion import build_unidirectional_lookup, load_corpus_expansion_map
+    from corporate_instructions_mcp.indexing import STOPWORDS
 
-    assert not (set(QUERY_EXPANSION_MAP.keys()) & STOPWORDS)
+    emap = load_corpus_expansion_map(_FIXTURES)
+    lookup = build_unidirectional_lookup(emap)
+    keys = set(lookup.keys())
+    assert not (keys & STOPWORDS)
 
 
 def test_common_pt_connectives_do_not_score_unrelated_messaging_doc() -> None:
     from corporate_instructions_mcp.indexing import expand_query_with_metadata, score_record_breakdown, tokenize_query
     from corporate_instructions_mcp.server import _ensure_index
 
-    idx, _ = _ensure_index()
+    idx, _, _ = _ensure_index()
     tokens = tokenize_query("como deve ser")
     info = expand_query_with_metadata(tokens)
     breakdown = score_record_breakdown(idx["microservice-messaging-rabbitmq-publish-consume"], tokens, None, info)
@@ -56,7 +61,7 @@ def test_generic_pt_validation_verb_is_filtered_as_stopword() -> None:
 
     assert "validar" in STOPWORDS
 
-    idx, _ = _ensure_index()
+    idx, _, _ = _ensure_index()
     tokens = tokenize_query("como validar")
     info = expand_query_with_metadata(tokens)
     breakdown = score_record_breakdown(idx["microservice-messaging-rabbitmq-publish-consume"], tokens, None, info)
@@ -88,7 +93,7 @@ def test_resolve_architecture_query_excludes_meta_governance() -> None:
 def test_example_security_baseline_id_matches_filename_slug() -> None:
     from corporate_instructions_mcp.server import _ensure_index
 
-    idx, _ = _ensure_index()
+    idx, _, _ = _ensure_index()
     assert "example-security-baseline" in idx
 
 
@@ -112,7 +117,7 @@ def test_corpus_invariant_filename_slug_matches_frontmatter_id() -> None:
     from corporate_instructions_mcp.indexing import _slug_from_path
     from corporate_instructions_mcp.server import _ensure_index
 
-    idx, _ = _ensure_index()
+    idx, _, _ = _ensure_index()
     mismatches = [
         f"arquivo={record.rel_path} id_frontmatter={record_id} slug_esperado={_slug_from_path(Path(record.rel_path))}"
         for record_id, record in idx.items()
@@ -138,12 +143,20 @@ def test_health_check_query_includes_configuration_readiness() -> None:
 
 
 def test_health_or_observability_expansion_reaches_configuration_terms() -> None:
-    from corporate_instructions_mcp.indexing import _EXPANSION_LOOKUP
+    from corporate_instructions_mcp.expansion import build_unidirectional_lookup, load_corpus_expansion_map
 
-    health_expansion = set(_EXPANSION_LOOKUP.get("health", []))
-    observability_expansion = set(_EXPANSION_LOOKUP.get("observabilidade", []))
+    emap = load_corpus_expansion_map(_FIXTURES)
+    lu = build_unidirectional_lookup(emap)
+
+    def terms_for(canonical: str) -> set[str]:
+        return {c.term for c in lu.get(canonical, [])}
+
+    observability_expansion = terms_for("observabilidade")
+    healthcheck_expansion = terms_for("healthcheck")
+    configuracao_expansion = terms_for("configuracao")
+    combined = observability_expansion | healthcheck_expansion | configuracao_expansion
     expected = {"configuration", "production", "readiness", "deployment"}
-    assert (health_expansion | observability_expansion) & expected
+    assert combined & expected
 
 
 def test_retry_backoff_circuit_breaker_query_excludes_dns_retry_pattern() -> None:
@@ -205,9 +218,11 @@ def test_collection_query_surfaces_openfinance_and_collection_contracts() -> Non
 
 
 def test_expansion_map_lookup_for_paginacao() -> None:
-    from corporate_instructions_mcp.indexing import _EXPANSION_LOOKUP
+    from corporate_instructions_mcp.expansion import build_unidirectional_lookup, load_corpus_expansion_map
 
-    expansion = set(_EXPANSION_LOOKUP.get("paginacao", []))
+    emap = load_corpus_expansion_map(_FIXTURES)
+    lu = build_unidirectional_lookup(emap)
+    expansion = {c.term for c in lu.get("paginacao", [])}
     assert expansion & {"pagination", "filtering", "collection", "envelope"}
 
 

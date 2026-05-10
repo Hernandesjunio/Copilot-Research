@@ -1,0 +1,98 @@
+# Mesclado de 70-architecture.yml + entries PT
+domain: architecture
+version: "1"
+entries:
+  - canonical: arquitetura
+    aliases:
+      - architecture
+    strong_terms:
+      - layering
+      - camadas
+      - clean-architecture
+      - solid
+    weak_terms:
+      - dotnet
+    contexts: []
+
+  - canonical: dominio
+    aliases:
+      - domain
+    strong_terms:
+      - repository
+      - interfaces
+      - models
+    weak_terms:
+      - table-storage
+    contexts: []
+
+  - canonical: estruturar
+    aliases: []
+    strong_terms:
+      - arquitetura
+      - layering
+      - camadas
+    weak_terms:
+      - dominio
+    contexts: []
+
+  - canonical: microservice-layering-api-domain-interfaces-repository
+    applies_to:
+      - "**/*.cs"
+    aliases:
+      - layering
+      - clean-architecture
+    strong_terms:
+      - dependency-inversion
+      - interfaces
+      - repository
+      - dto
+    weak_terms:
+      - AddApiExtensions
+    contexts: []
+
+  - canonical: clean-architecture-guardrails-observability-security-testing
+    applies_to:
+      - "**/*.cs"
+    aliases:
+      - guardrails
+      - clean-architecture
+    strong_terms:
+      - observability
+      - resilience
+      - security
+      - testing
+    weak_terms:
+      - idempotency
+    contexts: []
+
+  - canonical: solid-generics-and-type-performance
+    applies_to:
+      - "**/*.cs"
+    aliases:
+      - solid
+      - generics
+      - performance
+    strong_terms:
+      - DRY
+      - boxing
+      - Span
+      - ArrayPool
+    weak_terms:
+      - reflection
+    contexts: []
+
+  - canonical: domain-interfaces-modelo-repositorio-boundaries
+    applies_to:
+      - "**/*.cs"
+    aliases:
+      - domain
+      - interfaces
+      - models
+      - repository
+    strong_terms:
+      - CancellationToken
+      - Dapper
+      - IDbConnectionFactory
+    weak_terms:
+      - gateway
+    contexts: []

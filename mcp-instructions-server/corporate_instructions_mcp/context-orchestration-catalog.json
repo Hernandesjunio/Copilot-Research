@@ -75,6 +75,7 @@
       },
       "then": {
         "append_tools": [
+          "corporate_instructions_list_instructions_index",
           "corporate_instructions_search_instructions",
           "corporate_instructions_get_instructions_batch"
         ]

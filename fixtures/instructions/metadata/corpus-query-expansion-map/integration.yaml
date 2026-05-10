@@ -1,0 +1,61 @@
+domain: integration
+version: "1"
+entries:
+  - canonical: viacep
+    aliases: []
+    strong_terms:
+      - httpclient
+      - contracts
+      - cep
+    weak_terms:
+      - serialization
+    contexts: []
+
+  - canonical: integrar
+    aliases: []
+    strong_terms:
+      - httpclient
+      - contracts
+      - serialization
+    weak_terms:
+      - resilience
+    contexts: []
+
+  - canonical: integracao
+    aliases:
+      - integration
+      - integrar
+    strong_terms:
+      - httpclient
+      - contracts
+      - serialization
+    weak_terms:
+      - resilience
+    contexts: []
+
+  - canonical: saga
+    aliases: []
+    strong_terms:
+      - orchestration
+      - process-manager
+      - consistency
+    weak_terms:
+      - idempotency
+      - compensation
+    contexts: []
+
+  # Mesclado de 10-dotnet.yml (HttpClientFactory)
+  - canonical: httpclientfactory-typed-clients-integration-contracts
+    applies_to:
+      - "**/*.cs"
+    aliases:
+      - IHttpClientFactory
+      - httpclient
+      - typed-client
+    strong_terms:
+      - AddHttpClient
+      - HttpClient
+      - serialization
+    weak_terms:
+      - traceparent
+    contexts: []

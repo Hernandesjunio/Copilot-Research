@@ -53,8 +53,9 @@ def _assert_context_trigger_invariants(data: dict[str, Any]) -> None:
         assert evidence_gate["must_verify_workspace_signals"] is True
     if mcp_usage["level"] in {"required", "recommended"}:
         tools = [step["tool"] for step in data["tool_sequence"]]
-        assert "corporate_instructions_validate_applicability" in tools
-        assert "corporate_instructions_build_compliance_matrix" in tools
+        assert "corporate_instructions_list_instructions_index" in tools
+        assert "corporate_instructions_search_instructions" in tools
+        assert "corporate_instructions_get_instructions_batch" in tools
 
 
 def test_mcp_stdio_list_search_get_instruction() -> None:
@@ -78,14 +79,11 @@ def test_mcp_stdio_list_search_get_instruction() -> None:
 
             listed = await session.list_tools()
             names = {t.name for t in listed.tools}
-            assert {
-                "build_compliance_matrix",
-                "get_context_triggers",
+            assert names == {
                 "get_instructions_batch",
                 "list_instructions_index",
                 "search_instructions",
-                "validate_applicability",
-            }.issubset(names)
+            }
 
             raw = _tool_text(await session.call_tool("list_instructions_index", {}))
             index = json.loads(raw)
@@ -202,137 +200,116 @@ def test_mcp_stdio_search_default_max_persistencia_sql_and_related_ids() -> None
     asyncio.run(_run())
 
 
-def test_mcp_stdio_composite_tools_expose_actionable_outputs() -> None:
-    """Composite tools should expose structured context, checklist evidence and precedence guidance over stdio."""
+def test_mcp_stdio_composite_tools_expose_actionable_outputs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Composite helpers (not MCP-exposed) still expose structured outputs when called from Python."""
 
     corpus = _corpus_root()
     use_fixture_expectations = corpus == _FIXTURES.resolve()
     if not use_fixture_expectations:
         pytest.skip("fixture-only expectations (INSTRUCTIONS_ROOT override)")
 
-    async def _run() -> None:
-        params = StdioServerParameters(
-            command=sys.executable,
-            args=["-m", "corporate_instructions_mcp"],
-            cwd=str(_SERVER_DIR),
-            env={**os.environ, "INSTRUCTIONS_ROOT": str(corpus)},
-        )
-        async with (
-            stdio_client(params) as (read, write),
-            ClientSession(read, write) as session,
-        ):
-            await session.initialize()
+    monkeypatch.setenv("INSTRUCTIONS_ROOT", str(corpus))
+    import corporate_instructions_mcp.server as srv
 
-            raw = _tool_text(
-                await session.call_tool(
-                    "resolve_instruction_context",
-                    {"query": "retry DNS polly", "max_results": 3, "include_diagnostics": True},
-                )
-            )
-            resolved = json.loads(raw)
-            assert resolved["selected_ids"]
-            assert resolved["resolution"]["actionable_context"]["normative_ids"]
-            assert resolved["resolution"]["selection"]["strategy"]
-            assert isinstance(resolved["resolution"].get("selection_rationale"), list)
-            assert isinstance(resolved["resolution"].get("pending_evidence"), list)
-            assert isinstance(resolved["resolution"].get("required_workspace_signals"), dict)
-            assert isinstance(resolved["resolution"].get("next_repo_evidence_actions"), list)
-            assert resolved["resolution"]["actionable_context"]["requires_applicability_gate"] is True
-            assert any(
-                "validate_applicability" in step
-                for step in resolved["resolution"]["actionable_context"]["next_actions"]
-            )
+    srv._index = {}
+    srv._index_root = None
+    srv._expansion_map = None
 
-            raw = _tool_text(await session.call_tool("get_normative_checklist", {"scenario": "mensageria_outbox"}))
-            checklist = json.loads(raw)
-            assert checklist["summary"]["required_items"] >= 3
-            assert any(item["verification"] for item in checklist["items"])
+    from corporate_instructions_mcp.server import (
+        build_compliance_matrix,
+        detect_instruction_conflicts,
+        get_normative_checklist,
+        resolve_instruction_context,
+        validate_applicability,
+    )
 
-            raw = _tool_text(
-                await session.call_tool(
-                    "detect_instruction_conflicts",
-                    {"ids": "dns-retry-pattern,microservice-resilience-polly-timeouts-and-circuit-breaker"},
-                )
-            )
-            conflicts = json.loads(raw)
-            assert conflicts["relationships"]
-            relationship = conflicts["relationships"][0]
-            assert (
-                relationship["precedence"]["winner_id"]
-                == "microservice-resilience-polly-timeouts-and-circuit-breaker"
-            )
-            assert relationship["agent_guidance"]
+    raw = resolve_instruction_context(query="retry DNS polly", max_results=3, include_diagnostics=True)
+    resolved = json.loads(raw)
+    assert resolved["selected_ids"]
+    assert resolved["resolution"]["actionable_context"]["normative_ids"]
+    assert resolved["resolution"]["selection"]["strategy"]
+    assert isinstance(resolved["resolution"].get("selection_rationale"), list)
+    assert isinstance(resolved["resolution"].get("pending_evidence"), list)
+    assert isinstance(resolved["resolution"].get("required_workspace_signals"), dict)
+    assert isinstance(resolved["resolution"].get("next_repo_evidence_actions"), list)
+    assert resolved["resolution"]["actionable_context"]["requires_applicability_gate"] is True
+    assert any(
+        "get_instructions_batch" in step.lower() or "verify selected normative" in step.lower()
+        for step in resolved["resolution"]["actionable_context"]["next_actions"]
+    )
 
-            raw = _tool_text(
-                await session.call_tool(
-                    "validate_applicability",
-                    {
-                        "instruction_ids": ["microservice-authorization-resource-scope-and-audit"],
-                        "target_artifact": {"path": "Api/Endpoints/ClienteEndpoints.cs"},
-                        "workspace_evidence": ["HttpContext.User"],
-                    },
-                )
-            )
-            applicability = json.loads(raw)
-            assert applicability["results"][0]["applicability"] == "applicable"
+    raw = get_normative_checklist(scenario="mensageria_outbox")
+    checklist = json.loads(raw)
+    assert checklist["summary"]["required_items"] >= 3
+    assert any(item["verification"] for item in checklist["items"])
 
-            raw = _tool_text(
-                await session.call_tool(
-                    "build_compliance_matrix",
-                    {
-                        "target_artifact": {"path": "Api/Endpoints/ClienteEndpoints.cs"},
-                        "instruction_results": [
-                            {
-                                "instruction_id": "microservice-authorization-resource-scope-and-audit",
-                                "kind": "policy",
-                                "applicability": "applicable",
-                            }
-                        ],
-                        "artifact_observations": [
-                            {
-                                "instruction_id": "microservice-authorization-resource-scope-and-audit",
-                                "observation_type": "positive",
-                                "value": "Authorization requirement found",
-                            }
-                        ],
-                    },
-                )
-            )
-            matrix = json.loads(raw)
-            assert matrix["matrix"][0]["status"] == "conformant"
+    raw = detect_instruction_conflicts(ids="dns-retry-pattern,microservice-resilience-polly-timeouts-and-circuit-breaker")
+    conflicts = json.loads(raw)
+    assert conflicts["relationships"]
+    relationship = conflicts["relationships"][0]
+    assert relationship["precedence"]["winner_id"] == "microservice-resilience-polly-timeouts-and-circuit-breaker"
+    assert relationship["agent_guidance"]
 
-            raw = _tool_text(
-                await session.call_tool(
-                    "build_compliance_matrix",
-                    {
-                        "target_artifact": {"path": "Api/Endpoints/ClienteEndpoints.cs"},
-                        "instruction_results": [
-                            {
-                                "instruction_id": "microservice-authorization-resource-scope-and-audit",
-                                "kind": "policy",
-                                "applicability": "applicable",
-                            }
-                        ],
-                        "artifact_observations": [
-                            {
-                                "instruction_id": "microservice-authorization-resource-scope-and-audit",
-                                "observation_type": "positive",
-                                "value": "ok",
-                            }
-                        ],
-                    },
-                )
-            )
-            matrix_trivial = json.loads(raw)
-            assert matrix_trivial["matrix"][0]["status"] == "insufficient_evidence"
+    raw = validate_applicability(
+        instruction_ids=["microservice-authorization-resource-scope-and-audit"],
+        target_artifact={"path": "Api/Endpoints/ClienteEndpoints.cs"},
+        workspace_evidence=["HttpContext.User"],
+    )
+    applicability = json.loads(raw)
+    assert applicability["results"][0]["applicability"] == "applicable"
 
-    asyncio.run(_run())
+    raw = build_compliance_matrix(
+        target_artifact={"path": "Api/Endpoints/ClienteEndpoints.cs"},
+        instruction_results=[
+            {
+                "instruction_id": "microservice-authorization-resource-scope-and-audit",
+                "kind": "policy",
+                "applicability": "applicable",
+            }
+        ],
+        artifact_observations=[
+            {
+                "instruction_id": "microservice-authorization-resource-scope-and-audit",
+                "observation_type": "positive",
+                "value": "Authorization requirement found",
+            }
+        ],
+    )
+    matrix = json.loads(raw)
+    assert matrix["matrix"][0]["status"] == "conformant"
+
+    raw = build_compliance_matrix(
+        target_artifact={"path": "Api/Endpoints/ClienteEndpoints.cs"},
+        instruction_results=[
+            {
+                "instruction_id": "microservice-authorization-resource-scope-and-audit",
+                "kind": "policy",
+                "applicability": "applicable",
+            }
+        ],
+        artifact_observations=[
+            {
+                "instruction_id": "microservice-authorization-resource-scope-and-audit",
+                "observation_type": "positive",
+                "value": "ok",
+            }
+        ],
+    )
+    matrix_trivial = json.loads(raw)
+    assert matrix_trivial["matrix"][0]["status"] == "insufficient_evidence"
 
 
-def test_mcp_stdio_get_context_triggers_contract_output() -> None:
-    """STDIO contract: get_context_triggers returns deterministic plan-first orchestration output."""
+def test_mcp_stdio_get_context_triggers_contract_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    """get_context_triggers returns deterministic plan-first orchestration output (Python API)."""
 
     corpus = _corpus_root()
+    monkeypatch.setenv("INSTRUCTIONS_ROOT", str(corpus))
+    import corporate_instructions_mcp.server as srv
+
+    srv._index = {}
+    srv._index_root = None
+    srv._expansion_map = None
+    from corporate_instructions_mcp.server import get_context_triggers
 
     payload = {
         "schema_version": "1.0.0",
@@ -380,48 +357,35 @@ def test_mcp_stdio_get_context_triggers_contract_output() -> None:
         },
     }
 
-    async def _run() -> None:
-        params = StdioServerParameters(
-            command=sys.executable,
-            args=["-m", "corporate_instructions_mcp"],
-            cwd=str(_SERVER_DIR),
-            env={**os.environ, "INSTRUCTIONS_ROOT": str(corpus)},
-        )
-        async with (
-            stdio_client(params) as (read, write),
-            ClientSession(read, write) as session,
-        ):
-            await session.initialize()
-
-            raw = _tool_text(
-                await session.call_tool(
-                    "get_context_triggers",
-                    {"input_payload": json.dumps(payload, ensure_ascii=False)},
-                )
-            )
-            data = json.loads(raw)
-            assert data["schema_version"] == "1.0.0"
-            assert data["contract_metadata"]["published_schema_version"] == "1.0.0"
-            assert data["advanced_signals"]["decision_stability"]["level"] in {"low", "medium", "high"}
-            assert data["scenario"]["scenario_id"] == "plan-crosscutting-async-migration"
-            assert data["strategy"]["recommended_execution_mode"] == "plan_only"
-            assert data["mcp_usage"]["level"] == "recommended"
-            assert data["tool_sequence_mode"] == "recommended_order"
-            assert "request_mentions_cross_cutting_concerns" in data["signal_sources"]["request_declared_signals"]
-            assert data["fallbacks"]["when_no_policy_found"] == "follow_repo_and_label_gap"
-            assert data["mcp_context_triggers"]["batch_required"] is True
-            assert data["evidence_gate"]["phase"] == "preliminary"
-            assert data["evidence_gate"]["reconciliation_status"] == "pending_batch"
-            assert data["tool_sequence"]
-            _assert_context_trigger_invariants(data)
-
-    asyncio.run(_run())
+    raw = get_context_triggers(json.dumps(payload, ensure_ascii=False))
+    data = json.loads(raw)
+    assert data["schema_version"] == "1.0.0"
+    assert data["contract_metadata"]["published_schema_version"] == "1.0.0"
+    assert data["advanced_signals"]["decision_stability"]["level"] in {"low", "medium", "high"}
+    assert data["scenario"]["scenario_id"] == "plan-crosscutting-async-migration"
+    assert data["strategy"]["recommended_execution_mode"] == "plan_only"
+    assert data["mcp_usage"]["level"] == "recommended"
+    assert data["tool_sequence_mode"] == "recommended_order"
+    assert "request_mentions_cross_cutting_concerns" in data["signal_sources"]["request_declared_signals"]
+    assert data["fallbacks"]["when_no_policy_found"] == "follow_repo_and_label_gap"
+    assert data["mcp_context_triggers"]["batch_required"] is True
+    assert data["evidence_gate"]["phase"] == "preliminary"
+    assert data["evidence_gate"]["reconciliation_status"] == "pending_batch"
+    assert data["tool_sequence"]
+    _assert_context_trigger_invariants(data)
 
 
-def test_mcp_stdio_get_context_triggers_functional_scenarios_matrix() -> None:
-    """STDIO functional matrix for canonical get_context_triggers scenarios."""
+def test_mcp_stdio_get_context_triggers_functional_scenarios_matrix(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Functional matrix for canonical get_context_triggers scenarios (Python API)."""
 
     corpus = _corpus_root()
+    monkeypatch.setenv("INSTRUCTIONS_ROOT", str(corpus))
+    import corporate_instructions_mcp.server as srv
+
+    srv._index = {}
+    srv._index_root = None
+    srv._expansion_map = None
+    from corporate_instructions_mcp.server import get_context_triggers
 
     base_payload = {
         "schema_version": "1.0.0",
@@ -469,115 +433,81 @@ def test_mcp_stdio_get_context_triggers_functional_scenarios_matrix() -> None:
         },
     }
 
-    async def _run() -> None:
-        params = StdioServerParameters(
-            command=sys.executable,
-            args=["-m", "corporate_instructions_mcp"],
-            cwd=str(_SERVER_DIR),
-            env={**os.environ, "INSTRUCTIONS_ROOT": str(corpus)},
-        )
-        async with (
-            stdio_client(params) as (read, write),
-            ClientSession(read, write) as session,
-        ):
-            await session.initialize()
+    scenario_a_raw = get_context_triggers(json.dumps(base_payload, ensure_ascii=False))
+    scenario_a = json.loads(scenario_a_raw)
+    assert scenario_a["strategy"]["recommended_execution_mode"] == "plan_only"
+    assert scenario_a["contract_metadata"]["catalog_resource_id"] == "context-orchestration-catalog"
+    assert scenario_a["mcp_usage"]["level"] == "recommended"
+    assert scenario_a["tool_sequence_mode"] == "recommended_order"
+    assert "request_mentions_cross_cutting_concerns" in scenario_a["signal_sources"]["request_declared_signals"]
+    assert scenario_a["mcp_context_triggers"]["batch_required"] is True
+    assert scenario_a["evidence_gate"]["phase"] == "preliminary"
+    assert scenario_a["evidence_gate"]["must_reconcile_after_batch"] is True
+    assert scenario_a["tool_sequence"]
+    assert all("failure_effect" in step and "fallback_on_failure" in step for step in scenario_a["tool_sequence"])
+    _assert_context_trigger_invariants(scenario_a)
 
-            scenario_a_raw = _tool_text(
-                await session.call_tool(
-                    "get_context_triggers",
-                    {"input_payload": json.dumps(base_payload, ensure_ascii=False)},
-                )
-            )
-            scenario_a = json.loads(scenario_a_raw)
-            assert scenario_a["strategy"]["recommended_execution_mode"] == "plan_only"
-            assert scenario_a["contract_metadata"]["catalog_resource_id"] == "context-orchestration-catalog"
-            assert scenario_a["mcp_usage"]["level"] == "recommended"
-            assert scenario_a["tool_sequence_mode"] == "recommended_order"
-            assert "request_mentions_cross_cutting_concerns" in scenario_a["signal_sources"]["request_declared_signals"]
-            assert scenario_a["mcp_context_triggers"]["batch_required"] is True
-            assert scenario_a["evidence_gate"]["phase"] == "preliminary"
-            assert scenario_a["evidence_gate"]["must_reconcile_after_batch"] is True
-            assert scenario_a["tool_sequence"]
-            assert all(
-                "failure_effect" in step and "fallback_on_failure" in step for step in scenario_a["tool_sequence"]
-            )
-            _assert_context_trigger_invariants(scenario_a)
+    scenario_b_payload = json.loads(json.dumps(base_payload))
+    scenario_b_payload["request"]["operation_mode"] = "debug"
+    scenario_b_payload["request"]["wants_only_plan"] = False
+    scenario_b_payload["request"]["mentions_cross_cutting_concerns"] = False
+    scenario_b_payload["request"]["mentions_specific_files"] = True
+    scenario_b_payload["request"]["mentions_current_file"] = True
+    scenario_b_payload["workspace"]["repo_known"] = True
+    scenario_b_raw = get_context_triggers(json.dumps(scenario_b_payload, ensure_ascii=False))
+    scenario_b = json.loads(scenario_b_raw)
+    assert scenario_b["mcp_usage"]["level"] == "not_needed"
+    assert scenario_b["strategy"]["should_use_mcp"] is False
+    assert scenario_b["mcp_context_triggers"]["batch_required"] is False
+    assert scenario_b["evidence_gate"]["reconciliation_status"] == "not_required"
+    assert "repo_structure_known" in scenario_b["signal_sources"]["repo_observed_signals"]
+    assert scenario_b["advanced_signals"]["plan_granularity"]["level"] == "coarse"
+    _assert_context_trigger_invariants(scenario_b)
 
-            scenario_b_payload = json.loads(json.dumps(base_payload))
-            scenario_b_payload["request"]["operation_mode"] = "debug"
-            scenario_b_payload["request"]["wants_only_plan"] = False
-            scenario_b_payload["request"]["mentions_cross_cutting_concerns"] = False
-            scenario_b_payload["request"]["mentions_specific_files"] = True
-            scenario_b_payload["request"]["mentions_current_file"] = True
-            scenario_b_payload["workspace"]["repo_known"] = True
-            scenario_b_raw = _tool_text(
-                await session.call_tool(
-                    "get_context_triggers",
-                    {"input_payload": json.dumps(scenario_b_payload, ensure_ascii=False)},
-                )
-            )
-            scenario_b = json.loads(scenario_b_raw)
-            assert scenario_b["mcp_usage"]["level"] == "not_needed"
-            assert scenario_b["strategy"]["should_use_mcp"] is False
-            assert scenario_b["mcp_context_triggers"]["batch_required"] is False
-            assert scenario_b["evidence_gate"]["reconciliation_status"] == "not_required"
-            assert "repo_structure_known" in scenario_b["signal_sources"]["repo_observed_signals"]
-            assert scenario_b["advanced_signals"]["plan_granularity"]["level"] == "coarse"
-            _assert_context_trigger_invariants(scenario_b)
+    scenario_c_payload = json.loads(json.dumps(base_payload))
+    scenario_c_payload["request"]["mentions_public_contract"] = True
+    scenario_c_payload["workspace"]["workspace_signals_known"] = False
+    scenario_c_raw = get_context_triggers(json.dumps(scenario_c_payload, ensure_ascii=False))
+    scenario_c = json.loads(scenario_c_raw)
+    assert scenario_c["mcp_usage"]["level"] == "required"
+    assert scenario_c["strategy"]["should_stop_for_human_input"] is True
+    assert scenario_c["stop_rules"]["stop_required"] is True
+    assert scenario_c["evidence_gate"]["must_verify_workspace_signals"] is True
+    _assert_context_trigger_invariants(scenario_c)
 
-            scenario_c_payload = json.loads(json.dumps(base_payload))
-            scenario_c_payload["request"]["mentions_public_contract"] = True
-            scenario_c_payload["workspace"]["workspace_signals_known"] = False
-            scenario_c_raw = _tool_text(
-                await session.call_tool(
-                    "get_context_triggers",
-                    {"input_payload": json.dumps(scenario_c_payload, ensure_ascii=False)},
-                )
-            )
-            scenario_c = json.loads(scenario_c_raw)
-            assert scenario_c["mcp_usage"]["level"] == "required"
-            assert scenario_c["strategy"]["should_stop_for_human_input"] is True
-            assert scenario_c["stop_rules"]["stop_required"] is True
-            assert scenario_c["evidence_gate"]["must_verify_workspace_signals"] is True
-            _assert_context_trigger_invariants(scenario_c)
+    scenario_d_payload = json.loads(json.dumps(base_payload))
+    scenario_d_payload["workspace"]["has_mcp"] = False
+    scenario_d_raw = get_context_triggers(json.dumps(scenario_d_payload, ensure_ascii=False))
+    scenario_d = json.loads(scenario_d_raw)
+    assert scenario_d["mcp_usage"]["level"] == "not_needed"
+    assert scenario_d["strategy"]["should_use_mcp"] is False
+    assert scenario_d["mcp_context_triggers"]["batch_required"] is False
+    assert scenario_d["evidence_gate"]["reconciliation_status"] == "not_required"
+    _assert_context_trigger_invariants(scenario_d)
 
-            scenario_d_payload = json.loads(json.dumps(base_payload))
-            scenario_d_payload["workspace"]["has_mcp"] = False
-            scenario_d_raw = _tool_text(
-                await session.call_tool(
-                    "get_context_triggers",
-                    {"input_payload": json.dumps(scenario_d_payload, ensure_ascii=False)},
-                )
-            )
-            scenario_d = json.loads(scenario_d_raw)
-            assert scenario_d["mcp_usage"]["level"] == "not_needed"
-            assert scenario_d["strategy"]["should_use_mcp"] is False
-            assert scenario_d["mcp_context_triggers"]["batch_required"] is False
-            assert scenario_d["evidence_gate"]["reconciliation_status"] == "not_required"
-            _assert_context_trigger_invariants(scenario_d)
-
-            scenario_e_payload = json.loads(json.dumps(base_payload))
-            scenario_e_payload["context_state"]["mcp_batch_loaded"] = True
-            scenario_e_raw = _tool_text(
-                await session.call_tool(
-                    "get_context_triggers",
-                    {"input_payload": json.dumps(scenario_e_payload, ensure_ascii=False)},
-                )
-            )
-            scenario_e = json.loads(scenario_e_raw)
-            assert scenario_e["mcp_usage"]["level"] == "recommended"
-            assert scenario_e["evidence_gate"]["phase"] == "reconciled"
-            assert scenario_e["evidence_gate"]["reconciliation_status"] == "reconciled"
-            assert "normative_batch_loaded" in scenario_e["signal_sources"]["batch_discovered_signals"]
-            _assert_context_trigger_invariants(scenario_e)
-
-    asyncio.run(_run())
+    scenario_e_payload = json.loads(json.dumps(base_payload))
+    scenario_e_payload["context_state"]["mcp_batch_loaded"] = True
+    scenario_e_raw = get_context_triggers(json.dumps(scenario_e_payload, ensure_ascii=False))
+    scenario_e = json.loads(scenario_e_raw)
+    assert scenario_e["mcp_usage"]["level"] == "recommended"
+    assert scenario_e["evidence_gate"]["phase"] == "reconciled"
+    assert scenario_e["evidence_gate"]["reconciliation_status"] == "reconciled"
+    assert "normative_batch_loaded" in scenario_e["signal_sources"]["batch_discovered_signals"]
+    _assert_context_trigger_invariants(scenario_e)
 
 
-def test_mcp_stdio_get_context_triggers_accepts_partial_payload() -> None:
-    """STDIO resilience: partial payload should be accepted with defaults."""
+def test_mcp_stdio_get_context_triggers_accepts_partial_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Partial payload should be accepted with defaults (Python API)."""
 
     corpus = _corpus_root()
+    monkeypatch.setenv("INSTRUCTIONS_ROOT", str(corpus))
+    import corporate_instructions_mcp.server as srv
+
+    srv._index = {}
+    srv._index_root = None
+    srv._expansion_map = None
+    from corporate_instructions_mcp.server import get_context_triggers
+
     partial_payload = {
         "request": {
             "operation_mode": "implement",
@@ -589,28 +519,10 @@ def test_mcp_stdio_get_context_triggers_accepts_partial_payload() -> None:
         "workspace": {"has_mcp": True},
     }
 
-    async def _run() -> None:
-        params = StdioServerParameters(
-            command=sys.executable,
-            args=["-m", "corporate_instructions_mcp"],
-            cwd=str(_SERVER_DIR),
-            env={**os.environ, "INSTRUCTIONS_ROOT": str(corpus)},
-        )
-        async with (
-            stdio_client(params) as (read, write),
-            ClientSession(read, write) as session,
-        ):
-            await session.initialize()
-            raw = _tool_text(
-                await session.call_tool(
-                    "get_context_triggers",
-                    {"input_payload": json.dumps(partial_payload, ensure_ascii=False)},
-                )
-            )
-            data = json.loads(raw)
-            assert data["schema_version"] == "1.0.0"
-            assert data["mcp_usage"]["level"] in {"required", "recommended"}
-            assert data["tool_sequence"]
-            _assert_context_trigger_invariants(data)
+    raw = get_context_triggers(json.dumps(partial_payload, ensure_ascii=False))
+    data = json.loads(raw)
+    assert data["schema_version"] == "1.0.0"
+    assert data["mcp_usage"]["level"] in {"required", "recommended"}
+    assert data["tool_sequence"]
+    _assert_context_trigger_invariants(data)
 
-    asyncio.run(_run())

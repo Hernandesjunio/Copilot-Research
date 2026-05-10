@@ -1,0 +1,30 @@
+domain: resilience
+version: "1"
+entries:
+  - canonical: resiliencia
+    aliases:
+      - resilience
+    strong_terms:
+      - polly
+      - circuit-breaker
+      - timeout
+    weak_terms:
+      - tolerancia
+    contexts: []
+
+  # Mesclado de 10-dotnet.yml (polly policy)
+  - canonical: polly-timeouts-retry-circuit-breaker
+    applies_to:
+      - "**/*.cs"
+    aliases:
+      - polly
+      - resilience
+      - circuit-breaker
+    strong_terms:
+      - timeout
+      - retry
+      - backoff
+      - AddPolicyHandler
+    weak_terms:
+      - bulkhead
+    contexts: []

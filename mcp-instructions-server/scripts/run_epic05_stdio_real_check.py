@@ -60,11 +60,8 @@ async def _run() -> dict[str, Any]:
             "list_instructions_index",
             "search_instructions",
             "get_instructions_batch",
-            "resolve_instruction_context",
-            "validate_applicability",
-            "build_compliance_matrix",
         }
-        _assert(expected.issubset(names), "Missing one or more expected MCP tools.")
+        _assert(names == expected, f"MCP tools must be exactly {sorted(expected)!r}, got {sorted(names)!r}.")
         summary["checks"].append({"name": "tools_list", "ok": True, "details": {"tools_count": len(names)}})
 
         index_raw = _tool_text(await session.call_tool("list_instructions_index", {}))
@@ -83,71 +80,6 @@ async def _run() -> dict[str, Any]:
                 },
             }
         )
-
-        applicability_raw = _tool_text(
-            await session.call_tool(
-                "validate_applicability",
-                {
-                    "instruction_ids": ["microservice-authorization-resource-scope-and-audit"],
-                    "target_artifact": {"path": "Api/Endpoints/ClienteEndpoints.cs"},
-                    "workspace_evidence": ["HttpContext.User"],
-                },
-            )
-        )
-        applicability_data = json.loads(applicability_raw)
-        decision = applicability_data["results"][0]["applicability"]
-        _assert(decision == "applicable", "validate_applicability should return applicable for positive evidence.")
-        summary["checks"].append({"name": "validate_applicability_positive", "ok": True, "details": {"decision": decision}})
-
-        matrix_raw = _tool_text(
-            await session.call_tool(
-                "build_compliance_matrix",
-                {
-                    "target_artifact": {"path": "Api/Endpoints/ClienteEndpoints.cs"},
-                    "instruction_results": [
-                        {
-                            "instruction_id": "microservice-authorization-resource-scope-and-audit",
-                            "kind": "policy",
-                            "applicability": "applicable",
-                            "reason": "Artifact in scope with evidence.",
-                        }
-                    ],
-                    "artifact_observations": [
-                        {
-                            "instruction_id": "microservice-authorization-resource-scope-and-audit",
-                            "observation_type": "positive",
-                            "value": "Authorization requirement found.",
-                        },
-                        {
-                            "instruction_id": "microservice-authorization-resource-scope-and-audit",
-                            "observation_type": "gap",
-                            "value": "Audit metadata still missing.",
-                        },
-                    ],
-                },
-            )
-        )
-        matrix_data = json.loads(matrix_raw)
-        matrix_status = matrix_data["matrix"][0]["status"]
-        _assert(matrix_status == "partial_conformance", "build_compliance_matrix should return partial_conformance here.")
-        summary["checks"].append({"name": "build_compliance_matrix_partial", "ok": True, "details": {"status": matrix_status}})
-
-        resolved_raw = _tool_text(
-            await session.call_tool(
-                "resolve_instruction_context",
-                {"query": "authorization owner audit endpoint", "max_results": 3, "include_diagnostics": True},
-            )
-        )
-        resolved_data = json.loads(resolved_raw)
-        resolution = resolved_data.get("resolution", {})
-        for key in (
-            "selection_rationale",
-            "pending_evidence",
-            "required_workspace_signals",
-            "next_repo_evidence_actions",
-        ):
-            _assert(key in resolution, f"resolve_instruction_context missing P1 field: {key}")
-        summary["checks"].append({"name": "resolve_instruction_context_p1_fields", "ok": True})
 
         multi_raw = _tool_text(
             await session.call_tool(
@@ -180,6 +112,73 @@ async def _run() -> dict[str, Any]:
                 },
             }
         )
+
+    os.environ["INSTRUCTIONS_ROOT"] = str(corpus)
+    import corporate_instructions_mcp.server as srv
+
+    srv._index = {}
+    srv._index_root = None
+    srv._expansion_map = None
+    from corporate_instructions_mcp.server import (
+        build_compliance_matrix,
+        resolve_instruction_context,
+        validate_applicability,
+    )
+
+    applicability_raw = validate_applicability(
+        instruction_ids=["microservice-authorization-resource-scope-and-audit"],
+        target_artifact={"path": "Api/Endpoints/ClienteEndpoints.cs"},
+        workspace_evidence=["HttpContext.User"],
+    )
+    applicability_data = json.loads(applicability_raw)
+    decision = applicability_data["results"][0]["applicability"]
+    _assert(decision == "applicable", "validate_applicability should return applicable for positive evidence.")
+    summary["checks"].append({"name": "validate_applicability_positive", "ok": True, "details": {"decision": decision}})
+
+    matrix_raw = build_compliance_matrix(
+        target_artifact={"path": "Api/Endpoints/ClienteEndpoints.cs"},
+        instruction_results=[
+            {
+                "instruction_id": "microservice-authorization-resource-scope-and-audit",
+                "kind": "policy",
+                "applicability": "applicable",
+                "reason": "Artifact in scope with evidence.",
+            }
+        ],
+        artifact_observations=[
+            {
+                "instruction_id": "microservice-authorization-resource-scope-and-audit",
+                "observation_type": "positive",
+                "value": "Authorization requirement found.",
+            },
+            {
+                "instruction_id": "microservice-authorization-resource-scope-and-audit",
+                "observation_type": "gap",
+                "value": "Audit metadata still missing.",
+            },
+        ],
+    )
+    matrix_data = json.loads(matrix_raw)
+    matrix_status = matrix_data["matrix"][0]["status"]
+    _assert(matrix_status == "partial_conformance", "build_compliance_matrix should return partial_conformance here.")
+    summary["checks"].append({"name": "build_compliance_matrix_partial", "ok": True, "details": {"status": matrix_status}})
+
+    resolved_raw = resolve_instruction_context(
+        query="authorization owner audit endpoint",
+        max_results=3,
+        include_diagnostics=True,
+    )
+    resolved_data = json.loads(resolved_raw)
+    resolution = resolved_data.get("resolution", {})
+    for key in (
+        "selection_rationale",
+        "pending_evidence",
+        "required_workspace_signals",
+        "next_repo_evidence_actions",
+    ):
+        _assert(key in resolution, f"resolve_instruction_context missing P1 field: {key}")
+    summary["checks"].append({"name": "resolve_instruction_context_p1_fields", "ok": True})
+
     summary["ok"] = True
     return summary
 

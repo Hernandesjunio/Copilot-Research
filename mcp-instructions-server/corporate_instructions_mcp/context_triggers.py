@@ -468,10 +468,20 @@ def _build_tool_sequence(req: dict[str, Any], workspace: dict[str, Any], should_
     if should_use_mcp:
         tools.append(
             (
+                "normative_catalog",
+                "corporate_instructions_list_instructions_index",
+                "establish corpus overview before targeted retrieval",
+                "instruction ids, titles, tags for the indexed corpus",
+                "index_unavailable_or_empty",
+                "fall_back_to_repo_only_guidance_and_label_policy_gap",
+            )
+        )
+        tools.append(
+            (
                 "normative_discovery",
                 "corporate_instructions_search_instructions",
                 "cross-cutting concern detected",
-                "candidate instruction ids",
+                "candidate instruction ids ranked by relevance",
                 "no_normative_candidates_found",
                 "proceed_with_repo_evidence_and_mark_policy_gap",
             )
@@ -480,30 +490,10 @@ def _build_tool_sequence(req: dict[str, Any], workspace: dict[str, Any], should_
             (
                 "normative_read",
                 "corporate_instructions_get_instructions_batch",
-                "policy cannot be applied from search results alone",
+                "policy cannot be applied from search snippets alone",
                 "instruction bodies and frontmatter",
                 "normative_evidence_incomplete",
                 "defer_policy_application_and_request_additional_evidence",
-            )
-        )
-        tools.append(
-            (
-                "normative_gate",
-                "corporate_instructions_validate_applicability",
-                "batch content requires formal applicability decision before enforcement",
-                "applicability states with evidence diagnostics",
-                "applicability_not_reconciled",
-                "request_workspace_evidence_and_treat_policy_as_hypothesis",
-            )
-        )
-        tools.append(
-            (
-                "normative_matrix",
-                "corporate_instructions_build_compliance_matrix",
-                "convert applicability and observations into operational status",
-                "compliance matrix with enforceability state",
-                "compliance_status_inconclusive",
-                "collect stronger observations_before_claiming_conformance",
             )
         )
 
@@ -803,13 +793,12 @@ def _validate_output_invariants(output: dict[str, Any]) -> None:
             "Output invariant failed: workspace evidence detection requires workspace verification.",
         )
 
-    # Invariant 5: MCP-enabled flows must carry full evidence-gate sequence.
+    # Invariant 5: MCP-enabled flows must list index → search → batch (only MCP tools exposed).
     if mcp_usage.get("level") in {"required", "recommended"}:
         expected_order = [
+            "corporate_instructions_list_instructions_index",
             "corporate_instructions_search_instructions",
             "corporate_instructions_get_instructions_batch",
-            "corporate_instructions_validate_applicability",
-            "corporate_instructions_build_compliance_matrix",
         ]
         order_map = {
             str(step.get("tool")): int(step.get("order", 0))

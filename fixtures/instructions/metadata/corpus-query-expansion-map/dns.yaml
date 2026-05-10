@@ -1,0 +1,28 @@
+domain: dns
+version: "1"
+entries:
+  - canonical: dns
+    aliases: []
+    strong_terms:
+      - nameserver
+      - resolver
+      - lookup
+    weak_terms:
+      - network
+      - ttl
+    contexts: []
+
+  # Mesclado de 10-dotnet.yml (DNS retry)
+  - canonical: dns-retry-backoff-jitter
+    applies_to:
+      - "**/*.cs"
+    aliases:
+      - dns-retry
+      - dns-resolution
+    strong_terms:
+      - exponential-backoff
+      - jitter
+      - polly
+    weak_terms:
+      - async
+    contexts: []

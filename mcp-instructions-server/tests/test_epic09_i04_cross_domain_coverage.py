@@ -18,6 +18,7 @@ def _env_instructions_root(monkeypatch: pytest.MonkeyPatch) -> Generator[None, N
 
     srv._index = {}
     srv._index_root = None
+    srv._expansion_map = None
     yield
 
 

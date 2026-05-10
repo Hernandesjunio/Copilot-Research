@@ -1,0 +1,85 @@
+# Mesclado de 50-observability.yml
+domain: observability
+version: "1"
+entries:
+  - canonical: observabilidade
+    aliases:
+      - observability
+    strong_terms:
+      - opentelemetry
+      - tracing
+      - health
+    weak_terms:
+      - production
+      - deployment
+    contexts: []
+
+  - canonical: metricas
+    aliases:
+      - metrics
+    strong_terms:
+      - spans
+      - tracing
+      - opentelemetry
+    weak_terms:
+      - observability
+    contexts: []
+
+  - canonical: traceparent
+    aliases: []
+    strong_terms:
+      - tracing
+      - correlation
+      - opentelemetry
+      - httpclient
+    weak_terms:
+      - observability
+    contexts: []
+
+  - canonical: correlation
+    aliases: []
+    strong_terms:
+      - tracing
+      - opentelemetry
+    weak_terms:
+      - health
+    contexts: []
+
+  - canonical: healthcheck
+    aliases: []
+    strong_terms:
+      - health
+      - live
+      - ready
+      - readiness
+    weak_terms:
+      - production
+    contexts: []
+
+  - canonical: logs
+    aliases:
+      - logging
+    strong_terms:
+      - observability
+    weak_terms:
+      - readiness
+      - production
+    contexts: []
+
+  - canonical: opentelemetry-tracing-correlation-healthchecks
+    applies_to:
+      - "**/*.cs"
+    aliases:
+      - opentelemetry
+      - tracing
+      - traceparent
+      - health-checks
+    strong_terms:
+      - AddOpenTelemetry
+      - ActivitySource
+      - AddHealthChecks
+      - MapHealthChecks
+    weak_terms:
+      - otlp
+      - sampling
+    contexts: []

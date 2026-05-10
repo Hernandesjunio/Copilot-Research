@@ -19,6 +19,7 @@ def _env_instructions_root(monkeypatch: pytest.MonkeyPatch) -> Generator[None, N
 
     srv._index = {}
     srv._index_root = None
+    srv._expansion_map = None
     yield
 
 
@@ -47,8 +48,9 @@ def _assert_context_trigger_invariants(data: dict[str, object]) -> None:
         assert evidence_gate["must_verify_workspace_signals"] is True
     if mcp_usage["level"] in {"required", "recommended"}:
         tools = [step["tool"] for step in data["tool_sequence"]]
-        assert "corporate_instructions_validate_applicability" in tools
-        assert "corporate_instructions_build_compliance_matrix" in tools
+        assert "corporate_instructions_list_instructions_index" in tools
+        assert "corporate_instructions_search_instructions" in tools
+        assert "corporate_instructions_get_instructions_batch" in tools
 
 
 def test_list_instructions_index_count() -> None:
@@ -536,7 +538,10 @@ def test_resolve_instruction_context_requires_applicability_gate_for_normative_i
     actionable = data["resolution"]["actionable_context"]
     assert actionable["normative_ids"]
     assert actionable["requires_applicability_gate"] is True
-    assert any("validate_applicability" in step for step in actionable["next_actions"])
+    assert any(
+        "get_instructions_batch" in step.lower() or "verify selected normative" in step.lower()
+        for step in actionable["next_actions"]
+    )
 
 
 def test_resolve_instruction_context_next_actions_do_not_apply_before_gate() -> None:
@@ -545,10 +550,13 @@ def test_resolve_instruction_context_next_actions_do_not_apply_before_gate() -> 
     data = json.loads(resolve_instruction_context(query="cep viacep retry timeout cache", max_results=5))
     next_actions = data["resolution"]["actionable_context"]["next_actions"]
     lower_actions = [action.lower() for action in next_actions]
-    gate_idx = next((idx for idx, action in enumerate(lower_actions) if "validate_applicability" in action), None)
+    gate_idx = next(
+        (idx for idx, action in enumerate(lower_actions) if "verify selected normative" in action),
+        None,
+    )
     assert gate_idx is not None
     for idx, action in enumerate(lower_actions):
-        if "apply `" in action:
+        if "treat `" in action:
             assert gate_idx < idx
 
 

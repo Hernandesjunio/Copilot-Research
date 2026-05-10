@@ -22,6 +22,7 @@ from corporate_instructions_mcp.applicability import (
     parse_workspace_evidence,
 )
 from corporate_instructions_mcp.config import RuntimeConfig, load_runtime_config
+from corporate_instructions_mcp.expansion import ExpansionMap, load_corpus_expansion_map
 from corporate_instructions_mcp.context_resolver import (
     build_normative_checklist,
     build_resolved_context,
@@ -68,6 +69,7 @@ _last_signature_check_mono = 0.0
 _config: RuntimeConfig | None = None
 _index_warnings: list[dict[str, Any]] = []
 _index_loaded_at_utc: str | None = None
+_expansion_map: ExpansionMap | None = None
 
 # Documented absence: requires IDE/model-side instrumentation (see research methodology).
 _SERVER_UNOBSERVABLE_METRICS = [
@@ -146,9 +148,10 @@ def _workspace_evidence_required(meta: dict[str, Any]) -> bool:
     return False
 
 
-def _ensure_index() -> tuple[dict[str, InstructionRecord], dict[str, Any]]:
+def _ensure_index() -> tuple[dict[str, InstructionRecord], dict[str, Any], ExpansionMap]:
     """Load corpus; second return value describes whether this call rebuilt the in-memory index."""
     global _index, _index_root, _index_signature, _last_signature_check_mono, _index_warnings, _index_loaded_at_utc
+    global _expansion_map
     root = _root()
     cfg = _cfg()
     call_meta: dict[str, Any] = {
@@ -178,6 +181,7 @@ def _ensure_index() -> tuple[dict[str, InstructionRecord], dict[str, Any]]:
         rebuild_ms = int((time.perf_counter() - rebuild_start) * 1000)
         _index_root = root
         _index_loaded_at_utc = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        _expansion_map = load_corpus_expansion_map(root)
         size_b = sum(len(r.body.encode("utf-8", errors="replace")) for r in _index.values())
         gov = sum(1 for r in _index.values() if _workspace_evidence_required(r.raw_frontmatter))
         telemetry.set_corpus_governance_snapshot(gov, len(_index))
@@ -193,7 +197,9 @@ def _ensure_index() -> tuple[dict[str, InstructionRecord], dict[str, Any]]:
         call_meta["cold_start"] = telemetry.index_rebuild_count() == 1
     call_meta["corpus_version"] = _index_signature.signature if _index_signature else ""
     call_meta["corpus_file_count"] = _index_signature.file_count if _index_signature else 0
-    return _index, call_meta
+    if _expansion_map is None:
+        _expansion_map = load_corpus_expansion_map(root)
+    return _index, call_meta, _expansion_map
 
 
 def _parse_tags(tags: str | None) -> set[str] | None:
@@ -377,7 +383,7 @@ def list_instructions_index() -> str:
     """
     call_start = time.perf_counter()
     try:
-        idx, index_meta = _ensure_index()
+        idx, index_meta, _ = _ensure_index()
     except Exception as exc:
         return json.dumps(
             {
@@ -586,7 +592,7 @@ def search_instructions(
     cfg = _cfg()
     args_summary = telemetry.search_args_summary(query, tags, max_results)
     try:
-        idx, index_meta = _ensure_index()
+        idx, index_meta, expansion_map = _ensure_index()
     except Exception as exc:
         return _format_error(
             error_code="SEARCH_INDEX_UNAVAILABLE",
@@ -608,7 +614,7 @@ def search_instructions(
         lo=1,
         hi=cfg.search_max_results_cap,
     )
-    expanded_info = expand_query_with_metadata(tokens) if tokens else None
+    expanded_info = expand_query_with_metadata(tokens, expansion_map=expansion_map) if tokens else None
 
     def _finish(
         *,
@@ -821,6 +827,7 @@ def search_instructions(
                 tags_mode=tags_mode_normalized,
                 exact_phrases=exact_phrases,
                 expansion_penalty_ratio=cfg.expansion_only_penalty_ratio,
+                expanded_info=expanded_info,
             )
             if normalized_query:
                 if normalized_query == normalize_text(rec.id):
@@ -1035,7 +1042,7 @@ def get_instructions_batch(
     cfg = _cfg()
     args_summary = telemetry.get_batch_args_summary(ids, max_chars_per_instruction)
     try:
-        idx, index_meta = _ensure_index()
+        idx, index_meta, _ = _ensure_index()
     except Exception as exc:
         return _format_error(
             error_code="BATCH_INDEX_UNAVAILABLE",
@@ -1172,7 +1179,6 @@ def get_instructions_batch(
     return raw
 
 
-@mcp.tool()
 def resolve_instruction_context(
     query: str,
     max_results: int = 5,
@@ -1284,7 +1290,6 @@ def resolve_instruction_context(
     return raw
 
 
-@mcp.tool()
 def validate_applicability(
     instruction_ids: list[Any],
     target_artifact: dict[str, Any],
@@ -1293,7 +1298,7 @@ def validate_applicability(
     """Evaluate applicability of instructions using scope + workspace evidence gate."""
     call_start = time.perf_counter()
     try:
-        idx, _ = _ensure_index()
+        idx, _, _ = _ensure_index()
     except Exception as exc:
         return _format_error(
             error_code="APPLICABILITY_INDEX_UNAVAILABLE",
@@ -1382,7 +1387,6 @@ def validate_applicability(
     return raw
 
 
-@mcp.tool()
 def build_compliance_matrix(
     target_artifact: dict[str, Any],
     instruction_results: list[dict[str, Any]],
@@ -1482,7 +1486,6 @@ def build_compliance_matrix(
     return raw
 
 
-@mcp.tool()
 def get_context_triggers(input_payload: str) -> str:
     """Return deterministic context-routing triggers from a structured contract payload.
 
@@ -1632,12 +1635,11 @@ def get_context_triggers(input_payload: str) -> str:
     return raw
 
 
-@mcp.tool()
 def get_normative_checklist(scenario: str) -> str:
     """Return checklist for a scenario with evidence from current index."""
     call_start = time.perf_counter()
     try:
-        idx, index_meta = _ensure_index()
+        idx, index_meta, _ = _ensure_index()
     except Exception as exc:
         raw = _format_error(
             error_code="CHECKLIST_INDEX_UNAVAILABLE",
@@ -1685,12 +1687,11 @@ def get_normative_checklist(scenario: str) -> str:
     return raw
 
 
-@mcp.tool()
 def detect_instruction_conflicts(ids: str) -> str:
     """Detect potential conflicts and precedence among instruction ids."""
     call_start = time.perf_counter()
     try:
-        idx, index_meta = _ensure_index()
+        idx, index_meta, _ = _ensure_index()
     except Exception as exc:
         raw = _format_error(
             error_code="CONFLICT_INDEX_UNAVAILABLE",

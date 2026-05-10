@@ -1,0 +1,29 @@
+domain: caching
+version: "1"
+entries:
+  - canonical: cache
+    aliases:
+      - caching
+    strong_terms:
+      - imemorycache
+      - idistributedcache
+      - ttl
+    weak_terms:
+      - invalidation
+    contexts: []
+
+  # Mesclado de 10-dotnet.yml (IMemoryCache policy)
+  - canonical: imemorycache-ttl-invalidation-multitenant
+    applies_to:
+      - "**/*.cs"
+    aliases:
+      - IMemoryCache
+      - memory-cache
+    strong_terms:
+      - ttl
+      - invalidation
+      - MemoryCacheEntryOptions
+      - GetOrCreateAsync
+    weak_terms:
+      - stampede-protection
+    contexts: []

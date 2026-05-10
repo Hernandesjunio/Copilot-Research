@@ -1,0 +1,15 @@
+# Mesclado de 00-core validacao + validation.yaml
+domain: validation
+version: "1"
+entries:
+  - canonical: validacao
+    aliases:
+      - validation
+    strong_terms:
+      - error-contracts
+      - problem-details
+      - "422"
+      - "400"
+    weak_terms:
+      - rfc7807
+    contexts: []

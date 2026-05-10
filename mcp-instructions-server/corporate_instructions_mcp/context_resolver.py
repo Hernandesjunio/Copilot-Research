@@ -715,14 +715,15 @@ def build_resolved_context(
     next_actions: list[str] = []
     if requires_applicability_gate:
         next_actions.append(
-            "Run `validate_applicability` for selected normative ids before asserting or applying any policy."
+            "Verify selected normative policies against workspace paths and signals before asserting enforcement "
+            "(use instruction scope/tags from `get_instructions_batch` and repo evidence)."
         )
     next_actions.extend(
-        f"After applicability is reconciled, apply `{instruction_id}` as normative baseline."
+        f"Treat `{instruction_id}` as normative baseline once relevance to the target artifact is confirmed."
         for instruction_id in normative_ids
     )
     next_actions.extend(
-        f"Use `{instruction_id}` as supporting reference after normative applicability is confirmed."
+        f"Use `{instruction_id}` as supporting reference after confirming fit with workspace context."
         for instruction_id in supporting_ids
     )
     if section_focus:
@@ -747,7 +748,7 @@ def build_resolved_context(
         + (", ".join(f"`{instruction_id}`" for instruction_id in normative_ids) or "none")
         + ". Supporting references: "
         + (", ".join(f"`{instruction_id}`" for instruction_id in supporting_ids) or "none")
-        + ". Applicability gate required: "
+        + ". Workspace confirmation suggested for normative ids: "
         + ("yes." if requires_applicability_gate else "no.")
     )
 

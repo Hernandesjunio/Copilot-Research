@@ -20,6 +20,8 @@ from corporate_instructions_mcp.indexing import (
     tokenize_query,
 )
 
+_FIXTURES_INSTRUCTIONS = Path(__file__).resolve().parents[2] / "fixtures" / "instructions"
+
 
 def test_tokenize_query_drops_short_and_splits() -> None:
     assert tokenize_query("a BC de-f") == ["bc"]
@@ -63,22 +65,40 @@ def test_score_record_respects_tag_filter() -> None:
     assert score_record(rec, tokens, {"other"}) == 0.0
 
 
+_FIXTURES_INSTRUCTIONS = Path(__file__).resolve().parents[2] / "fixtures" / "instructions"
+
+
 def test_expand_query_terms_handles_accents() -> None:
-    expanded = expand_query_terms(["persistência"])
+    from corporate_instructions_mcp.expansion import load_corpus_expansion_map
+
+    expansion_map = load_corpus_expansion_map(_FIXTURES_INSTRUCTIONS)
+    expanded = expand_query_terms(["persistência"], expansion_map=expansion_map)
     assert expanded["persistência"] == 1.0
-    assert expanded["sql"] == 0.5
-    assert expanded["dapper"] == 0.5
+    assert expanded["sql"] == pytest.approx(0.7)
+    assert expanded["dapper"] == pytest.approx(0.7)
 
 
 def test_expansion_map_clusters_fit_cap() -> None:
-    """Each cluster must have <=5 related terms so neighbor lists are not truncated."""
-    for key, related in indexing.QUERY_EXPANSION_MAP.items():
-        assert len(related) <= 5, f"cluster {key!r} has {len(related)} related terms (max 5)"
+    """Per-canonical lookup bucket size stays bounded (merged maps may list many related terms)."""
+    from corporate_instructions_mcp.expansion import build_unidirectional_lookup, load_corpus_expansion_map
+
+    _MAX_RELATED_PER_CANONICAL = 24
+    emap = load_corpus_expansion_map(_FIXTURES_INSTRUCTIONS)
+    lookup = build_unidirectional_lookup(emap)
+    for key, candidates in lookup.items():
+        assert len(candidates) <= _MAX_RELATED_PER_CANONICAL, (
+            f"cluster {key!r} has {len(candidates)} related terms (max {_MAX_RELATED_PER_CANONICAL})"
+        )
 
 
 def test_expansion_map_file_contains_domain_cluster() -> None:
-    assert "mensageria" in indexing.QUERY_EXPANSION_MAP
-    assert "outbox" in indexing.QUERY_EXPANSION_MAP["mensageria"]
+    from corporate_instructions_mcp.expansion import build_unidirectional_lookup, load_corpus_expansion_map
+
+    emap = load_corpus_expansion_map(_FIXTURES_INSTRUCTIONS)
+    lookup = build_unidirectional_lookup(emap)
+    assert "mensageria" in lookup
+    terms = {c.term for c in lookup["mensageria"]}
+    assert "outbox" in terms
 
 
 def test_extract_exact_phrases() -> None:
@@ -106,6 +126,8 @@ def test_score_record_breakdown_matches_total() -> None:
 
 
 def test_score_record_boosts_related_domain_terms() -> None:
+    from corporate_instructions_mcp.expansion import load_corpus_expansion_map
+
     rec = InstructionRecord(
         id="sql-doc",
         rel_path="sql-doc.md",
@@ -117,13 +139,24 @@ def test_score_record_boosts_related_domain_terms() -> None:
         body="Use parameterized queries with dapper repositories.",
         content_hash="1" * 64,
     )
-    direct_score = score_record(rec, tokenize_query("dapper"), None)
-    related_score = score_record(rec, tokenize_query("persistência"), None)
+    emap = load_corpus_expansion_map(_FIXTURES_INSTRUCTIONS)
+    direct_score = score_record(rec, tokenize_query("dapper"), None, expanded_info=None)
+    related_score = score_record(
+        rec,
+        tokenize_query("persistência"),
+        None,
+        expanded_info=indexing.expand_query_with_metadata(
+            tokenize_query("persistência"),
+            expansion_map=emap,
+        ),
+    )
     assert related_score > 0.0
-    assert direct_score > related_score
+    assert related_score > direct_score
 
 
 def test_score_record_penalizes_expansion_only_matches() -> None:
+    from corporate_instructions_mcp.expansion import load_corpus_expansion_map
+
     rec = InstructionRecord(
         id="sql-doc",
         rel_path="sql-doc.md",
@@ -136,8 +169,10 @@ def test_score_record_penalizes_expansion_only_matches() -> None:
         content_hash="1" * 64,
     )
     tokens = tokenize_query("persistência")
-    unpenalized = score_record(rec, tokens, None, expansion_penalty_ratio=1.0)
-    penalized = score_record(rec, tokens, None, expansion_penalty_ratio=0.5)
+    emap = load_corpus_expansion_map(_FIXTURES_INSTRUCTIONS)
+    expanded_info = indexing.expand_query_with_metadata(tokens, expansion_map=emap)
+    unpenalized = score_record(rec, tokens, None, expanded_info=expanded_info, expansion_penalty_ratio=1.0)
+    penalized = score_record(rec, tokens, None, expanded_info=expanded_info, expansion_penalty_ratio=0.5)
     assert penalized <= unpenalized
 
 

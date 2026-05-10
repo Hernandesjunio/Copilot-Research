@@ -12,6 +12,15 @@ from typing import Any
 
 import yaml
 
+from corporate_instructions_mcp.expansion import (
+    ContextConflictDiagnostic,
+    ExpansionCandidate,
+    ExpansionDiagnostic,
+    ExpansionMap,
+    SkippedEntryDiagnostic,
+    collect_entry_expansion,
+)
+from corporate_instructions_mcp.expansion import _merge_candidate_map
 from corporate_instructions_mcp.paths import is_path_under_root
 
 FRONTMATTER_SPLIT = re.compile(r"^---\s*$", re.MULTILINE)
@@ -30,6 +39,7 @@ _INDEX_WARNINGS: list[dict[str, Any]] = []
 PRIORITY_RANK = {"high": 3, "medium": 2, "low": 1, None: 0}
 EXPANSION_CAP_PER_TOKEN = 5
 _DNS_QUERY_SIGNAL_TERMS = {"dns", "resolver", "nameserver", "lookup", "ttl"}
+_RESILIENCE_RETRY_DISAMBIGUATION_TERMS = frozenset({"polly", "circuit", "breaker"})
 
 STOPWORDS = {
     "the",
@@ -81,52 +91,6 @@ STOPWORDS = {
     "using",
 }
 
-DEFAULT_SYNONYMS: dict[str, list[str]] = {
-    "cache": ["imemorycache", "idistributedcache", "caching", "ttl", "invalidation"],
-    "persistencia": ["dapper", "sql", "repositorio", "data-access", "efcore"],
-    "validacao": ["validation", "error-contracts", "400", "422", "problem-details"],
-    "http": ["rest", "status-codes", "endpoint", "api", "patch"],
-    "resiliencia": ["polly", "retry", "circuit-breaker", "timeout", "tolerancia"],
-    "arquitetura": ["layering", "camadas", "clean-architecture", "solid", "dotnet"],
-    "testes": ["testing", "unit", "integration", "contract", "xunit"],
-    # Link observability requests to production-readiness docs.
-    "observabilidade": ["opentelemetry", "health", "readiness", "production", "deployment"],
-    "mensageria": ["rabbitmq", "messaging", "publish", "consume", "outbox"],
-    "seguranca": ["security", "secrets", "jwt", "authentication", "authorization"],
-    "api": ["problem-details", "rfc7807", "pagination", "filtering", "minimal-api"],
-    "configuracao": ["configuration", "options", "ioptions", "feature-flags", "deployment"],
-    # Ensure /health/live/ready queries reach operational configuration guidance.
-    "healthcheck": ["health", "live", "ready", "readiness", "production"],
-    # T06/T08: bridge tracing/correlation and dependency telemetry to observability docs.
-    "traceparent": ["tracing", "correlation", "opentelemetry", "observability", "httpclient"],
-    "correlation": ["traceparent", "tracing", "opentelemetry", "observability", "health"],
-    "metricas": ["metrics", "spans", "tracing", "opentelemetry", "observability"],
-    "banco": ["sql", "data", "dapper", "efcore", "transactions"],
-    # T20/T21: connect SQL timeout/transactions and secret handling to production readiness.
-    "transacao": ["transactions", "configuracao", "producao", "configuration", "readiness"],
-    "queries": ["sql", "transactions", "configuracao", "configuration", "production"],
-    "segredos": ["secrets", "security", "logging", "readiness", "configuration"],
-    "logs": ["logging", "observability", "secrets", "readiness", "production"],
-    # T16/T18: promote error-catalog support when query intent is error contract/auth semantics.
-    "problemdetails": ["problem-details", "rfc7807", "error-catalog", "errors", "status-codes"],
-    "claims": ["jwt", "authorization", "401", "403", "error-catalog"],
-    "dominio": ["domain", "repository", "interfaces", "models", "table-storage"],
-    "integracao": ["integration", "httpclient", "contracts", "serialization", "resilience"],
-    "saga": ["orchestration", "process-manager", "consistency", "idempotency", "compensation"],
-    "governanca": ["governance", "bmad", "corpus", "instructions", "mcp"],
-    "encoding": ["utf-8", "unicode", "markdown", "line-endings", "repository"],
-    "csharp": ["dotnet", "async", "style", "generics", "performance"],
-    "planejamento": ["planning", "assistant", "inference", "confidence", "legacy"],
-    "conformidade": ["compliance", "secrets", "audit", "ownership", "resource-scope"],
-    # Avoid "retry" -> "dns" cross-contamination in generic resilience searches.
-    "dns": ["nameserver", "resolver", "lookup", "network", "ttl"],
-    # Improve coverage for pagination/collection contract queries in Portuguese.
-    "paginacao": ["pagination", "filtering", "ordering", "collection", "envelope"],
-    "colecoes": ["collection", "pagination", "filtering", "api-collection", "ordering"],
-    # Map "estruturar projeto" style prompts to architecture guidance.
-    "estruturar": ["arquitetura", "layering", "camadas", "clean-architecture", "dominio"],
-}
-
 
 def _normalize_token(token: str) -> str:
     normalized = unicodedata.normalize("NFKD", token)
@@ -137,6 +101,19 @@ def _normalize_token(token: str) -> str:
 
 def normalize_text(text: str) -> str:
     return _normalize_token(text)
+
+
+def _demote_ambiguous_retry_weight(weights: dict[str, float], query_terms_normalized: set[str]) -> None:
+    """Reduce weights for ambiguous resilience tokens when DNS intent is absent (ADR-002 crit. 3)."""
+    if query_terms_normalized & _DNS_QUERY_SIGNAL_TERMS:
+        return
+    if not _RESILIENCE_RETRY_DISAMBIGUATION_TERMS.issubset(query_terms_normalized):
+        return
+    cap = 0.0
+    if "retry" in weights:
+        weights["retry"] = min(weights["retry"], cap)
+    if "polly" in weights:
+        weights["polly"] = min(weights["polly"], cap)
 
 
 def _normalize_for_index(text: str) -> str:
@@ -374,51 +351,6 @@ def build_index(root: Path) -> dict[str, InstructionRecord]:
     return by_id
 
 
-def _load_expansion_map_from_file() -> dict[str, list[str]]:
-    file_path = Path(__file__).with_name("synonyms.yaml")
-    if not file_path.exists():
-        return dict(DEFAULT_SYNONYMS)
-    try:
-        loaded = yaml.safe_load(file_path.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError):
-        return dict(DEFAULT_SYNONYMS)
-    if not isinstance(loaded, dict):
-        return dict(DEFAULT_SYNONYMS)
-    out: dict[str, list[str]] = {}
-    for key, values in loaded.items():
-        if not isinstance(key, str):
-            continue
-        normalized_key = _normalize_token(key)
-        if isinstance(values, dict):
-            values = values.get("terms", [])
-        if not isinstance(values, list):
-            continue
-        cleaned = []
-        for value in values:
-            if not isinstance(value, str):
-                continue
-            cleaned.append(_normalize_token(value))
-        out[normalized_key] = sorted({v for v in cleaned if v})
-    return out or dict(DEFAULT_SYNONYMS)
-
-
-def _build_expansion_lookup(expansion_map: dict[str, list[str]]) -> dict[str, list[str]]:
-    lookup: dict[str, set[str]] = {}
-    for canonical, related in expansion_map.items():
-        terms = [canonical, *related]
-        normalized_terms = {_normalize_token(term): _normalize_token(term) for term in terms}
-        for term_norm in normalized_terms:
-            others = {other for other_norm, other in normalized_terms.items() if other_norm != term_norm}
-            if not others:
-                continue
-            lookup.setdefault(term_norm, set()).update(others)
-    return {key: sorted(values) for key, values in lookup.items()}
-
-
-QUERY_EXPANSION_MAP: dict[str, list[str]] = _load_expansion_map_from_file()
-_EXPANSION_LOOKUP = _build_expansion_lookup(QUERY_EXPANSION_MAP)
-
-
 def extract_exact_phrases(query: str) -> list[str]:
     phrases: list[str] = []
     for raw in PHRASE_PATTERN.findall(query):
@@ -452,39 +384,111 @@ class ExpandedQueryInfo:
     expansion_added_terms: list[str]
     expansion_truncated: bool
     expansion_count: int
+    diagnostics: list[ExpansionDiagnostic]
+    skipped_entries: list[SkippedEntryDiagnostic]
+    context_conflicts: list[ContextConflictDiagnostic]
+    expansion_disabled: bool
 
 
-def expand_query_terms(tokens: list[str]) -> dict[str, float]:
-    info = expand_query_with_metadata(tokens)
+def expand_query_terms(
+    tokens: list[str],
+    expansion_map: ExpansionMap | None = None,
+) -> dict[str, float]:
+    info = expand_query_with_metadata(tokens, expansion_map=expansion_map)
     return info.weights
 
 
-def expand_query_with_metadata(tokens: list[str]) -> ExpandedQueryInfo:
+def expand_query_with_metadata(
+    tokens: list[str],
+    expansion_map: ExpansionMap | None = None,
+    current_file_path: str | None = None,
+) -> ExpandedQueryInfo:
     normalized_tokens = [_normalize_token(token) for token in tokens]
     user_set: set[str] = set(tokens)
     user_set.update(normalized_tokens)
-    expanded: dict[str, float] = {}
+    query_terms_norm = {_normalize_token(t) for t in tokens}
+
+    if expansion_map is None or expansion_map.disabled:
+        expanded: dict[str, float] = {}
+        for original, normalized in zip(tokens, normalized_tokens, strict=False):
+            expanded[original] = max(expanded.get(original, 0.0), 1.0)
+            expanded[normalized] = max(expanded.get(normalized, 0.0), 1.0)
+        _demote_ambiguous_retry_weight(expanded, query_terms_norm)
+        return ExpandedQueryInfo(
+            weights=expanded,
+            user_tokens=sorted(user_set),
+            expansion_added_terms=[],
+            expansion_truncated=False,
+            expansion_count=0,
+            diagnostics=[],
+            skipped_entries=[],
+            context_conflicts=[],
+            expansion_disabled=True,
+        )
+
+    diagnostics: list[ExpansionDiagnostic] = []
+    skipped_entries: list[SkippedEntryDiagnostic] = []
+    context_conflicts: list[ContextConflictDiagnostic] = []
+    expanded = {}
     expansion_truncated = False
     added: set[str] = set()
     expansion_count = 0
+    seen_conflict_canonical: set[str] = set()
+
     for original, normalized in zip(tokens, normalized_tokens, strict=False):
         expanded[original] = max(expanded.get(original, 0.0), 1.0)
         expanded[normalized] = max(expanded.get(normalized, 0.0), 1.0)
-        related_list = _EXPANSION_LOOKUP.get(normalized, [])
-        if len(related_list) > EXPANSION_CAP_PER_TOKEN:
+
+        merged_cands: dict[str, ExpansionCandidate] = {}
+        for domain in expansion_map.domains:
+            for entry in domain.entries:
+                if entry.canonical != normalized:
+                    continue
+                cands, skip, conflict = collect_entry_expansion(
+                    domain, entry, current_file_path, query_terms_norm
+                )
+                if skip:
+                    skipped_entries.append(skip)
+                    continue
+                if conflict is not None and conflict.canonical not in seen_conflict_canonical:
+                    context_conflicts.append(conflict)
+                    seen_conflict_canonical.add(conflict.canonical)
+                for c in cands:
+                    _merge_candidate_map(merged_cands, c)
+
+        related_sorted = sorted(merged_cands.values(), key=lambda c: (c.term, c.source_file, c.relation))
+        if len(related_sorted) > EXPANSION_CAP_PER_TOKEN:
             expansion_truncated = True
-        for related in related_list[:EXPANSION_CAP_PER_TOKEN]:
+        for cand in related_sorted[:EXPANSION_CAP_PER_TOKEN]:
             expansion_count += 1
-            if related not in user_set:
-                added.add(related)
-            expanded[related] = max(expanded.get(related, 0.0), 0.5)
+            if cand.term not in user_set:
+                added.add(cand.term)
+            expanded[cand.term] = max(expanded.get(cand.term, 0.0), cand.weight)
+            diagnostics.append(
+                ExpansionDiagnostic(
+                    canonical=normalized,
+                    term=cand.term,
+                    relation=cand.relation,
+                    weight=cand.weight,
+                    source_domain=cand.source_domain,
+                    source_file=cand.source_file,
+                )
+            )
+
+    diagnostics.sort(key=lambda d: (d.canonical, d.term, d.relation, d.source_domain, d.source_file))
+
     added_sorted = sorted(added)
+    _demote_ambiguous_retry_weight(expanded, query_terms_norm)
     return ExpandedQueryInfo(
         weights=expanded,
         user_tokens=sorted(user_set),
         expansion_added_terms=added_sorted,
         expansion_truncated=expansion_truncated,
         expansion_count=expansion_count,
+        diagnostics=diagnostics,
+        skipped_entries=skipped_entries,
+        context_conflicts=context_conflicts,
+        expansion_disabled=False,
     )
 
 
@@ -649,11 +653,13 @@ def score_record(
     tags_mode: str = "any",
     exact_phrases: list[str] | None = None,
     expansion_penalty_ratio: float = 1.0,
+    expanded_info: ExpandedQueryInfo | None = None,
 ) -> float:
     return score_record_breakdown(
         rec,
         tokens,
         tag_filter,
+        expanded_info=expanded_info,
         tags_mode=tags_mode,
         exact_phrases=exact_phrases,
         expansion_penalty_ratio=expansion_penalty_ratio,
