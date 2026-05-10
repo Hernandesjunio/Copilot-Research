@@ -1,0 +1,42 @@
+version: 1
+namespace: messaging
+description: "Expansões relacionadas a mensageria, filas, eventos e integração assíncrona."
+
+terms:
+  mensageria:
+    aliases:
+      - messaging
+    strong_terms:
+      - publish
+      - consume
+      - outbox
+    weak_terms:
+      - event
+    expansion_mode: contextual
+    contexts:
+      rabbitmq:
+        activation_terms:
+          - rabbitmq
+          - amqp
+          - exchange
+          - consumer
+        applies_to:
+          - "**/*.cs"
+        terms:
+          - rabbitmq
+          - exchange
+          - queue
+          - consumer
+          - dlq
+
+      fix:
+        activation_terms:
+          - fix-protocol
+          - heartbeat
+          - session
+        applies_to:
+          - "**/*.cs"
+        terms:
+          - fix
+          - session
+          - heartbeat

@@ -93,7 +93,7 @@ def build_fallback_suggestions(
     if expansion_only_results > 0:
         suggestions.append(
             {
-                "reason": "results_dominated_by_synonym_expansion",
+                "reason": "results_dominated_by_expansion",
                 "tool": "search_instructions",
                 "args_patch": {"include_diagnostics": True, "tags_mode": "all"},
             }

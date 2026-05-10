@@ -76,6 +76,69 @@ healthcheck:
   - ready
   - readiness
   - production
+# T06/T08: bridge tracing/correlation and dependency telemetry to observability docs.
+traceparent:
+  - tracing
+  - correlation
+  - opentelemetry
+  - observability
+  - httpclient
+correlation:
+  - traceparent
+  - tracing
+  - opentelemetry
+  - observability
+  - health
+metricas:
+  - metrics
+  - spans
+  - tracing
+  - opentelemetry
+  - observability
+banco:
+  - sql
+  - data
+  - dapper
+  - efcore
+  - transactions
+# T20/T21: connect SQL timeout/transactions and secret handling to production readiness.
+transacao:
+  - transactions
+  - configuracao
+  - producao
+  - configuration
+  - readiness
+queries:
+  - sql
+  - transactions
+  - configuracao
+  - configuration
+  - production
+segredos:
+  - secrets
+  - security
+  - logging
+  - readiness
+  - configuration
+logs:
+  - logging
+  - observability
+  - secrets
+  - readiness
+  - production
+# T16/T18: promote error-catalog support when query intent is error contract/auth semantics.
+problemdetails:
+  - problem-details
+  - rfc7807
+  - error-catalog
+  - errors
+  - status-codes
+claims:
+  - jwt
+  - authorization
+  - "401"
+  - "403"
+  - error-catalog
 dominio:
   - domain
   - repository

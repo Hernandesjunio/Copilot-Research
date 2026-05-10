@@ -69,6 +69,7 @@ STOPWORDS = {
     "configurar",
     "retornar",
     "tratar",
+    "validar",
     "na",
     "no",
     "nas",
@@ -96,6 +97,19 @@ DEFAULT_SYNONYMS: dict[str, list[str]] = {
     "configuracao": ["configuration", "options", "ioptions", "feature-flags", "deployment"],
     # Ensure /health/live/ready queries reach operational configuration guidance.
     "healthcheck": ["health", "live", "ready", "readiness", "production"],
+    # T06/T08: bridge tracing/correlation and dependency telemetry to observability docs.
+    "traceparent": ["tracing", "correlation", "opentelemetry", "observability", "httpclient"],
+    "correlation": ["traceparent", "tracing", "opentelemetry", "observability", "health"],
+    "metricas": ["metrics", "spans", "tracing", "opentelemetry", "observability"],
+    "banco": ["sql", "data", "dapper", "efcore", "transactions"],
+    # T20/T21: connect SQL timeout/transactions and secret handling to production readiness.
+    "transacao": ["transactions", "configuracao", "producao", "configuration", "readiness"],
+    "queries": ["sql", "transactions", "configuracao", "configuration", "production"],
+    "segredos": ["secrets", "security", "logging", "readiness", "configuration"],
+    "logs": ["logging", "observability", "secrets", "readiness", "production"],
+    # T16/T18: promote error-catalog support when query intent is error contract/auth semantics.
+    "problemdetails": ["problem-details", "rfc7807", "error-catalog", "errors", "status-codes"],
+    "claims": ["jwt", "authorization", "401", "403", "error-catalog"],
     "dominio": ["domain", "repository", "interfaces", "models", "table-storage"],
     "integracao": ["integration", "httpclient", "contracts", "serialization", "resilience"],
     "saga": ["orchestration", "process-manager", "consistency", "idempotency", "compensation"],
@@ -312,8 +326,11 @@ def build_index(root: Path) -> dict[str, InstructionRecord]:
 
     clear_index_warnings()
     by_id: dict[str, InstructionRecord] = {}
+    metadata_root = root / "metadata"
     for path in sorted(root.rglob("*.md")):
         if not path.is_file():
+            continue
+        if metadata_root.exists() and path.is_relative_to(metadata_root):
             continue
         if not is_path_under_root(path, root):
             log.warning("skipped_path_outside_root path=%s", path)
@@ -357,7 +374,7 @@ def build_index(root: Path) -> dict[str, InstructionRecord]:
     return by_id
 
 
-def _load_synonyms_from_file() -> dict[str, list[str]]:
+def _load_expansion_map_from_file() -> dict[str, list[str]]:
     file_path = Path(__file__).with_name("synonyms.yaml")
     if not file_path.exists():
         return dict(DEFAULT_SYNONYMS)
@@ -385,9 +402,9 @@ def _load_synonyms_from_file() -> dict[str, list[str]]:
     return out or dict(DEFAULT_SYNONYMS)
 
 
-def _build_synonym_lookup(synonyms: dict[str, list[str]]) -> dict[str, list[str]]:
+def _build_expansion_lookup(expansion_map: dict[str, list[str]]) -> dict[str, list[str]]:
     lookup: dict[str, set[str]] = {}
-    for canonical, related in synonyms.items():
+    for canonical, related in expansion_map.items():
         terms = [canonical, *related]
         normalized_terms = {_normalize_token(term): _normalize_token(term) for term in terms}
         for term_norm in normalized_terms:
@@ -398,8 +415,8 @@ def _build_synonym_lookup(synonyms: dict[str, list[str]]) -> dict[str, list[str]
     return {key: sorted(values) for key, values in lookup.items()}
 
 
-SYNONYMS: dict[str, list[str]] = _load_synonyms_from_file()
-_SYNONYM_LOOKUP = _build_synonym_lookup(SYNONYMS)
+QUERY_EXPANSION_MAP: dict[str, list[str]] = _load_expansion_map_from_file()
+_EXPANSION_LOOKUP = _build_expansion_lookup(QUERY_EXPANSION_MAP)
 
 
 def extract_exact_phrases(query: str) -> list[str]:
@@ -428,16 +445,16 @@ def tokenize_query(q: str) -> list[str]:
 
 @dataclass(frozen=True)
 class ExpandedQueryInfo:
-    """Token expansion for telemetry (synonym map is weighted in scoring)."""
+    """Token expansion for telemetry (expansion map is weighted in scoring)."""
 
     weights: dict[str, float]
     user_tokens: list[str]
-    terms_added_by_dictionary: list[str]
+    expansion_added_terms: list[str]
     expansion_truncated: bool
-    synonym_expansion_count: int
+    expansion_count: int
 
 
-def expand_query_with_synonyms(tokens: list[str]) -> dict[str, float]:
+def expand_query_terms(tokens: list[str]) -> dict[str, float]:
     info = expand_query_with_metadata(tokens)
     return info.weights
 
@@ -449,15 +466,15 @@ def expand_query_with_metadata(tokens: list[str]) -> ExpandedQueryInfo:
     expanded: dict[str, float] = {}
     expansion_truncated = False
     added: set[str] = set()
-    synonym_expansion_count = 0
+    expansion_count = 0
     for original, normalized in zip(tokens, normalized_tokens, strict=False):
         expanded[original] = max(expanded.get(original, 0.0), 1.0)
         expanded[normalized] = max(expanded.get(normalized, 0.0), 1.0)
-        related_list = _SYNONYM_LOOKUP.get(normalized, [])
+        related_list = _EXPANSION_LOOKUP.get(normalized, [])
         if len(related_list) > EXPANSION_CAP_PER_TOKEN:
             expansion_truncated = True
         for related in related_list[:EXPANSION_CAP_PER_TOKEN]:
-            synonym_expansion_count += 1
+            expansion_count += 1
             if related not in user_set:
                 added.add(related)
             expanded[related] = max(expanded.get(related, 0.0), 0.5)
@@ -465,9 +482,9 @@ def expand_query_with_metadata(tokens: list[str]) -> ExpandedQueryInfo:
     return ExpandedQueryInfo(
         weights=expanded,
         user_tokens=sorted(user_set),
-        terms_added_by_dictionary=added_sorted,
+        expansion_added_terms=added_sorted,
         expansion_truncated=expansion_truncated,
-        synonym_expansion_count=synonym_expansion_count,
+        expansion_count=expansion_count,
     )
 
 

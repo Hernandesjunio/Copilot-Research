@@ -1,0 +1,173 @@
+# Template de entrada — Corpus Query Expansion Map (schema V1.1 — ADR-002)
+#
+# Copiar o bloco relevante para o ficheiro de namespace correcto
+# (ex: metadata/corpus-query-expansion-map/40-messaging.yml)
+# e preencher os campos. Remover linhas comentadas desnecessárias.
+#
+# Onde inserir: dentro do bloco `terms:` do ficheiro YAML alvo
+#
+# Regras gerais:
+#   - Unidirecional: termo canónico -> termos expandidos
+#   - Lookup de um nível; sem expansão transitiva
+#   - Termo duplicado em dois ficheiros sem override invalida o mapa inteiro
+#   - Contextos: activation_terms + applies_to (opcionais por contexto; ver § combinação na ADR)
+#   - when_path_matches não existe no schema nem no loader legível
+#
+# Combinação de applies_to (quando current_file_path é conhecido):
+#   - applies_to no termo restringe a entrada inteira (aliases, strong_terms,
+#     weak_terms, e elegibilidade para avaliar contexts).
+#   - applies_to no contexto restringe só esse ramo.
+#   - Se ambos existirem, ambos devem ser satisfeitos para aplicar os terms desse contexto.
+#   - Se current_file_path estiver ausente, todos os applies_to são ignorados
+#     neste filtro (sem falso negativo em query geral).
+#
+# Se applies_to existir ao nível do termo e current_file_path for conhecido mas não
+# corresponder a nenhum padrão: a entrada não expande e o diagnóstico deve registar
+# algo como skipped_by_applies_to (termo / razão).
+#
+# Ativação de contexto:
+#   - Pode vir de activation_terms, de applies_to, ou de ambos.
+#   - Se ambos activation_terms e applies_to estiverem presentes no mesmo contexto,
+#     ambos devem estar satisfeitos para esse contexto se considerar activo (precisão).
+#   - Só activation_terms: activa por vocabulário na query / metadados acordados.
+#   - Só applies_to: só pode activar quando current_file_path existe e coincide;
+#     com path ausente, esse ramo não se activa por tipo de artefato.
+#   - Nenhum nem outro num contexto: erro de curadoria / falha de validação do schema.
+#
+# Ativação cruzada:
+#   - Avaliar apenas entre contexts do mesmo termo canónico; dois canónicos
+#     distintos na mesma query não constituem o mesmo tipo de conflito.
+#   - Dois ou mais contextos activos em simultâneo -> sinal explícito de conflito;
+#     o agente decide o contexto antes de prosseguir.
+
+
+# ------------------------------------------------------------------
+# ENTRADA BÁSICA (expansion_mode: normal)
+# ------------------------------------------------------------------
+# Usar quando o termo não tem ambiguidade perigosa.
+#
+# source: <instruction-id>    ← id da instruction de origem (rastreabilidade humana)
+
+<termo-canonico>:
+  applies_to:                  # opcional — filtro quando current_file_path existe
+    - "**/*.cs"
+  aliases:
+    - <alias-equivalente>
+  strong_terms:
+    - <termo-forte-1>
+    - <termo-forte-2>
+  weak_terms: []
+  expansion_mode: normal
+
+
+# ------------------------------------------------------------------
+# ENTRADA COM FRASE MULTI-TOKEN
+# ------------------------------------------------------------------
+# Usar quando a intenção é melhor representada por uma expressão composta.
+# Frases de 2 a 5 tokens: chave YAML entre aspas.
+# O pipeline de busca deve preferir longest match wins quando esse comportamento
+# estiver implementado (ADR-002).
+#
+# source: <instruction-id>
+
+# "problem details":
+#   applies_to:
+#     - "**/*.cs"
+#     - "**/*.md"
+#   aliases:
+#     - problem-details
+#     - rfc7807
+#   strong_terms:
+#     - error-contracts
+#     - status-codes
+#   weak_terms: []
+#   expansion_mode: normal
+
+
+# ------------------------------------------------------------------
+# ENTRADA CONTEXTUAL (expansion_mode: contextual)
+# ------------------------------------------------------------------
+# Usar quando o termo é polissémico ou específico de sub-domínio.
+#
+# source: <instruction-id>
+
+# <termo-canonico-contextual>:
+#   applies_to:
+#     - "**/*.cs"
+#   aliases:
+#     - <alias-equivalente>
+#   strong_terms:
+#     - <termo-forte-geral>
+#   weak_terms: []
+#   expansion_mode: contextual
+#   contexts:
+#     <nome-contexto>:
+#       activation_terms:
+#         - <termo-discriminante>
+#         - <outro-termo-discriminante>
+#       applies_to:
+#         - "**/*.cs"
+#       terms:
+#         - <termo-especifico>
+#         - <outro-termo-especifico>
+#
+#     <outro-contexto>:
+#       activation_terms:
+#         - <termo-discriminante-do-outro-contexto>
+#       applies_to:
+#         - "**/appsettings*.json"
+#       terms:
+#         - <termo-especifico-do-outro-contexto>
+
+
+# ------------------------------------------------------------------
+# ENTRADA COM OVERRIDE
+# ------------------------------------------------------------------
+# Usar somente quando o termo já existe noutro ficheiro de namespace.
+# Override substitui o termo inteiro na V1; sem merge parcial.
+#
+# source: <instruction-id>
+
+# <termo-canonico-com-override>:
+#   override: true
+#   override_reason: "<justificativa técnica objectiva>"
+#   applies_to:
+#     - "**/*.cs"
+#   aliases:
+#     - <alias-equivalente>
+#   strong_terms:
+#     - <termo-forte>
+#   weak_terms: []
+#   expansion_mode: normal
+
+
+# ------------------------------------------------------------------
+# NOTAS DE PREENCHIMENTO
+# ------------------------------------------------------------------
+#
+# source (comentário YAML acima da entrada):
+#   - Rastreabilidade manual; lista de ids se várias instructions sustentarem a entrada.
+#
+# aliases / strong_terms / weak_terms — ver também ADR-002 §2.1.
+#
+# expansion_mode: normal | contextual (outros valores invalidam o mapa).
+#
+# activation_terms — evitar termos genéricos partilhados entre contextos
+#   do mesmo canónico (ex.: queue em rabbitmq e servicebus).
+#
+# when_path_matches:
+#   - Não usar; fora do schema e do loader.
+#
+# Evidência obrigatória (curadoria):
+#   - Todo alias, strong_term, weak_term, activation_term e padrão em applies_to
+#     deve ter suporte na instruction de origem, por exemplo:
+#       id, title, summary, tags, headings, TL;DR, corpo Markdown,
+#       e qualquer secção explícita de aplicabilidade ao workspace ou de termos /
+#       frases úteis à recuperação, quando existir no documento.
+#       (Opcionalmente: alinhar bullets em «Pode ser feito» / «Não pode ser feito»
+#       com conceitos espelhados no mapa; ver instruction-authoring-standard.md.)
+#
+# Regras do mapa (ADR-002 V1.1):
+#   - Unidirecional; lookup de um nível; sem transitividade.
+#   - Sem BM25 / vetorial / global-local na V1.
+#   - Duplicados entre ficheiros sem override invalidam o mapa.

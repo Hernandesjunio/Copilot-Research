@@ -25,6 +25,7 @@ alwaysApply: true
 | Achados de implementação, prompts de análise e propostas por tema | `research/nucleo-pesquisa/README.md` |
 | Contexto metodológico longo ou citar | `research/README.md` (secção “Como citar internamente”) |
 | Revisar análise externa contra o repo | `.cursor/rules/review-rules.md` |
+| Autoria / governação das instructions Markdown do corpus (`fixtures/instructions/`) | `fixtures/instructions/instruction-authoring-standard.md` — padrão de frontmatter, mapa YAML `metadata/corpus-query-expansion-map/`, orientação às tools MCP (`list_instructions_index`, `search_instructions`, `get_instructions_batch`) |
 
 ## Fluxo MCP (stdio)
 

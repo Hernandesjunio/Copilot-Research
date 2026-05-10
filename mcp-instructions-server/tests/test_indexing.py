@@ -13,7 +13,7 @@ from corporate_instructions_mcp.indexing import (
     build_index,
     excerpt_around_match,
     extract_exact_phrases,
-    expand_query_with_synonyms,
+    expand_query_terms,
     score_record,
     score_record_breakdown,
     summarize_body,
@@ -63,22 +63,22 @@ def test_score_record_respects_tag_filter() -> None:
     assert score_record(rec, tokens, {"other"}) == 0.0
 
 
-def test_expand_query_with_synonyms_handles_accents() -> None:
-    expanded = expand_query_with_synonyms(["persistência"])
+def test_expand_query_terms_handles_accents() -> None:
+    expanded = expand_query_terms(["persistência"])
     assert expanded["persistência"] == 1.0
     assert expanded["sql"] == 0.5
     assert expanded["dapper"] == 0.5
 
 
-def test_synonym_clusters_fit_expansion_cap() -> None:
+def test_expansion_map_clusters_fit_cap() -> None:
     """Each cluster must have <=5 related terms so neighbor lists are not truncated."""
-    for key, related in indexing.SYNONYMS.items():
+    for key, related in indexing.QUERY_EXPANSION_MAP.items():
         assert len(related) <= 5, f"cluster {key!r} has {len(related)} related terms (max 5)"
 
 
-def test_synonym_file_contains_domain_cluster() -> None:
-    assert "mensageria" in indexing.SYNONYMS
-    assert "outbox" in indexing.SYNONYMS["mensageria"]
+def test_expansion_map_file_contains_domain_cluster() -> None:
+    assert "mensageria" in indexing.QUERY_EXPANSION_MAP
+    assert "outbox" in indexing.QUERY_EXPANSION_MAP["mensageria"]
 
 
 def test_extract_exact_phrases() -> None:

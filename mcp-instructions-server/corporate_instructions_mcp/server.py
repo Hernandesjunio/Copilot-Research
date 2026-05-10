@@ -691,7 +691,7 @@ def search_instructions(
                             "score_tags": round(bd.score_tags, 4),
                             "score_body": round(bd.score_body_blob, 4),
                             "score_priority": round(bd.score_priority, 4),
-                            "score_synonym_bonus": round(bd.score_from_expansion_terms, 4),
+                            "expansion_score_bonus": round(bd.score_from_expansion_terms, 4),
                             "score_exact_phrase": round(bd.score_exact_phrase, 4),
                             "score_proximity": round(bd.score_proximity, 4),
                             "matched_user_terms": sorted(mu),
@@ -849,10 +849,10 @@ def search_instructions(
                         "expanded_terms_total": len(expanded_info.weights) if expanded_info else 0,
                         "expanded_terms": sorted(expanded_info.weights.keys()) if expanded_info else [],
                         "expanded_from_token": expanded_info.user_tokens if expanded_info else [],
-                        "synonym_expansion_count": expanded_info.synonym_expansion_count if expanded_info else 0,
+                        "expansion_count": expanded_info.expansion_count if expanded_info else 0,
                         "expansion_truncated": expanded_info.expansion_truncated if expanded_info else False,
                         "terms_from_user": len(tokens),
-                        "terms_added_by_dictionary": len(expanded_info.terms_added_by_dictionary) if expanded_info else 0,
+                        "expansion_added_terms_count": len(expanded_info.expansion_added_terms) if expanded_info else 0,
                     },
                 }
                 if expanded_info
@@ -931,10 +931,10 @@ def search_instructions(
                 "expanded_terms_total": len(expanded_info.weights),
                 "expanded_terms": sorted(expanded_info.weights.keys()),
                 "expanded_from_token": expanded_info.user_tokens,
-                "synonym_expansion_count": expanded_info.synonym_expansion_count,
+                "expansion_count": expanded_info.expansion_count,
                 "expansion_truncated": expanded_info.expansion_truncated,
                 "terms_from_user": len(tokens),
-                "terms_added_by_dictionary": len(expanded_info.terms_added_by_dictionary),
+                "expansion_added_terms_count": len(expanded_info.expansion_added_terms),
             },
         }
 

@@ -32,6 +32,7 @@ Logs operacionais do servidor vão para **stderr**; **stdout** é só o protocol
 | Template “thin” de instruções nativas | [`templates/copilot-instructions.thin.md`](templates/copilot-instructions.thin.md) |
 | Prompts e respostas datadas | [`prompts/`](prompts/), [`responses/`](responses/) |
 | Validar achados de análise externa | [`.cursor/rules/review-rules.md`](.cursor/rules/review-rules.md) |
+| Autoria, revisão ou governo das instructions `.md` do corpus | [`fixtures/instructions/instruction-authoring-standard.md`](fixtures/instructions/instruction-authoring-standard.md) — frontmatter, mapa de expansão, nomes literais das tools `list_instructions_index`, `search_instructions`, `get_instructions_batch` |
 
 ## Tabela resumo (igual à raiz)
 
@@ -42,6 +43,7 @@ Logs operacionais do servidor vão para **stderr**; **stdout** é só o protocol
 | Índice de análises | [`research/analises/README.md`](research/analises/README.md) |
 | Servidor MCP | [`mcp-instructions-server/README.md`](mcp-instructions-server/README.md) |
 | Corpus de exemplo | [`fixtures/instructions/`](fixtures/instructions/) |
+| Padrão de autoria do corpus (governação) | [`fixtures/instructions/instruction-authoring-standard.md`](fixtures/instructions/instruction-authoring-standard.md) |
 
 ## Segurança e contribuição
 

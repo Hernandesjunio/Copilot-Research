@@ -51,6 +51,69 @@ _THEME_TAG_HINTS: dict[str, set[str]] = {
 
 _THEME_MIN_STRENGTH = 2
 
+_META_GOVERNANCE_TAG_HINTS = {
+    "assistant",
+    "authoring",
+    "bmad",
+    "corpus",
+    "frontmatter",
+    "governance",
+    "inference",
+    "instructions",
+    "meta-governance",
+    "planning",
+    "workflow",
+}
+
+_META_QUERY_HINTS = {
+    "authoring",
+    "autoria",
+    "bmad",
+    "corpus",
+    "frontmatter",
+    "governanca",
+    "governance",
+    "inference",
+    "instruction",
+    "instructions",
+    "mcp",
+    "planejamento",
+    "workflow",
+}
+
+_TECHNICAL_QUERY_HINTS = {
+    "api",
+    "auth",
+    "authorization",
+    "cache",
+    "circuit",
+    "client",
+    "consume",
+    "correlation",
+    "di",
+    "dns",
+    "dto",
+    "health",
+    "http",
+    "httpclient",
+    "ihttpclientfactory",
+    "integration",
+    "jwt",
+    "messaging",
+    "observabilidade",
+    "opentelemetry",
+    "publish",
+    "rabbitmq",
+    "repository",
+    "resilience",
+    "retry",
+    "saga",
+    "sql",
+    "timeout",
+    "tracing",
+    "typed",
+}
+
 
 @dataclass(frozen=True)
 class ChecklistScenarioItem:
@@ -87,6 +150,24 @@ def _brief(rec: InstructionRecord) -> dict[str, Any]:
 def _has_specific_reference_signal(row: dict[str, Any]) -> bool:
     matched = row.get("match_explanation", {}).get("matched_user_terms") or []
     return any(isinstance(term, str) and term not in _LOW_SIGNAL_REFERENCE_TERMS for term in matched)
+
+
+def _row_is_meta_governance(row: dict[str, Any]) -> bool:
+    row_id = normalize_text(str(row.get("id") or ""))
+    tags = {normalize_text(str(tag)) for tag in (row.get("tags") or []) if isinstance(tag, str)}
+    if "meta-governance" in tags:
+        return True
+    if tags & _META_GOVERNANCE_TAG_HINTS:
+        return True
+    return "instruction-authoring" in row_id or "workflow-bmad" in row_id
+
+
+def _is_meta_governance_query(query_tokens: set[str]) -> bool:
+    return bool(query_tokens & _META_QUERY_HINTS)
+
+
+def _is_technical_query(query_tokens: set[str]) -> bool:
+    return bool(query_tokens & _TECHNICAL_QUERY_HINTS)
 
 
 def _quoted_phrases(text: str) -> list[str]:
@@ -470,6 +551,8 @@ def build_resolved_context(
     target = max(1, target)
     pool_size = min(len(search_results), max(max_results * 2, 6))
     pool = search_results[:pool_size]
+    query_tokens = {normalize_text(token) for token in tokenize_query(query)}
+    demote_meta_governance = _is_technical_query(query_tokens) and not _is_meta_governance_query(query_tokens)
 
     selected: list[dict[str, Any]] = []
     selected_ids: set[str] = set()
@@ -485,16 +568,19 @@ def build_resolved_context(
 
     add(pool[0], "top_relevance_anchor")
 
-    policy_candidate = next(
-        (
-            row
-            for row in pool
-            if str(row.get("kind") or "").lower() == "policy"
-            and row.get("id") not in selected_ids
-            and (row.get("match_explanation", {}).get("matched_user_terms") or row.get("score", 0) > 0)
-        ),
-        None,
-    )
+    policy_candidate = None
+    if str(pool[0].get("kind") or "").lower() != "policy":
+        policy_candidate = next(
+            (
+                row
+                for row in pool
+                if str(row.get("kind") or "").lower() == "policy"
+                and row.get("id") not in selected_ids
+                and (row.get("match_explanation", {}).get("matched_user_terms") or row.get("score", 0) > 0)
+                and not (demote_meta_governance and _row_is_meta_governance(row))
+            ),
+            None,
+        )
     if policy_candidate:
         add(policy_candidate, "ensure_normative_policy")
 
@@ -543,6 +629,8 @@ def build_resolved_context(
     for row in pool:
         if len(selected) >= target:
             break
+        if demote_meta_governance and _row_is_meta_governance(row):
+            continue
         matched = row.get("match_explanation", {}).get("matched_user_terms") or []
         if matched:
             add(row, "fill_direct_match")
@@ -550,7 +638,16 @@ def build_resolved_context(
     for row in pool:
         if len(selected) >= target:
             break
+        if demote_meta_governance and _row_is_meta_governance(row):
+            continue
         add(row, "fill_ranked_candidate")
+
+    if demote_meta_governance:
+        for row in pool:
+            if len(selected) >= target:
+                break
+            if _row_is_meta_governance(row):
+                add(row, "fill_meta_governance_fallback")
 
     term_counter: Counter[str] = Counter()
     for row in selected:
@@ -580,7 +677,8 @@ def build_resolved_context(
         row_id = str(row.get("id"))
         batch_item = batch_map.get(row_id, {})
         frontmatter = batch_item.get("frontmatter", {}) if isinstance(batch_item, dict) else {}
-        if str(row.get("kind") or "").lower() == "policy":
+        row_is_meta_governance = _row_is_meta_governance(row)
+        if str(row.get("kind") or "").lower() == "policy" and not (demote_meta_governance and row_is_meta_governance):
             normative_ids.append(row_id)
         else:
             supporting_ids.append(row_id)

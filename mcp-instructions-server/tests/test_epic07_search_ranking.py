@@ -33,10 +33,10 @@ def test_stopwords_pt_contains_common_connectives() -> None:
     assert required.issubset(STOPWORDS)
 
 
-def test_stopwords_pt_do_not_conflict_with_synonym_keys() -> None:
-    from corporate_instructions_mcp.indexing import STOPWORDS, SYNONYMS
+def test_stopwords_pt_do_not_conflict_with_expansion_keys() -> None:
+    from corporate_instructions_mcp.indexing import QUERY_EXPANSION_MAP, STOPWORDS
 
-    assert not (set(SYNONYMS.keys()) & STOPWORDS)
+    assert not (set(QUERY_EXPANSION_MAP.keys()) & STOPWORDS)
 
 
 def test_common_pt_connectives_do_not_score_unrelated_messaging_doc() -> None:
@@ -45,6 +45,19 @@ def test_common_pt_connectives_do_not_score_unrelated_messaging_doc() -> None:
 
     idx, _ = _ensure_index()
     tokens = tokenize_query("como deve ser")
+    info = expand_query_with_metadata(tokens)
+    breakdown = score_record_breakdown(idx["microservice-messaging-rabbitmq-publish-consume"], tokens, None, info)
+    assert breakdown.score_body_blob == 0.0
+
+
+def test_generic_pt_validation_verb_is_filtered_as_stopword() -> None:
+    from corporate_instructions_mcp.indexing import STOPWORDS, expand_query_with_metadata, score_record_breakdown, tokenize_query
+    from corporate_instructions_mcp.server import _ensure_index
+
+    assert "validar" in STOPWORDS
+
+    idx, _ = _ensure_index()
+    tokens = tokenize_query("como validar")
     info = expand_query_with_metadata(tokens)
     breakdown = score_record_breakdown(idx["microservice-messaging-rabbitmq-publish-consume"], tokens, None, info)
     assert breakdown.score_body_blob == 0.0
@@ -124,11 +137,11 @@ def test_health_check_query_includes_configuration_readiness() -> None:
     assert "microservice-configuration-production-readiness" in data["selected_ids"]
 
 
-def test_health_or_observability_synonyms_reach_configuration_terms() -> None:
-    from corporate_instructions_mcp.indexing import _SYNONYM_LOOKUP
+def test_health_or_observability_expansion_reaches_configuration_terms() -> None:
+    from corporate_instructions_mcp.indexing import _EXPANSION_LOOKUP
 
-    health_expansion = set(_SYNONYM_LOOKUP.get("health", []))
-    observability_expansion = set(_SYNONYM_LOOKUP.get("observabilidade", []))
+    health_expansion = set(_EXPANSION_LOOKUP.get("health", []))
+    observability_expansion = set(_EXPANSION_LOOKUP.get("observabilidade", []))
     expected = {"configuration", "production", "readiness", "deployment"}
     assert (health_expansion | observability_expansion) & expected
 
@@ -191,10 +204,10 @@ def test_collection_query_surfaces_openfinance_and_collection_contracts() -> Non
     assert "microservice-api-openfinance-patterns" in selected
 
 
-def test_synonym_lookup_has_useful_expansion_for_paginacao() -> None:
-    from corporate_instructions_mcp.indexing import _SYNONYM_LOOKUP
+def test_expansion_map_lookup_for_paginacao() -> None:
+    from corporate_instructions_mcp.indexing import _EXPANSION_LOOKUP
 
-    expansion = set(_SYNONYM_LOOKUP.get("paginacao", []))
+    expansion = set(_EXPANSION_LOOKUP.get("paginacao", []))
     assert expansion & {"pagination", "filtering", "collection", "envelope"}
 
 
