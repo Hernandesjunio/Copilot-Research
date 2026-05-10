@@ -23,6 +23,7 @@ Esta pasta agrupa a documentação de planeamento **BMAD** em dois eixos:
 - [EPIC-08 — Stopwords PT first pass e rebaseline da suite de contexto](epicos/EPIC-08-stopwords-pt-first-pass-and-rebaseline.md)
 - [EPIC-09 — Observability/readiness cross-domain coverage (controlled pass)](epicos/EPIC-09-i04-observability-readiness-cross-domain-coverage.md)
 - [EPIC-10 — Corpus Query Expansion Map (implementação da ADR-002)](epicos/EPIC-10-corpus-query-expansion-map.md)
+- [EPIC-11 — Catálogo `list_instructions_index` (implementação da ADR-003)](epicos/EPIC-11-list-instructions-index-catalog-filters-pagination.md)
 - [Template de inventário (EPIC-01)](epicos/INVENTORY-TEMPLATE.md)
 
 ## Pesquisa e análises

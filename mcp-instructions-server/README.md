@@ -96,9 +96,19 @@ Alternativa equivalente: `"command": "C:\\path\\to\\venv\\Scripts\\corporate-ins
 
 | Tool | Função |
 |------|--------|
-| `list_instructions_index` | Metadados de todos os `.md` (id, path, tags, hash) + `status`, `index_health`, `warnings`, `errors` e agrupamento `by_tag` para navegação por tema. |
-| `search_instructions` | Busca por palavras-chave (com expansão por sinónimos), `tags` opcional (lista separada por vírgulas), `max_results` 1–20 (default 10), `related_ids` por interseção de tags e modo multi-query opcional (`queries` + `consolidated`). |
-| `get_instructions_batch` | Conteúdo completo de 1 ou mais instructions por `ids` separados por vírgula; `max_chars_per_instruction` para truncagem individual e teto de payload total da resposta. Cada item inclui `frontmatter` (YAML parseado completo, com chaves extra além dos metadados listados no índice). |
+| `list_instructions_index` | Catálogo por metadados: lista/pagina instructions por campos canónicos como `id`, `path`, `title`, `tags`, `kind`, `scope`, `priority`, `status`, `owner`, `workspace_evidence_required` e `content_sha256`; inclui saúde do índice no envelope (`index_status`, `index_health`, `warnings`, `errors`) e pode expor facets/diagnósticos. |
+| `search_instructions` | Busca por intenção textual sobre o corpus, reutilizando o mesmo vocabulário de metadados e filtros do catálogo (`tags`, `tags_mode`, `kind`, `scope`, `priority`, `status`, `owner`, `workspace_evidence_required`) e acrescentando campos próprios de busca como `query`, `max_results`, `relevance` e multi-query (`queries` + `consolidated`). |
+| `get_instructions_batch` | Carrega conteúdo por `ids` explícitos, preservando o mesmo vocabulário canónico de metadados nos itens retornados sempre que disponível (`id`, `path`, `title`, `tags`, `kind`, `scope`, `priority`, `status`, `owner`, `workspace_evidence_required`, `content_sha256`) e incluindo `content` + `frontmatter` como payload de leitura. |
+
+**Linguagem ubíqua:** ver [docs/UBIQUITOUS-LANGUAGE-GLOSSARY.md](docs/UBIQUITOUS-LANGUAGE-GLOSSARY.md) para o vocabulário canónico partilhado entre `list_instructions_index`, `search_instructions` e `get_instructions_batch`. Regra: mesmo nome, mesmo significado.
+
+Resumo prático:
+
+- `list_instructions_index` = catálogo por metadados
+- `search_instructions` = recuperação por intenção textual
+- `get_instructions_batch` = leitura de conteúdo por ids
+
+Os objectivos mudam entre tools; o significado dos termos canónicos não.
 
 ### API Python (mesmo pacote; não registadas como tools MCP)
 
