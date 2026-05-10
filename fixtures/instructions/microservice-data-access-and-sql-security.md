@@ -5,6 +5,9 @@ tags: [microservice, data, sql, dapper, efcore, security, transactions, performa
 scope: "**/*.cs"
 priority: high
 kind: policy
+owner: <!-- TODO -->
+last_reviewed: 2026-05-10
+status: active
 workspace_evidence_required: true
 workspace_signals: [IDbConnection, SqlConnection, Dapper, SqlMapper, DbContext, DbSet, EntityFrameworkCore]
 on_absence: hypothesis_only
@@ -20,6 +23,13 @@ Reduzir riscos clássicos (SQL injection, vazamento de detalhes, N+1, queries se
 - Timeouts explícitos em conexão/comando; pool configurado; não manter transações abertas atravessando I/O externo.
 - Transações curtas; UoW explícito quando múltiplos agregados precisam consistência imediata; operações longas usam padrões assíncronos/outbox (ver mensageria).
 - Paginação no banco (`OFFSET/FETCH` ou keyset) para listagens; proibir `SELECT *` em caminhos quentes sem justificativa.
+
+## Critérios verificáveis
+
+- **Parametrização**: qualquer valor dinâmico (ids, strings, datas, limites) entra via parâmetros (`@Param`) e não por concatenação/interpolação.
+- **Timeouts**: comandos/queries com timeout explícito (por ex., `CommandDefinition(..., commandTimeout: N)` ou equivalente na stack).
+- **Transações**: escopo curto e sem atravessar chamadas externas (HTTP, mensageria, filesystem); commits/rollbacks visíveis no fluxo.
+- **Listagens**: consultas de listagem têm limite/paginação no banco; não há leitura “sem fim” nem `SELECT *` em caminhos quentes sem justificativa.
 
 ## EF Core (quando aplicável)
 
@@ -57,3 +67,9 @@ await conn.QueryAsync<ClienteListaDto>(
 - Interpolar input do usuário em SQL (`$" ... {id} ... "`).
 - Executar migrações implícitas em runtime de produção a partir do microserviço sem pipeline controlado.
 - Expor exceções de provedor SQL ao cliente da API.
+
+## Anti-exemplos
+
+- SQL com concatenação/interpolação de input do cliente (ex.: `"... WHERE Id = " + id`).
+- Listagens sem paginação/limite (ex.: `SELECT ... FROM ...` sem `TOP`, `OFFSET/FETCH` ou keyset quando o endpoint é potencialmente grande).
+- Transação aberta e depois chamada externa (ex.: `BEGIN TRAN` → HTTP → `COMMIT`).

@@ -5,8 +5,11 @@ tags: [microservice, dotnet, dependency-injection, ioptions, configuration]
 scope: "**/*.cs"
 priority: medium
 kind: policy
+owner: <!-- TODO -->
+last_reviewed: 2026-05-10
+status: active
 workspace_evidence_required: true
-workspace_signals: [IOptions, IOptionsSnapshot, IOptionsMonitor, Configure, ServiceCollection]
+workspace_signals: [IServiceCollection, AddOptions, IOptions, IOptionsSnapshot, IOptionsMonitor, Bind, ValidateOnStart]
 on_absence: hypothesis_only
 ---
 

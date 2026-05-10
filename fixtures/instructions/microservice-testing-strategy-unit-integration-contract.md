@@ -1,10 +1,18 @@
 ---
 id: microservice-testing-strategy-unit-integration-contract
 title: "Testes — unidade, integração, contrato e cenários negativos"
-tags: [microservice, testing, xunit, integration, contract, quality]
+tags: [microservice, testing, unit-testing, integration-testing, contract-testing, dotnet, xunit]
 scope: "**/*Tests/**/*.cs"
 priority: medium
 kind: policy
+owner: <!-- TODO -->
+last_reviewed: 2026-05-10
+status: active
+
+# Campos condicionais — policy de stack/bibliotecas de teste (.NET)
+workspace_evidence_required: true
+workspace_signals: [xUnit, Fact, WebApplicationFactory, Testcontainers, DotNet.Testcontainers, Pact]
+on_absence: hypothesis_only
 ---
 
 # Objetivo

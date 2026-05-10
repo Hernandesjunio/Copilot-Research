@@ -1,10 +1,13 @@
 ---
 id: microservice-domain-interfaces-models-repository
-title: "Dominio, Interfaces, Modelo e Repositorio — contrato e implementação"
+title: "Domínio, Interfaces, Modelo e Repositório — contrato e implementação"
 tags: [microservice, domain, interfaces, models, repository, dapper, table-storage]
 scope: "**/*.cs"
 priority: high
 kind: reference
+owner: <!-- TODO -->
+last_reviewed: 2026-05-10
+status: active
 ---
 
 # Objetivo

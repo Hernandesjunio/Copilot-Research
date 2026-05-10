@@ -5,8 +5,11 @@ tags: [microservice, resilience, polly, httpclient, timeout, retry, circuit-brea
 scope: "**/*.cs"
 priority: high
 kind: policy
+owner: <!-- TODO -->
+last_reviewed: 2026-05-10
+status: active
 workspace_evidence_required: true
-workspace_signals: [Polly, AddPolicyHandler, IAsyncPolicy, HttpPolicyExtensions, AddResilienceHandler]
+workspace_signals: [Polly, AddPolicyHandler, CircuitBreakerPolicy, IAsyncPolicy, HttpPolicyExtensions, AddResilienceHandler]
 on_absence: hypothesis_only
 ---
 
@@ -20,6 +23,13 @@ Definir políticas de resiliência para dependências remotas (HTTP e similares)
 - Retry apenas para falhas **transientes** e idempotentes (ou com idempotência de negócio garantida); usar backoff exponencial com **jitter**.
 - Circuit breaker abre após limiar configurado; half-open com probes limitados.
 - Não aplicar retry cego em `POST` sem chave de idempotência ou contrato deduplicável.
+
+## Critérios verificáveis
+
+- Cada `HttpClient` que fala com dependência remota define `Timeout` explícito.
+- Retry tem número máximo finito (ex.: 2–3) e inclui backoff exponencial com jitter.
+- Retry não é aplicado a chamadas não idempotentes sem garantias explícitas (ex.: `POST` sem idempotency key).
+- Circuit breaker existe por dependência e tem limiar/janela/duração configurados (falha rápida quando aberto).
 
 ## Política de retry
 

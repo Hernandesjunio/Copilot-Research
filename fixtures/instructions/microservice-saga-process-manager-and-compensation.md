@@ -4,7 +4,10 @@ title: "Consistência eventual — Saga / Process Manager, compensações e orqu
 tags: [microservice, saga, process-manager, orchestration, messaging, outbox, consistency, resilience, idempotency, manual-orchestration]
 scope: "**/*.cs"
 priority: high
-kind: reference
+kind: policy
+owner: <!-- TODO -->
+last_reviewed: 2026-05-10
+status: active
 workspace_evidence_required: true
 workspace_signals: [MassTransit, Saga, StateMachine, IBus, RabbitMQ, Outbox, BackgroundService, CancellationTokenSource]
 on_absence: hypothesis_only

@@ -5,8 +5,11 @@ tags: [microservice, caching, memory-cache, performance]
 scope: "**/*.cs"
 priority: medium
 kind: policy
+owner: "<!-- TODO -->"
+last_reviewed: 2026-05-10
+status: active
 workspace_evidence_required: true
-workspace_signals: [IMemoryCache, AddMemoryCache, MemoryCache, Microsoft.Extensions.Caching.Memory]
+workspace_signals: [IMemoryCache, MemoryCacheEntryOptions, AddMemoryCache, Microsoft.Extensions.Caching.Memory, PostEvictionCallbacks, GetOrCreateAsync]
 on_absence: hypothesis_only
 ---
 

@@ -5,8 +5,11 @@ tags: [microservice, messaging, rabbitmq, resilience, observability, idempotency
 scope: "**/*.cs"
 priority: high
 kind: policy
+owner: <!-- TODO -->
+last_reviewed: 2026-05-10
+status: active
 workspace_evidence_required: true
-workspace_signals: [RabbitMQ, IConnection, RabbitMQ.Client, MassTransit, AddMassTransit, IBus]
+workspace_signals: [RabbitMQ.Client, RabbitMQ, IConnection, IModel, IBasicProperties, BasicPublish, BasicConsume, BasicQos, AsyncEventingBasicConsumer, EventingBasicConsumer, BasicDeliverEventArgs, MassTransit, AddMassTransit, IBus, EasyNetQ]
 on_absence: hypothesis_only
 ---
 
@@ -21,6 +24,13 @@ Padronizar publicação e consumo com RabbitMQ em microservices .NET: contratos 
 - Filas DLQ (dead letter) configuradas para poison messages; limite de reentregas com contador ou TTL de retry.
 - Propagar `traceparent` em propriedades/headers quando suportado pelo cliente.
 - Consumidor que materializa **projeção** ou **modelo de leitura** (CQRS light): atualizar só após processamento idempotente; alinhar chaves com o produtor/outbox.
+
+## Critérios verificáveis
+
+- O consumidor **só** envia `ack` após completar o efeito durável requerido (ex.: escrita em storage/read model) de forma idempotente.
+- Mensagens “poison” têm caminho operacional definido (DLQ/Dead Letter) e limite de reentregas (contador, TTL de retry ou política equivalente).
+- Requeue em falha é restrito a casos **transientes** documentados; falhas não-transientes convergem para DLQ/intervenção.
+- O contrato de mensagem tem versão explícita (`v1`/`v2` ou `schemaVersion`) e consumidores declaram compatibilidade.
 
 ## Comandos vs eventos
 

@@ -1,7 +1,7 @@
 ---
 id: microservice-api-openfinance-patterns
 title: "Microservice API — envelope de resposta, erros globais e documentação"
-tags: [microservice, api, response-envelope, rfc7807, minimal-api, xmldocs, error-handling, openfinance]
+tags: [microservice, api, response-envelope, rfc7807, minimal-api, xmldocs, xml-docs, error-handling, openfinance, open-finance]
 scope: "**/Api/**/*.cs"
 priority: high
 kind: policy

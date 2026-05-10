@@ -1,10 +1,13 @@
 ---
 id: microservice-design-principles-solid-performance-types
 title: "Design — SOLID, coesão, generics e performance de tipos"
-tags: [microservice, solid, design, performance, generics, csharp]
+tags: [microservice, solid, cohesion, performance, generics, csharp]
 scope: "**/*.cs"
 priority: medium
 kind: reference
+owner: "<!-- TODO -->"
+last_reviewed: 2026-05-10
+status: active
 ---
 
 # Objetivo

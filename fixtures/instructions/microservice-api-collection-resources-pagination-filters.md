@@ -5,6 +5,9 @@ tags: [microservice, api, pagination, filtering, sorting, versioning, backward-c
 scope: "**/Api/**/*.cs"
 priority: medium
 kind: reference
+owner: <!-- TODO -->
+last_reviewed: 2026-05-10
+status: active
 ---
 
 # Objetivo

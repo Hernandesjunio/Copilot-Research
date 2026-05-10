@@ -1,7 +1,7 @@
 ---
 id: microservice-architecture-layering
 title: "Microservice .NET — arquitetura por camadas"
-tags: [microservice, dotnet, architecture, layering, clean-architecture]
+tags: [microservice, dotnet, architecture, layering, clean-architecture, dependency-inversion, di, dto]
 scope: "**/*.cs"
 priority: high
 kind: reference

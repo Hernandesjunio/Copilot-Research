@@ -5,6 +5,9 @@ tags: [microservice, configuration, options, feature-flags, production, deployme
 scope: "**/*.cs"
 priority: medium
 kind: policy
+owner: "<!-- TODO -->"
+last_reviewed: 2026-05-10
+status: active
 workspace_evidence_required: true
 workspace_signals: [IConfiguration, IOptions, IHostApplicationLifetime, AddFeatureManagement, IFeatureManager]
 on_absence: hypothesis_only
@@ -20,6 +23,12 @@ Complementar o registro de DI com regras de configuração segura, validação n
 - Feature flags para liberar comportamento novo sem deploy arriscado; flags temporárias devem ter dono e data de remoção.
 - Separar config não secreta (appsettings) de segredos (KeyVault/variáveis de pipeline); nunca commitar segredos.
 - Defaults seguros: em dúvida, modo mais restritivo (ex.: feature desligada, limite menor de página).
+
+## Critérios verificáveis
+
+- O serviço deve **falhar no startup** quando uma options obrigatória está ausente ou inválida (`ValidateOnStart` e/ou validação equivalente).
+- Feature flags temporárias devem ter **dono** e **data de remoção** documentados (no repositório ou sistema de gestão de mudança do time).
+- Segredos não devem existir em `appsettings*.json` versionado; devem estar em cofre de segredos ou variáveis seguras de pipeline.
 
 ## Ambientes
 

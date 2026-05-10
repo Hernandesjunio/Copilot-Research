@@ -1,7 +1,7 @@
 ---
 id: microservice-api-validation-and-error-contracts
 title: "API — validação de entrada, 400 vs 422 e contrato de erros"
-tags: [microservice, api, validation, problem-details, errors, 400, 422, 404]
+tags: [microservice, api, validation, problem-details, errors, "400", "422", "404"]
 scope: "**/Api/**/*.cs"
 priority: high
 kind: policy

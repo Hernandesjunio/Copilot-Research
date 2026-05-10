@@ -1,7 +1,7 @@
 ---
 id: artifact-encoding-line-endings-and-unicode
 title: "Artefactos — encoding, fim de linha e Unicode"
-tags: [encoding, utf-8, unicode, markdown, line-endings, repository, interoperability]
+tags: [encoding, utf-8, unicode, markdown, line-endings, git, editorconfig, gitattributes, interoperability]
 scope: "**/*"
 priority: medium
 kind: policy

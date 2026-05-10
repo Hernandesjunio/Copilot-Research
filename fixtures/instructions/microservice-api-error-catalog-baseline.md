@@ -14,6 +14,12 @@ status: active
 
 Centralizar o **mapeamento canónico** de códigos HTTP mais usados em microservices, com ponte para instructions detalhadas, evitando definições divergentes entre documentos.
 
+## TL;DR
+
+- Usar este ficheiro como **referência rápida** para escolher `Status` HTTP.
+- Para semântica REST e verbos/idempotência, seguir `microservice-rest-http-semantics-and-status-codes`.
+- Para contratos de validação e erro (`400` vs `422`, ProblemDetails/envelope), seguir `microservice-api-validation-and-error-contracts`.
+
 ## Uso deste catálogo
 
 - **Semântica de verbos, idempotência, rotas:** `microservice-rest-http-semantics-and-status-codes`.

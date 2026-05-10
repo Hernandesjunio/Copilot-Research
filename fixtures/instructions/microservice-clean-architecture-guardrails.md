@@ -5,6 +5,9 @@ tags: [microservice, clean-architecture, observability, resilience, security, te
 scope: "**/*.cs"
 priority: high
 kind: policy
+owner: "<!-- TODO -->"
+last_reviewed: 2026-05-10
+status: active
 ---
 
 # Objetivo

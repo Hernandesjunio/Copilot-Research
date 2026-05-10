@@ -5,8 +5,11 @@ tags: [microservice, security, auth, authentication, authorization, jwt, bearer,
 scope: "**/*.cs"
 priority: high
 kind: policy
+owner: <!-- TODO -->
+last_reviewed: 2026-05-10
+status: active
 workspace_evidence_required: true
-workspace_signals: [AddAuthentication, JwtBearerDefaults, AddJwtBearer, Microsoft.AspNetCore.Authentication.JwtBearer, AuthorizationPolicy, AddAuthorization]
+workspace_signals: [AddAuthentication, JwtBearerDefaults, AddJwtBearer, Microsoft.AspNetCore.Authentication.JwtBearer, TokenValidationParameters, ValidateIssuer, ValidateAudience, ValidateIssuerSigningKey, ValidateLifetime, ClockSkew, Authority, Audience, ValidIssuer, ValidAudience, AuthorizationPolicy, AddAuthorization]
 on_absence: hypothesis_only
 ---
 
