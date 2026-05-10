@@ -37,7 +37,7 @@ Problemas documentados na ADR-002 (seção 1) que este epic resolve:
 |---|---|---|
 | Expansão cruzada indevida | Lookup bidirecional | Lookup unidirecional (canônico → expandidos) |
 | Sem distinção de intensidade | Peso único 0.5 | Pesos por tipo: alias 0.9, strong 0.7, weak 0.3 |
-| Ambiguidade de termos | Sem contexto de path | Campo `contexts` no schema (V2) |
+| Ambiguidade de termos | Sem discriminação por vocabulário/artefato | `activation_terms` + `applies_to` em contextos (schema V1.1); scoring contextual fora do escopo deste épico |
 | Fallback silencioso | DEFAULT_SYNONYMS como backup | Desabilitar expansão se mapa ausente |
 | Sem rastreabilidade | Nenhum diagnóstico | `ExpansionDiagnostic` com source + tipo |
 
@@ -59,9 +59,11 @@ Guardrails invioláveis:
 - Não alterar critérios da suíte de 24 casos.
 - Não introduzir expansão transitiva (multi-hop).
 - Não implementar merge global/local de mapas.
-- Campo `contexts` do schema: parseado e armazenado no tipo Python, mas **não aplicado em
-  scoring nesta versão** (reservado para V2). Incluir apenas para garantir compatibilidade
-  futura do schema.
+- Campo `contexts` do schema: schema V1.1 completo (`activation_terms`, `applies_to`, `terms`)
+  parseado, validado e armazenado nos tipos Python. **Scoring contextual** (aplicar `terms`
+  de um contexto ativo ao resultado de busca) está **fora do escopo deste épico** — os
+  campos existem, são validados e geram diagnóstico de conflito, mas não alteram pesos.
+  Implementação do scoring contextual fica para o épico seguinte.
 
 ---
 
@@ -70,14 +72,17 @@ Guardrails invioláveis:
 ### Em escopo
 
 - Novo módulo `mcp-instructions-server/corporate_instructions_mcp/expansion.py` com:
-  - Tipos: `ContextRule`, `ExpansionEntry`, `ExpansionDomain`, `ExpansionMap`, `ExpansionDiagnostic`.
+  - Tipos: `ContextRule` (schema V1.1), `ExpansionEntry` (com `applies_to`),
+    `ExpansionDomain`, `ExpansionMap`, `ExpansionCandidate`,
+    `ExpansionDiagnostic`, `SkippedEntryDiagnostic`, `ContextConflictDiagnostic`.
   - Funções: `parse_domain_file()`, `load_corpus_expansion_map()`,
-    `build_unidirectional_lookup()`, `expand_query_weighted()`.
+    `build_unidirectional_lookup()`.
   - Constantes: `ALIAS_WEIGHT`, `STRONG_WEIGHT`, `WEAK_WEIGHT`.
 - Modificações em `indexing.py`:
   - Remover `DEFAULT_SYNONYMS`, `_load_expansion_map_from_file()`, `_build_expansion_lookup()`,
     módulo-level `QUERY_EXPANSION_MAP` e `_EXPANSION_LOOKUP`.
-  - Adicionar parâmetro opcional `expansion_map` em `expand_query_with_metadata()`.
+  - Adicionar parâmetros opcionais `expansion_map` e `current_file_path` em
+    `expand_query_with_metadata()`.
   - Quando `expansion_map is None`, expansão é desabilitada (apenas tokens do usuário com
     peso 1.0).
 - Criação dos arquivos YAML por domínio em
@@ -92,7 +97,8 @@ Guardrails invioláveis:
 - BM25 / busca vetorial.
 - Expansão transitiva (multi-hop).
 - Merge global/local de mapas.
-- Context-based scoring por path de documento (V2).
+- Scoring contextual: aplicar `ContextRule.terms` ao resultado de busca quando contexto ativo
+  (schema e validação estão em escopo; scoring via `terms` fica para o épico seguinte).
 - Atualização do corpus real de produção (`INSTRUCTIONS_ROOT` em produção).
 
 ---
@@ -126,9 +132,17 @@ Guardrails invioláveis:
 
 ### Não alterados
 
-- `context_resolver.py`, `server.py`, `paths.py`, `config.py`, `telemetry.py`,
+- Contratos públicos das tools MCP (assinaturas, nomes de parâmetros, formato de retorno
+  JSON): `search_instructions`, `resolve_instruction_context`, `get_instructions_batch`,
+  `get_context_triggers`, `validate_applicability`.
+- `context_resolver.py`, `paths.py`, `config.py`, `telemetry.py`,
   `applicability.py`, `search_contract.py`
 - Todos os `fixtures/instructions/*.md`
+
+**Modificações internas permitidas em `server.py`** (sem alterar contratos externos):
+- `_ensure_index()` passa a retornar `(idx, sig, expansion_map)` para propagar o mapa
+  carregado a `expand_query_with_metadata()`.
+- Nenhuma mudança em stdio, JSON-RPC ou parâmetros das tools.
 
 ---
 
@@ -180,7 +194,7 @@ entries:
       - consume
     weak_terms:
       - outbox
-    contexts: []        # reservado para V2 — parseado mas não usado em scoring
+    contexts: []        # scoring contextual fora do escopo deste épico
 ```
 
 Tipos a definir em `expansion.py`:
@@ -188,8 +202,11 @@ Tipos a definir em `expansion.py`:
 ```python
 @dataclass(frozen=True)
 class ContextRule:
-    path_pattern: str       # glob pattern (e.g. "**/dns*.md") — V2, não usado em scoring
-    extra_terms: list[str]  # termos adicionais quando path_pattern corresponder
+    activation_terms: list[str]  # vocabulário discriminante da query ([] = não definido)
+    applies_to: list[str]        # padrões glob de tipo de artefato  ([] = não definido)
+    terms: list[str]             # expansões adicionais quando contexto ativo
+    # Scoring contextual (aplicar `terms` ao resultado) está fora do escopo deste épico.
+    # Os campos são parseados, validados e geram ContextConflictDiagnostic se necessário.
 
 @dataclass(frozen=True)
 class ExpansionEntry:
@@ -197,7 +214,12 @@ class ExpansionEntry:
     aliases: list[str]          # peso ALIAS_WEIGHT (0.9)
     strong_terms: list[str]     # peso STRONG_WEIGHT (0.7)
     weak_terms: list[str]       # peso WEAK_WEIGHT (0.3)
-    contexts: list[ContextRule] # V2, não usado em scoring neste epic
+    applies_to: list[str]       # padrões glob de tipo de artefato no nível da entrada
+                                # [] = sempre expande (comportamento neutro)
+                                # presente + current_file_path conhecido e sem match →
+                                # não expande; diagnóstico skipped_by_applies_to emitido
+                                # presente + current_file_path ausente → ignorado
+    contexts: list[ContextRule] # scoring contextual fora do escopo deste épico
 
 @dataclass(frozen=True)
 class ExpansionDomain:
@@ -230,8 +252,19 @@ def parse_domain_file(raw: dict, source: str) -> ExpansionDomain | None:
       - Campos desconhecidos no nível superior ou na entrada são ignorados.
       - Entradas sem 'canonical' são ignoradas (com log de warning por entrada).
       - Campos 'aliases', 'strong_terms', 'weak_terms', 'contexts' ausentes → lista vazia.
-      - Todos os tokens (canonical + listas) são normalizados com _normalize_token().
+      - Campo 'applies_to' ausente na entrada → lista vazia (entrada sempre expande).
+      - Todos os tokens de busca (canonical, aliases, strong_terms, weak_terms,
+        activation_terms) são normalizados com _normalize_token().
+      - Padrões glob em 'applies_to' (entrada e contexto) NÃO são normalizados —
+        preservar maiúsculas/minúsculas e separadores de caminho exatamente como escritos.
       - version ausente → "1" como default.
+
+    Validação de ContextRule (ADR-002 critério 9):
+      - Contexto com 'terms' não vazio e 'activation_terms' == [] e 'applies_to' == [] →
+        erro de curadoria: loga warning e descarta o contexto (não a entrada inteira).
+      - Contexto com 'terms' vazio → aceito mesmo sem 'activation_terms'/'applies_to'
+        (contexto vazio é inofensivo).
+      - Campos 'activation_terms', 'applies_to', 'terms' ausentes no contexto → lista vazia.
     """
 ```
 
@@ -610,19 +643,76 @@ def test_FAIL_S01_parse_domain_file_version_defaults_to_one() -> None:
     assert result.version == "1"
 
 
-def test_FAIL_S01_parse_domain_file_context_rule_fields() -> None:
-    """parse_domain_file faz parse do campo 'contexts' em ContextRule objects.
+def test_FAIL_S01_parse_domain_file_context_rule_fields_v11() -> None:
+    """parse_domain_file faz parse do campo 'contexts' em ContextRule com schema V1.1.
+
+    Schema V1.1: activation_terms, applies_to, terms (ADR-002 §2.1).
+    Nenhum campo 'path_pattern' ou 'extra_terms' (schema pré-V1.1 rejeitado).
 
     Input:
-      entry com contexts contendo um ContextRule:
-        path_pattern: "**/dns*.md"
-        extra_terms:  ["nameserver", "resolver"]
+      entry com contexts contendo um ContextRule V1.1:
+        activation_terms: ["queue", "broker"]
+        applies_to:       ["**/*.cs"]
+        terms:            ["servicebus", "rabbitmq"]
 
     Output esperado:
-      entry.contexts[0].path_pattern == "**/dns*.md"
-      entry.contexts[0].extra_terms  == ["nameserver", "resolver"]
+      entry.contexts[0].activation_terms == ["queue", "broker"]
+      entry.contexts[0].applies_to       == ["**/*.cs"]
+      entry.contexts[0].terms            == ["servicebus", "rabbitmq"]
 
-    Nota: ContextRule é parseado mas NÃO usado em scoring nesta versão (V2).
+    Nota: scoring contextual (aplicar terms ao resultado) está fora do escopo deste
+    épico — os campos são parseados e armazenados, não usados em scoring ainda.
+
+    RED:  ModuleNotFoundError
+    GREEN: asserts passam
+    """
+    from corporate_instructions_mcp.expansion import parse_domain_file
+
+    raw = {
+        "domain": "messaging",
+        "version": "1",
+        "entries": [
+            {
+                "canonical": "mensageria",
+                "aliases": [],
+                "strong_terms": [],
+                "weak_terms": [],
+                "applies_to": [],
+                "contexts": [
+                    {
+                        "activation_terms": ["queue", "broker"],
+                        "applies_to": ["**/*.cs"],
+                        "terms": ["servicebus", "rabbitmq"],
+                    }
+                ],
+            }
+        ],
+    }
+    result = parse_domain_file(raw, source="messaging.yaml")
+
+    assert result is not None
+    entry = result.entries[0]
+    assert len(entry.contexts) == 1
+    ctx = entry.contexts[0]
+    assert ctx.activation_terms == ["queue", "broker"]
+    assert ctx.applies_to == ["**/*.cs"]
+    assert ctx.terms == ["servicebus", "rabbitmq"]
+
+
+def test_FAIL_S01_parse_domain_file_context_rule_optional_fields_default_to_empty() -> None:
+    """parse_domain_file trata activation_terms/applies_to/terms ausentes como [] em contexto.
+
+    Input:
+      contexto sem nenhum dos campos opcionais explícitos
+
+    Output esperado:
+      ctx.activation_terms == []
+      ctx.applies_to       == []
+      ctx.terms            == []
+
+    Nota: contexto com terms=[] é aceito mesmo sem activation_terms/applies_to
+    (contexto vazio é inofensivo; ADR-002 critério 9 só rejeita terms não vazio
+    sem nenhum mecanismo de ativação).
 
     RED:  ModuleNotFoundError
     GREEN: asserts passam
@@ -635,15 +725,7 @@ def test_FAIL_S01_parse_domain_file_context_rule_fields() -> None:
         "entries": [
             {
                 "canonical": "ttl",
-                "aliases": [],
-                "strong_terms": [],
-                "weak_terms": [],
-                "contexts": [
-                    {
-                        "path_pattern": "**/dns*.md",
-                        "extra_terms": ["nameserver", "resolver"],
-                    }
-                ],
+                "contexts": [{}],   # contexto sem campos — todos defaultam para []
             }
         ],
     }
@@ -652,9 +734,122 @@ def test_FAIL_S01_parse_domain_file_context_rule_fields() -> None:
     assert result is not None
     entry = result.entries[0]
     assert len(entry.contexts) == 1
-    assert entry.contexts[0].path_pattern == "**/dns*.md"
-    assert entry.contexts[0].extra_terms == ["nameserver", "resolver"]
+    ctx = entry.contexts[0]
+    assert ctx.activation_terms == []
+    assert ctx.applies_to == []
+    assert ctx.terms == []
+
+
+def test_FAIL_S01_parse_domain_file_context_with_terms_no_activation_is_rejected() -> None:
+    """parse_domain_file descarta contexto com terms mas sem activation_terms nem applies_to.
+
+    Critério ADR-002 V1.2 nº 9: contexto com terms não vazio e sem nenhum mecanismo de
+    ativação é erro de curadoria — o loader deve rejeitar esse contexto (não a entrada
+    inteira) e logar warning.
+
+    Input:
+      entrada com dois contextos:
+        ctx1: terms=["servicebus"], activation_terms=[], applies_to=[] → REJEITADO
+        ctx2: terms=["rabbitmq"], activation_terms=["queue"]           → aceito
+
+    Output esperado:
+      result is not None                  (entrada não é descartada, só o contexto inválido)
+      len(entry.contexts) == 1            (ctx1 descartado, ctx2 mantido)
+      entry.contexts[0].terms == ["rabbitmq"]
+
+    RED:  ModuleNotFoundError
+    GREEN: asserts passam
+    """
+    from corporate_instructions_mcp.expansion import parse_domain_file
+
+    raw = {
+        "domain": "messaging",
+        "version": "1",
+        "entries": [
+            {
+                "canonical": "mensageria",
+                "contexts": [
+                    {
+                        "terms": ["servicebus"],
+                        # sem activation_terms nem applies_to → inválido
+                    },
+                    {
+                        "activation_terms": ["queue"],
+                        "terms": ["rabbitmq"],
+                    },
+                ],
+            }
+        ],
+    }
+    result = parse_domain_file(raw, source="messaging.yaml")
+
+    assert result is not None
+    entry = result.entries[0]
+    assert len(entry.contexts) == 1, (
+        f"Esperado 1 contexto (ctx inválido descartado), obtido {len(entry.contexts)}"
+    )
+    assert entry.contexts[0].terms == ["rabbitmq"]
 ```
+
+def test_FAIL_S01_parse_domain_file_entry_applies_to_parsed() -> None:
+    """parse_domain_file faz parse do campo 'applies_to' no nível da entrada.
+
+    Input:
+      entrada com applies_to: ["**/*.cs", "**/*.csproj"]
+
+    Output esperado:
+      entry.applies_to == ["**/*.cs", "**/*.csproj"]
+
+    Nota: padrões glob em applies_to NÃO são normalizados (preservar maiúsculas/
+    minúsculas e separadores de caminho exatamente como escritos).
+
+    RED:  ModuleNotFoundError
+    GREEN: assert passa
+    """
+    from corporate_instructions_mcp.expansion import parse_domain_file
+
+    raw = {
+        "domain": "dotnet",
+        "version": "1",
+        "entries": [
+            {
+                "canonical": "options",
+                "strong_terms": ["ioptions"],
+                "applies_to": ["**/*.cs", "**/*.csproj"],
+            }
+        ],
+    }
+    result = parse_domain_file(raw, source="dotnet.yaml")
+
+    assert result is not None
+    entry = result.entries[0]
+    assert entry.applies_to == ["**/*.cs", "**/*.csproj"]
+
+
+def test_FAIL_S01_parse_domain_file_entry_applies_to_absent_defaults_to_empty() -> None:
+    """parse_domain_file trata applies_to ausente como [] na entrada.
+
+    Input:
+      entrada sem campo 'applies_to'
+
+    Output esperado:
+      entry.applies_to == []   (entrada sempre expande — comportamento neutro)
+
+    RED:  ModuleNotFoundError
+    GREEN: assert passa
+    """
+    from corporate_instructions_mcp.expansion import parse_domain_file
+
+    raw = {
+        "domain": "caching",
+        "version": "1",
+        "entries": [{"canonical": "cache", "strong_terms": ["ttl"]}],
+    }
+    result = parse_domain_file(raw, source="caching.yaml")
+
+    assert result is not None
+    assert result.entries[0].applies_to == []
+
 
 ### Implementação S-01
 
@@ -662,12 +857,14 @@ Criar `mcp-instructions-server/corporate_instructions_mcp/expansion.py` com:
 - [ ] Dataclasses: `ContextRule`, `ExpansionEntry`, `ExpansionDomain`.
 - [ ] Constantes: `ALIAS_WEIGHT = 0.9`, `STRONG_WEIGHT = 0.7`, `WEAK_WEIGHT = 0.3`.
 - [ ] Função `parse_domain_file(raw: dict, source: str) -> ExpansionDomain | None`.
-- [ ] Usar `_normalize_token` de `indexing.py` para normalizar todos os tokens.
-- [ ] `log.warning()` em cada caso de retorno None ou entrada ignorada.
+- [ ] Usar `_normalize_token` de `indexing.py` para normalizar tokens de busca
+  (canonical, aliases, strong_terms, weak_terms, activation_terms).
+- [ ] NÃO normalizar padrões glob em `applies_to` (entrada ou contexto).
+- [ ] `log.warning()` em cada caso de retorno None, entrada ignorada ou contexto descartado.
 
 ### Critérios de aceite — S-01
 
-- [ ] Todos os `test_FAIL_S01_*` passam.
+- [ ] Todos os `test_FAIL_S01_*` passam (incluindo os novos de `applies_to` e `ContextRule` V1.1).
 - [ ] `pytest -q` permanece verde (zero regressões nos testes existentes).
 
 ---
@@ -1052,24 +1249,39 @@ Adicionar a `expansion.py`:
 ### Background
 
 A partir de um `ExpansionMap`, construir um lookup que mapeia cada canonical term para uma
-lista de `(term, weight)` pares — **unidirecional**: apenas `canonical → [expanded terms]`,
+lista de `ExpansionCandidate` — **unidirecional**: apenas `canonical → [candidatos]`,
 NUNCA `expanded_term → [canonical, others]`.
 
+`ExpansionCandidate` preserva a rastreabilidade completa necessária para `ExpansionDiagnostic`:
+
 ```python
+@dataclass(frozen=True)
+class ExpansionCandidate:
+    """Resultado de expansão com rastreabilidade completa (ADR-002 §4.1 — observabilidade)."""
+    term: str            # termo expandido
+    weight: float        # peso: ALIAS_WEIGHT | STRONG_WEIGHT | WEAK_WEIGHT
+    relation: str        # "alias" | "strong" | "weak"
+    source_domain: str   # domain do arquivo que forneceu a entry
+    source_file: str     # nome do arquivo (ex: "messaging.yaml")
+
+
 def build_unidirectional_lookup(
     expansion_map: ExpansionMap,
-) -> dict[str, list[tuple[str, float]]]:
-    """Retorna dict canonical → [(term, weight), ...].
+) -> dict[str, list[ExpansionCandidate]]:
+    """Retorna dict canonical → [ExpansionCandidate, ...].
 
     Regras:
       - Chave: somente termos que aparecem como 'canonical' em alguma ExpansionEntry.
-      - Valor: lista de (term, weight) para aliases (ALIAS_WEIGHT), strong_terms
-               (STRONG_WEIGHT), weak_terms (WEAK_WEIGHT).
+      - Valor: lista de ExpansionCandidate para aliases (ALIAS_WEIGHT), strong_terms
+               (STRONG_WEIGHT), weak_terms (WEAK_WEIGHT); source_domain e source_file
+               propagados do ExpansionDomain de origem.
       - Se um mesmo canonical aparece em múltiplos domínios: as listas são concatenadas
-        (sem duplicatas de term; em caso de duplicata, mantém o maior peso).
+        (sem duplicatas de term; em caso de duplicata de term, mantém o candidato de
+        maior peso — preserva source_domain/source_file do vencedor).
       - O canonical em si NÃO aparece na lista de expansão (não é auto-expandido).
       - Termos que aparecem somente como expanded (nunca como canonical) NÃO têm entrada
         no lookup.
+      - Se `expansion_map.disabled`: retornar `{}`.
     """
 ```
 
@@ -1090,10 +1302,10 @@ def _make_expansion_map_from_raw(domains_raw: list[dict], sources: list[str]):
 
 
 def test_FAIL_S03_canonical_expands_to_typed_terms() -> None:
-    """build_unidirectional_lookup mapeia canonical → [(term, weight)] corretamente.
+    """build_unidirectional_lookup mapeia canonical → [ExpansionCandidate] corretamente.
 
     Input:
-      ExpansionMap com um domínio 'messaging', uma entry:
+      ExpansionMap com um domínio 'messaging' (source_file="messaging.yaml"), uma entry:
         canonical:    "mensageria"
         aliases:      ["messaging"]
         strong_terms: ["rabbitmq", "publish"]
@@ -1101,13 +1313,12 @@ def test_FAIL_S03_canonical_expands_to_typed_terms() -> None:
         contexts:     []
 
     Output esperado (lookup["mensageria"]):
-      Contém (peso exato):
-        ("messaging", 0.9)   ← alias
-        ("rabbitmq",  0.7)   ← strong_term
-        ("publish",   0.7)   ← strong_term
-        ("outbox",    0.3)   ← weak_term
+      Candidato para "messaging":  weight=0.9, relation="alias",  source_domain="messaging"
+      Candidato para "rabbitmq":   weight=0.7, relation="strong", source_domain="messaging"
+      Candidato para "publish":    weight=0.7, relation="strong", source_domain="messaging"
+      Candidato para "outbox":     weight=0.3, relation="weak",   source_domain="messaging"
 
-    Ordem: não garantida; verificar como conjunto de pares.
+    Verificação por termo (ordem não garantida).
 
     RED:  ImportError ou AttributeError
     GREEN: assert passa
@@ -1136,11 +1347,25 @@ def test_FAIL_S03_canonical_expands_to_typed_terms() -> None:
     lookup = build_unidirectional_lookup(expansion_map)
 
     assert "mensageria" in lookup
-    pairs = set(lookup["mensageria"])
-    assert ("messaging", 0.9) in pairs
-    assert ("rabbitmq", 0.7) in pairs
-    assert ("publish", 0.7) in pairs
-    assert ("outbox", 0.3) in pairs
+    by_term = {c.term: c for c in lookup["mensageria"]}
+
+    assert "messaging" in by_term
+    assert by_term["messaging"].weight == pytest.approx(0.9)
+    assert by_term["messaging"].relation == "alias"
+    assert by_term["messaging"].source_domain == "messaging"
+    assert by_term["messaging"].source_file == "messaging.yaml"
+
+    assert "rabbitmq" in by_term
+    assert by_term["rabbitmq"].weight == pytest.approx(0.7)
+    assert by_term["rabbitmq"].relation == "strong"
+
+    assert "publish" in by_term
+    assert by_term["publish"].weight == pytest.approx(0.7)
+    assert by_term["publish"].relation == "strong"
+
+    assert "outbox" in by_term
+    assert by_term["outbox"].weight == pytest.approx(0.3)
+    assert by_term["outbox"].relation == "weak"
 
 
 def test_FAIL_S03_non_canonical_term_has_no_entry() -> None:
@@ -1155,7 +1380,7 @@ def test_FAIL_S03_non_canonical_term_has_no_entry() -> None:
       weak_terms:   ["outbox"]
 
     Output esperado:
-      "rabbitmq" NOT in lookup     ← só mensageria é canonical
+      "rabbitmq" NOT in lookup     ← só mensageria é canonical; lookup é unidirecional
       "messaging" NOT in lookup
       "publish" NOT in lookup
       "outbox" NOT in lookup
@@ -1212,10 +1437,10 @@ def test_FAIL_S03_same_canonical_across_two_domains_merges_with_max_weight() -> 
         weak_terms:   ["health"]       ← 'health' reaparece como weak
 
     Output esperado para lookup["observabilidade"]:
-      ("opentelemetry", 0.7)   ← strong em observability
-      ("health",        0.7)   ← aparece como strong (0.7) e weak (0.3) → mantém 0.7
-      ("deployment",    0.3)   ← weak em observability
-      ("production",    0.7)   ← strong em configuration
+      "opentelemetry": weight=0.7, relation="strong", source_domain="observability"
+      "health":        weight=0.7, relation="strong"  ← max(0.7 strong, 0.3 weak) = 0.7
+      "deployment":    weight=0.3, relation="weak",   source_domain="observability"
+      "production":    weight=0.7, relation="strong", source_domain="configuration"
 
     RED:  ImportError ou AttributeError
     GREEN: todos os asserts passam
@@ -1256,11 +1481,15 @@ def test_FAIL_S03_same_canonical_across_two_domains_merges_with_max_weight() -> 
 
     lookup = build_unidirectional_lookup(expansion_map)
 
-    pairs = dict(lookup["observabilidade"])  # {term: weight}
-    assert pairs.get("opentelemetry") == pytest.approx(0.7)
-    assert pairs.get("health") == pytest.approx(0.7)   # max(0.7, 0.3) = 0.7
-    assert pairs.get("deployment") == pytest.approx(0.3)
-    assert pairs.get("production") == pytest.approx(0.7)
+    by_term = {c.term: c for c in lookup["observabilidade"]}
+    assert by_term["opentelemetry"].weight == pytest.approx(0.7)
+    assert by_term["opentelemetry"].source_domain == "observability"
+    assert by_term["health"].weight == pytest.approx(0.7)       # max(0.7, 0.3) = 0.7
+    assert by_term["health"].relation == "strong"               # vencedor é o strong
+    assert by_term["deployment"].weight == pytest.approx(0.3)
+    assert by_term["deployment"].source_domain == "observability"
+    assert by_term["production"].weight == pytest.approx(0.7)
+    assert by_term["production"].source_domain == "configuration"
 
 
 def test_FAIL_S03_disabled_map_returns_empty_lookup() -> None:
@@ -1324,7 +1553,7 @@ def test_FAIL_S03_canonical_not_self_expanding() -> None:
     lookup = build_unidirectional_lookup(expansion_map)
 
     assert "cache" in lookup
-    terms_in_lookup = {term for term, _ in lookup["cache"]}
+    terms_in_lookup = {c.term for c in lookup["cache"]}
     assert "cache" not in terms_in_lookup, (
         "O canonical 'cache' não deve aparecer como expansão de si mesmo"
     )
@@ -1335,14 +1564,17 @@ def test_FAIL_S03_canonical_not_self_expanding() -> None:
 ### Implementação S-03
 
 Adicionar a `expansion.py`:
-- [ ] Função `build_unidirectional_lookup(expansion_map: ExpansionMap) -> dict[str, list[tuple[str, float]]]`.
-- [ ] Iterar sobre todos os `entry` de todos os `domain` em `expansion_map.domains`.
-- [ ] Para cada entry: acumular `(term, weight)` em `accumulator[entry.canonical]`.
-  - aliases → `ALIAS_WEIGHT`
-  - strong_terms → `STRONG_WEIGHT`
-  - weak_terms → `WEAK_WEIGHT`
-- [ ] Em caso de duplicata de term: manter `max(existing_weight, new_weight)`.
-- [ ] Nunca adicionar o canonical em si à lista.
+- [ ] Dataclass `ExpansionCandidate(term, weight, relation, source_domain, source_file)`.
+- [ ] Função `build_unidirectional_lookup(expansion_map: ExpansionMap) -> dict[str, list[ExpansionCandidate]]`.
+- [ ] Iterar sobre todos os `domain` em `expansion_map.domains` e todos os `entry` de cada domain.
+- [ ] Para cada entry: criar `ExpansionCandidate` com `source_domain=domain.domain`,
+  `source_file=domain.source_file` para cada termo expandido.
+  - aliases → `ALIAS_WEIGHT`, `relation="alias"`
+  - strong_terms → `STRONG_WEIGHT`, `relation="strong"`
+  - weak_terms → `WEAK_WEIGHT`, `relation="weak"`
+- [ ] Em caso de duplicata de term no mesmo canonical: manter o candidato de maior peso
+  (`max(existing.weight, new.weight)`); em empate, manter o primeiro encontrado.
+- [ ] Nunca adicionar o canonical em si à lista de candidatos.
 - [ ] Se `expansion_map.disabled`: retornar `{}`.
 
 ### Critérios de aceite — S-03
@@ -1389,7 +1621,7 @@ class ExpandedQueryInfo:
     expansion_disabled: bool                    # NOVO campo — True se map is None ou disabled
 ```
 
-`ExpansionDiagnostic` (definir em `expansion.py`):
+`ExpansionDiagnostic` e `ContextConflictDiagnostic` (definir em `expansion.py`):
 
 ```python
 @dataclass(frozen=True)
@@ -1400,7 +1632,70 @@ class ExpansionDiagnostic:
     weight: float         # peso aplicado (0.9 / 0.7 / 0.3)
     source_domain: str    # domain do arquivo que forneceu a entry
     source_file: str      # nome do arquivo (ex: "messaging.yaml")
+
+
+@dataclass(frozen=True)
+class SkippedEntryDiagnostic:
+    """Diagnóstico emitido quando applies_to barra uma entrada (ADR-002 critério 8)."""
+    canonical: str         # canônico da entrada barrada
+    reason: str            # sempre "skipped_by_applies_to" neste contexto
+    applies_to: list[str]  # padrões que foram avaliados
+    current_file_path: str # path que não correspondeu a nenhum padrão
+    source_domain: str
+    source_file: str
+
+
+@dataclass(frozen=True)
+class ContextConflictDiagnostic:
+    """Diagnóstico emitido quando dois ou mais contextos do mesmo canonical são candidatos
+    ativos simultaneamente (ADR-002 §2.1 — ativação cruzada, critério 6).
+
+    O MCP não resolve o conflito: sinaliza ao agente para decidir o contexto antes de
+    prosseguir. Scoring contextual não é aplicado quando há conflito.
+    """
+    canonical: str                     # canônico cujos contextos conflitam
+    conflicting_context_indices: list[int]   # índices dos contextos em colisão (base 0)
+    activation_signals: list[str]      # quais signals ativaram cada contexto
+    resolution: str = "agent_must_decide"    # sempre "agent_must_decide" neste épico
 ```
+
+Adicionar ao `ExpandedQueryInfo`:
+
+```python
+@dataclass(frozen=True)
+class ExpandedQueryInfo:
+    weights: dict[str, float]
+    user_tokens: list[str]
+    expansion_added_terms: list[str]
+    expansion_truncated: bool
+    expansion_count: int
+    diagnostics: list[ExpansionDiagnostic]
+    skipped_entries: list[SkippedEntryDiagnostic]   # NOVO — barradas por applies_to
+    context_conflicts: list[ContextConflictDiagnostic]  # NOVO — conflitos de contexto
+    expansion_disabled: bool
+```
+
+Mudança na assinatura de `expand_query_with_metadata` (adicionar `current_file_path`):
+
+```python
+# ANTES:
+def expand_query_with_metadata(tokens: list[str]) -> ExpandedQueryInfo:
+
+# DEPOIS:
+def expand_query_with_metadata(
+    tokens: list[str],
+    expansion_map: "ExpansionMap | None" = None,
+    current_file_path: "str | None" = None,
+) -> ExpandedQueryInfo:
+```
+
+Semântica de `current_file_path` em `expand_query_with_metadata` (ADR-002 §2.1 V1.1):
+- Se `entry.applies_to` não é vazio E `current_file_path` é fornecido E nenhum padrão
+  corresponde ao path: a entrada **não** expande; cria `SkippedEntryDiagnostic` com
+  `reason="skipped_by_applies_to"` e adiciona a `skipped_entries`.
+- Se `entry.applies_to` não é vazio E `current_file_path` é `None`: `applies_to` é
+  ignorado; a entrada expande normalmente (sem falso negativo em queries gerais).
+- Se `entry.applies_to` é vazio: a entrada sempre expande (comportamento neutro).
 
 Comportamento quando `expansion_map is None` ou `expansion_map.disabled is True`:
 - `weights` contém somente user tokens com peso 1.0.
@@ -1408,6 +1703,8 @@ Comportamento quando `expansion_map is None` ou `expansion_map.disabled is True`
 - `expansion_count == 0`.
 - `expansion_truncated == False`.
 - `diagnostics == []`.
+- `skipped_entries == []`.
+- `context_conflicts == []`.
 - `expansion_disabled == True`.
 
 ### Testes RED — S-04
@@ -1442,6 +1739,8 @@ def test_FAIL_S04_expand_with_none_map_disables_expansion() -> None:
     assert info.expansion_added_terms == []
     assert info.expansion_count == 0
     assert info.diagnostics == []
+    assert info.skipped_entries == []
+    assert info.context_conflicts == []
     assert info.weights.get("mensageria") == pytest.approx(1.0)
     assert info.weights.get("rabbitmq") == pytest.approx(1.0)
     # Nenhum outro termo com peso < 1.0 deve aparecer
@@ -1694,18 +1993,30 @@ Modificações em `indexing.py`:
 
 - [ ] Remover módulo-level: `QUERY_EXPANSION_MAP`, `_EXPANSION_LOOKUP`,
       `_load_expansion_map_from_file()`, `_build_expansion_lookup()`.
-- [ ] Remover `DEFAULT_SYNONYMS` (ou comentar com marcação `# REMOVED: ver ADR-002 / EPIC-10`).
-- [ ] Importar `ExpansionMap, build_unidirectional_lookup, ExpansionDiagnostic` de `expansion.py`.
-- [ ] Adicionar `expansion_disabled: bool` e `diagnostics: list[ExpansionDiagnostic]` ao
-      `ExpandedQueryInfo`.
-- [ ] Modificar `expand_query_with_metadata(tokens, expansion_map=None)`:
+- [ ] Remover `DEFAULT_SYNONYMS` de `indexing.py` (deleção definitiva; sem comentário
+      residual).
+- [ ] Importar `ExpansionMap, build_unidirectional_lookup, ExpansionDiagnostic,
+      SkippedEntryDiagnostic, ContextConflictDiagnostic, ExpansionCandidate`
+      de `expansion.py`.
+- [ ] Adicionar ao `ExpandedQueryInfo`: `expansion_disabled: bool`,
+      `diagnostics: list[ExpansionDiagnostic]`,
+      `skipped_entries: list[SkippedEntryDiagnostic]`,
+      `context_conflicts: list[ContextConflictDiagnostic]`.
+- [ ] Modificar `expand_query_with_metadata(tokens, expansion_map=None, current_file_path=None)`:
   - Se `expansion_map is None` ou `expansion_map.disabled`: retornar `ExpandedQueryInfo`
     com apenas user tokens em `weights` (peso 1.0), `expansion_disabled=True`,
-    `diagnostics=[]`.
-  - Caso contrário: chamar `build_unidirectional_lookup(expansion_map)`, aplicar pesos
-    tipados, gerar `ExpansionDiagnostic` por cada expansão.
+    todos os campos de lista vazios.
+  - Caso contrário:
+    - Chamar `build_unidirectional_lookup(expansion_map)`.
+    - Para cada token do usuário que seja canonical no lookup:
+      - Verificar `applies_to` da `ExpansionEntry`: se presente e `current_file_path`
+        fornecido e sem match → criar `SkippedEntryDiagnostic` e pular a entrada.
+      - Aplicar pesos tipados dos `ExpansionCandidate`; gerar `ExpansionDiagnostic`
+        por cada candidato aplicado (propagar `source_domain`, `source_file`,
+        `relation` do candidato).
+      - (Scoring contextual via `ContextRule.terms` não é aplicado neste épico.)
 - [ ] Atualizar todos os pontos internos que chamam `expand_query_with_metadata()` para
-  continuar funcionando (server.py usa expansão via `_ensure_index()` — atualizar para
+  continuar funcionando (`server.py` usa expansão via `_ensure_index()` — atualizar para
   passar o mapa carregado junto com o índice).
 
 **Mudança em `server.py` necessária para passar o mapa:**
@@ -1727,6 +2038,22 @@ Isso é uma mudança interna e não altera contratos de tools.
 Criar os arquivos YAML por domínio em `fixtures/instructions/metadata/corpus-query-expansion-map/`.
 Cada arquivo define as relações semânticas para os documentos do corpus de fixture. As relações
 devem ser **unidirecionais** e tipadas conforme o novo schema.
+
+#### Convenção de nomenclatura e migração (ADR-002 §2)
+
+- **Extensão**: `.yaml` (não `.yml`). O loader itera sobre `*.yaml` em `sorted()`.
+- **Padrão de nome**: `<domínio>.yaml` sem prefixo numérico (ex: `messaging.yaml`, não
+  `40-messaging.yml`).
+- **Arquivos pré-existentes**: o diretório já contém arquivos com extensão `.yml` e
+  prefixos numéricos criados por outra ferramenta (`00-core.yml`, `10-dotnet.yml`,
+  `20-api.yml`, `30-data.yml`, `40-messaging.yml`, `50-observability.yml`,
+  `60-security.yml`, `70-architecture.yml`, `80-governance.yml`). Esses arquivos
+  **não serão carregados** pelo loader `*.yaml` e **não devem ser modificados** neste
+  épico — são artefatos de outra camada (padrão de autoria do corpus). Criar os novos
+  `.yaml` de domínio em paralelo, no mesmo diretório.
+- **Sobreposição de domínio**: se um domínio já coberto por um arquivo `.yml` existente
+  (ex: `40-messaging.yml`) for também coberto pelo novo `messaging.yaml`, os dois
+  arquivos coexistem sem conflito — o loader deste épico lê apenas `*.yaml`.
 
 **Contrato geral dos arquivos**:
 
@@ -2825,16 +3152,509 @@ def test_REGRESSION_S07_persistencia_sql_returns_data_access() -> None:
 
 ---
 
+## S-07b — Validação dos critérios ADR-002 V1.1/V1.2 (critérios 5–10)
+
+### Background
+
+Validar os seis critérios adicionais da ADR-002 (três de V1.1 e três de V1.2) que
+cobrem: filtragem por `applies_to`, sinalização de ativação cruzada, conformidade do
+schema YAML, diagnóstico `skipped_by_applies_to`, validação de contextos malformados e
+reprodutibilidade das regras de combinação.
+
+Estes testes pressupõem que S-01 a S-05 estão implementados. Testes unitários (S-07b-U)
+usam mapas construídos programaticamente; testes de fixture (S-07b-F) leem os arquivos
+YAML do corpus de fixture.
+
+### Testes RED — S-07b
+
+```python
+# === Seção: S-07b — Critérios ADR-002 V1.1/V1.2 (critérios 5–10) ===
+
+# ---------------------------------------------------------------------------
+# Critério 5: applies_to no nível do termo
+# ---------------------------------------------------------------------------
+
+def test_FAIL_S07b_criterion5a_applies_to_blocks_entry_when_path_known() -> None:
+    """ADR-002 critério 5a: applies_to filtra entrada quando current_file_path fornecido
+    e não corresponde.
+
+    Setup:
+      ExpansionEntry:
+        canonical:   "options"
+        strong_terms: ["ioptions"]
+        applies_to:  ["**/*.cs"]   ← só expande para arquivos .cs
+
+    Input:
+      tokens = ["options"]
+      current_file_path = "docs/readme.md"   ← não é .cs → não deve expandir
+
+    Output esperado:
+      info.expansion_disabled == False    (mapa está ativo)
+      "ioptions" NOT in info.weights      (entrada barrada por applies_to)
+      len(info.skipped_entries) == 1
+      info.skipped_entries[0].reason == "skipped_by_applies_to"
+      info.skipped_entries[0].canonical == "options"
+      info.skipped_entries[0].current_file_path == "docs/readme.md"
+
+    RED:  ImportError / AssertionError
+    GREEN: asserts passam
+    """
+    from corporate_instructions_mcp.indexing import expand_query_with_metadata
+
+    expansion_map = _make_expansion_map_from_raw(
+        [
+            {
+                "domain": "dotnet",
+                "version": "1",
+                "entries": [
+                    {
+                        "canonical": "options",
+                        "strong_terms": ["ioptions"],
+                        "applies_to": ["**/*.cs"],
+                    }
+                ],
+            }
+        ],
+        ["dotnet.yaml"],
+    )
+
+    tokens = ["options"]
+    info = expand_query_with_metadata(
+        tokens, expansion_map=expansion_map, current_file_path="docs/readme.md"
+    )
+
+    assert info.expansion_disabled is False
+    assert "ioptions" not in info.weights, (
+        "ADR-002 critério 5a: applies_to deveria ter barrado a entrada para docs/readme.md"
+    )
+    assert len(info.skipped_entries) == 1
+    assert info.skipped_entries[0].reason == "skipped_by_applies_to"
+    assert info.skipped_entries[0].canonical == "options"
+    assert info.skipped_entries[0].current_file_path == "docs/readme.md"
+
+
+def test_FAIL_S07b_criterion5b_applies_to_does_not_block_when_path_absent() -> None:
+    """ADR-002 critério 5b: applies_to não bloqueia expansão quando current_file_path ausente.
+
+    Mesma entrada de S-07b-criterion5a, sem current_file_path.
+
+    Input:
+      tokens = ["options"]
+      current_file_path = None
+
+    Output esperado:
+      "ioptions" in info.weights          (applies_to ignorado sem path)
+      len(info.skipped_entries) == 0
+
+    RED:  ImportError / AssertionError
+    GREEN: asserts passam
+    """
+    from corporate_instructions_mcp.indexing import expand_query_with_metadata
+
+    expansion_map = _make_expansion_map_from_raw(
+        [
+            {
+                "domain": "dotnet",
+                "version": "1",
+                "entries": [
+                    {
+                        "canonical": "options",
+                        "strong_terms": ["ioptions"],
+                        "applies_to": ["**/*.cs"],
+                    }
+                ],
+            }
+        ],
+        ["dotnet.yaml"],
+    )
+
+    tokens = ["options"]
+    info = expand_query_with_metadata(tokens, expansion_map=expansion_map, current_file_path=None)
+
+    assert "ioptions" in info.weights, (
+        "ADR-002 critério 5b: applies_to deve ser ignorado quando current_file_path é None"
+    )
+    assert len(info.skipped_entries) == 0
+
+
+def test_FAIL_S07b_criterion5c_applies_to_allows_matching_path() -> None:
+    """ADR-002 critério 5c: applies_to não bloqueia quando path corresponde ao padrão.
+
+    Input:
+      tokens = ["options"]
+      current_file_path = "src/MyService.cs"   ← corresponde a **/*.cs
+
+    Output esperado:
+      "ioptions" in info.weights
+      len(info.skipped_entries) == 0
+
+    RED:  ImportError / AssertionError
+    GREEN: asserts passam
+    """
+    from corporate_instructions_mcp.indexing import expand_query_with_metadata
+
+    expansion_map = _make_expansion_map_from_raw(
+        [
+            {
+                "domain": "dotnet",
+                "version": "1",
+                "entries": [
+                    {
+                        "canonical": "options",
+                        "strong_terms": ["ioptions"],
+                        "applies_to": ["**/*.cs"],
+                    }
+                ],
+            }
+        ],
+        ["dotnet.yaml"],
+    )
+
+    tokens = ["options"]
+    info = expand_query_with_metadata(
+        tokens, expansion_map=expansion_map, current_file_path="src/MyService.cs"
+    )
+
+    assert "ioptions" in info.weights, (
+        "ADR-002 critério 5c: path 'src/MyService.cs' corresponde a '**/*.cs' — deve expandir"
+    )
+    assert len(info.skipped_entries) == 0
+
+
+# ---------------------------------------------------------------------------
+# Critério 6: ativação cruzada produz sinal explícito
+# ---------------------------------------------------------------------------
+
+def test_FAIL_S07b_criterion6_cross_activation_conflict_signaled() -> None:
+    """ADR-002 critério 6: dois contextos do mesmo canonical ativos → ContextConflictDiagnostic.
+
+    Setup:
+      canonical: "mensageria" com dois contextos:
+        ctx0: activation_terms=["queue"], terms=["rabbitmq"]
+        ctx1: activation_terms=["queue", "broker"], terms=["servicebus"]
+
+      Token "queue" satisfaz AMBOS os contextos simultaneamente → conflito.
+
+    Input:
+      tokens = ["mensageria", "queue"]
+
+    Output esperado:
+      len(info.context_conflicts) >= 1
+      info.context_conflicts[0].canonical == "mensageria"
+      len(info.context_conflicts[0].conflicting_context_indices) == 2
+      info.context_conflicts[0].resolution == "agent_must_decide"
+
+    Nota: nenhum termo de contexto (rabbitmq, servicebus) deve ser adicionado a weights
+    quando há conflito (scoring contextual não é aplicado neste épico de qualquer forma).
+
+    RED:  ImportError / AssertionError
+    GREEN: asserts passam
+    """
+    from corporate_instructions_mcp.indexing import expand_query_with_metadata
+
+    expansion_map = _make_expansion_map_from_raw(
+        [
+            {
+                "domain": "messaging",
+                "version": "1",
+                "entries": [
+                    {
+                        "canonical": "mensageria",
+                        "aliases": [],
+                        "strong_terms": [],
+                        "weak_terms": [],
+                        "contexts": [
+                            {
+                                "activation_terms": ["queue"],
+                                "terms": ["rabbitmq"],
+                            },
+                            {
+                                "activation_terms": ["queue", "broker"],
+                                "terms": ["servicebus"],
+                            },
+                        ],
+                    }
+                ],
+            }
+        ],
+        ["messaging.yaml"],
+    )
+
+    tokens = ["mensageria", "queue"]
+    info = expand_query_with_metadata(tokens, expansion_map=expansion_map)
+
+    assert len(info.context_conflicts) >= 1, (
+        "ADR-002 critério 6: ativação cruzada de contextos não gerou ContextConflictDiagnostic"
+    )
+    conflict = next(
+        (c for c in info.context_conflicts if c.canonical == "mensageria"), None
+    )
+    assert conflict is not None, "Conflito para canonical 'mensageria' não encontrado"
+    assert len(conflict.conflicting_context_indices) == 2
+    assert conflict.resolution == "agent_must_decide"
+
+
+# ---------------------------------------------------------------------------
+# Critério 7: arquivos YAML usam schema V1.1 (sem when_path_matches / path_pattern)
+# ---------------------------------------------------------------------------
+
+def test_FAIL_S07b_criterion7_yaml_files_use_v11_schema() -> None:
+    """ADR-002 critério 7: nenhum arquivo YAML do fixture corpus usa schema pré-V1.1.
+
+    Verificação estrutural: nenhum arquivo .yaml em MAP_DIR deve conter as chaves
+    'path_pattern' ou 'when_path_matches' em nenhum nível.
+
+    Input:  filesystem — todos os *.yaml em MAP_DIR
+    Output:
+      Para cada arquivo, parse YAML bem-sucedido.
+      Nenhum contexto de nenhuma entrada contém 'path_pattern' ou 'when_path_matches'.
+
+    RED:  AssertionError se algum arquivo usar schema pré-V1.1
+    GREEN: asserts passam
+    """
+    import yaml
+
+    for yaml_file in sorted(MAP_DIR.glob("*.yaml")):
+        raw = yaml.safe_load(yaml_file.read_text(encoding="utf-8"))
+        if not isinstance(raw, dict):
+            continue
+        for entry in raw.get("entries", []):
+            for ctx in entry.get("contexts", []):
+                assert "path_pattern" not in ctx, (
+                    f"{yaml_file.name}: contexto usa 'path_pattern' (schema pré-V1.1 rejeitado). "
+                    f"Usar 'activation_terms' + 'applies_to' conforme ADR-002 §2.1."
+                )
+                assert "when_path_matches" not in ctx, (
+                    f"{yaml_file.name}: contexto usa 'when_path_matches' (schema pré-V1.1 rejeitado)."
+                )
+
+
+# ---------------------------------------------------------------------------
+# Critério 8: skipped_by_applies_to no diagnóstico
+# ---------------------------------------------------------------------------
+
+def test_FAIL_S07b_criterion8_skipped_by_applies_to_in_diagnostic() -> None:
+    """ADR-002 critério 8: diagnóstico registra omissão skipped_by_applies_to.
+
+    Valida que SkippedEntryDiagnostic contém os campos corretos (ADR-002 §2.1 V1.2):
+      reason, canonical, applies_to, current_file_path, source_domain, source_file.
+
+    Setup:
+      ExpansionEntry canonical="cache", applies_to=["**/*.cs"], strong_terms=["ttl"]
+    Input:
+      tokens=["cache"], current_file_path="docs/readme.md"
+
+    Output esperado:
+      skipped = info.skipped_entries[0]
+      skipped.reason            == "skipped_by_applies_to"
+      skipped.canonical         == "cache"
+      skipped.applies_to        == ["**/*.cs"]
+      skipped.current_file_path == "docs/readme.md"
+      skipped.source_domain     == "caching"
+      skipped.source_file       == "caching.yaml"
+
+    RED:  ImportError / AttributeError
+    GREEN: asserts passam
+    """
+    from corporate_instructions_mcp.indexing import expand_query_with_metadata
+
+    expansion_map = _make_expansion_map_from_raw(
+        [
+            {
+                "domain": "caching",
+                "version": "1",
+                "entries": [
+                    {
+                        "canonical": "cache",
+                        "strong_terms": ["ttl"],
+                        "applies_to": ["**/*.cs"],
+                    }
+                ],
+            }
+        ],
+        ["caching.yaml"],
+    )
+
+    tokens = ["cache"]
+    info = expand_query_with_metadata(
+        tokens, expansion_map=expansion_map, current_file_path="docs/readme.md"
+    )
+
+    assert len(info.skipped_entries) == 1
+    skipped = info.skipped_entries[0]
+    assert skipped.reason == "skipped_by_applies_to"
+    assert skipped.canonical == "cache"
+    assert skipped.applies_to == ["**/*.cs"]
+    assert skipped.current_file_path == "docs/readme.md"
+    assert skipped.source_domain == "caching"
+    assert skipped.source_file == "caching.yaml"
+
+
+# ---------------------------------------------------------------------------
+# Critério 9: validação rejeita contexto com terms sem activation/applies_to
+# ---------------------------------------------------------------------------
+
+def test_FAIL_S07b_criterion9_context_with_terms_no_activation_rejected() -> None:
+    """ADR-002 critério 9: parse_domain_file rejeita contexto com terms mas sem ativação.
+
+    Já coberto em S-01 (test_FAIL_S01_parse_domain_file_context_with_terms_no_activation_is_rejected).
+    Este teste repete a verificação com dois contextos e confirma que o contexto válido
+    é preservado, garantindo que a validação é por contexto (não por entrada).
+
+    Input:
+      entry com:
+        ctx_invalido: terms=["servicebus"], sem activation_terms nem applies_to
+        ctx_valido:   terms=["rabbitmq"], activation_terms=["queue"]
+
+    Output esperado:
+      result is not None
+      len(entry.contexts) == 1
+      entry.contexts[0].terms == ["rabbitmq"]
+
+    RED:  ModuleNotFoundError / AssertionError
+    GREEN: asserts passam (idêntico ao teste S-01 — confirma invariante do critério)
+    """
+    from corporate_instructions_mcp.expansion import parse_domain_file
+
+    raw = {
+        "domain": "messaging",
+        "version": "1",
+        "entries": [
+            {
+                "canonical": "mensageria",
+                "contexts": [
+                    {"terms": ["servicebus"]},
+                    {"activation_terms": ["queue"], "terms": ["rabbitmq"]},
+                ],
+            }
+        ],
+    }
+    result = parse_domain_file(raw, source="messaging.yaml")
+
+    assert result is not None
+    entry = result.entries[0]
+    assert len(entry.contexts) == 1
+    assert entry.contexts[0].terms == ["rabbitmq"]
+
+
+# ---------------------------------------------------------------------------
+# Critério 10: combinação applies_to (termo × contexto) — reproduzível
+# ---------------------------------------------------------------------------
+
+def test_FAIL_S07b_criterion10_applies_to_term_blocks_context_evaluation() -> None:
+    """ADR-002 critério 10: applies_to no nível do termo barra avaliação dos contextos.
+
+    Conforme ADR-002 §2.1: 'applies_to no termo restringe a entrada inteira: aliases,
+    strong_terms, weak_terms, e a elegibilidade para avaliar contexts desse termo.'
+
+    Setup:
+      ExpansionEntry:
+        canonical:    "options"
+        strong_terms: ["ioptions"]
+        applies_to:   ["**/*.cs"]     ← barra toda a entrada se path não for .cs
+        contexts:
+          - activation_terms: ["configuration"]
+            terms:            ["optionspattern"]
+
+    Input:
+      tokens = ["options", "configuration"]
+      current_file_path = "docs/readme.md"   ← não é .cs
+
+    Output esperado:
+      "ioptions" NOT in info.weights        (strong_terms barrado)
+      "optionspattern" NOT in info.weights  (contexto não avaliado — entrada barrada)
+      len(info.skipped_entries) == 1
+      info.skipped_entries[0].canonical == "options"
+
+    RED:  ImportError / AssertionError
+    GREEN: asserts passam
+    """
+    from corporate_instructions_mcp.indexing import expand_query_with_metadata
+
+    expansion_map = _make_expansion_map_from_raw(
+        [
+            {
+                "domain": "dotnet",
+                "version": "1",
+                "entries": [
+                    {
+                        "canonical": "options",
+                        "strong_terms": ["ioptions"],
+                        "applies_to": ["**/*.cs"],
+                        "contexts": [
+                            {
+                                "activation_terms": ["configuration"],
+                                "terms": ["optionspattern"],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+        ["dotnet.yaml"],
+    )
+
+    tokens = ["options", "configuration"]
+    info = expand_query_with_metadata(
+        tokens, expansion_map=expansion_map, current_file_path="docs/readme.md"
+    )
+
+    assert "ioptions" not in info.weights, (
+        "ADR-002 critério 10: applies_to no termo deveria ter barrado strong_terms"
+    )
+    assert "optionspattern" not in info.weights, (
+        "ADR-002 critério 10: applies_to no termo deveria ter barrado avaliação do contexto"
+    )
+    assert len(info.skipped_entries) >= 1
+    assert any(s.canonical == "options" for s in info.skipped_entries)
+```
+
+### Implementação S-07b
+
+- [ ] Verificar que `expand_query_with_metadata` aceita `current_file_path` e o passa
+  à lógica de filtragem por `applies_to` (implementado em S-04).
+- [ ] Verificar que `ContextConflictDiagnostic` é emitido quando dois ou mais contextos
+  do mesmo canonical têm `activation_terms` sobrepostos na query (implementado em S-04).
+- [ ] Executar `pytest -q` completo; registrar resultado.
+
+### Critérios de aceite — S-07b
+
+- [ ] `test_FAIL_S07b_criterion5a_*` passa.
+- [ ] `test_FAIL_S07b_criterion5b_*` passa.
+- [ ] `test_FAIL_S07b_criterion5c_*` passa.
+- [ ] `test_FAIL_S07b_criterion6_*` passa.
+- [ ] `test_FAIL_S07b_criterion7_*` passa.
+- [ ] `test_FAIL_S07b_criterion8_*` passa.
+- [ ] `test_FAIL_S07b_criterion9_*` passa.
+- [ ] `test_FAIL_S07b_criterion10_*` passa.
+- [ ] `pytest -q` completo: zero regressões.
+
+---
+
 ## Critérios de aceite do épico
 
-- [ ] Módulo `expansion.py` criado com todos os tipos, constantes e funções especificados.
-- [ ] `DEFAULT_SYNONYMS` removido de `indexing.py` (sem fallback silencioso).
+- [ ] Módulo `expansion.py` criado com todos os tipos, constantes e funções especificados:
+  `ContextRule` (schema V1.1: `activation_terms`, `applies_to`, `terms`),
+  `ExpansionEntry` (com `applies_to` no nível da entrada),
+  `ExpansionDomain`, `ExpansionMap`,
+  `ExpansionCandidate` (com `relation`, `source_domain`, `source_file`),
+  `ExpansionDiagnostic`, `SkippedEntryDiagnostic`, `ContextConflictDiagnostic`.
+- [ ] `DEFAULT_SYNONYMS` removido de `indexing.py` (deleção definitiva, sem comentário residual).
 - [ ] `synonyms.yaml` bundled removido do pacote.
-- [ ] `expand_query_with_metadata()` usa lookup unidirecional ponderado.
+- [ ] `expand_query_with_metadata(tokens, expansion_map=None, current_file_path=None)` usa
+  lookup unidirecional ponderado (`ExpansionCandidate`).
+- [ ] `applies_to` no nível da entrada filtra corretamente com/sem `current_file_path`;
+  emite `SkippedEntryDiagnostic` quando barra entrada.
+- [ ] Ativação cruzada de contextos do mesmo canonical emite `ContextConflictDiagnostic`
+  em vez de expandir silenciosamente.
 - [ ] Expansão desabilitada quando mapa ausente/inválido (sem exceção, sem fallback).
-- [ ] 12 arquivos YAML de domínio criados em `fixtures/instructions/metadata/corpus-query-expansion-map/`.
-- [ ] Todos os testes `test_FAIL_*` falham em estado RED e passam em estado GREEN.
+- [ ] `parse_domain_file` rejeita contextos com `terms` não vazio e sem `activation_terms`
+  nem `applies_to`; loga warning por contexto descartado.
+- [ ] 12 arquivos YAML de domínio criados em `fixtures/instructions/metadata/corpus-query-expansion-map/`
+  com extensão `.yaml` e sem prefixo numérico; arquivos `.yml` pré-existentes não alterados.
+- [ ] Todos os testes `test_FAIL_*` (S-01 a S-07b) falham em estado RED e passam em GREEN.
 - [ ] Todos os testes `test_REGRESSION_*` passam do início ao fim (nunca regridem).
+- [ ] Critérios ADR-002 nº 1–10 todos atestados por testes (S-07 cobre 1–4; S-07b cobre 5–10).
 - [ ] `pytest -q` verde com zero falhas ao final de todas as fases.
 - [ ] Suíte de 24 casos: placar ≥ 8/24 (mantido ou melhorado).
 - [ ] Para cada sub-issue: evidência explícita de RED (falha antes) e GREEN (passa após).
@@ -2846,7 +3666,9 @@ def test_REGRESSION_S07_persistencia_sql_returns_data_access() -> None:
 - Reescrita do algoritmo de scoring.
 - BM25 ou busca vetorial.
 - Expansão transitiva (multi-hop).
-- Context-based scoring por path de documento (ContextRule parseado mas não aplicado).
+- Scoring contextual: aplicar `ContextRule.terms` ao resultado de busca quando contexto ativo
+  (schema V1.1 e sinalização de conflito estão em escopo; scoring via `terms` fica para o
+  épico seguinte).
 - Global/local merge de mapas.
 - Alterações em contratos de tools (`search_instructions`, `resolve_instruction_context`, etc.).
 - Atualização do corpus real de produção.
