@@ -49,3 +49,37 @@ terms:
     weak_terms:
       - dominio
     expansion_mode: normal
+
+  # source: artifact-encoding-line-endings-and-unicode
+  encoding-texto:
+    applies_to:
+      - "**/*.md"
+      - "**/*.yml"
+      - "**/*.yaml"
+      - "**/*.json"
+      - "**/*.cs"
+      - "**/*.csproj"
+      - "**/*.sh"
+      - "**/*.ps1"
+      - "**/*.bat"
+      - "**/*.txt"
+    aliases:
+      - encoding
+      - charset
+      - "fim de linha"
+      - "end of line"
+      - "line endings"
+      - eol
+    strong_terms:
+      - "utf-8"
+      - utf8
+      - unicode
+      - bom
+      - "sem bom"
+      - lf
+      - crlf
+      - editorconfig
+      - gitattributes
+      - interoperabilidade
+    weak_terms: []
+    expansion_mode: normal

@@ -1,0 +1,139 @@
+# Cenários parametrizáveis para regressão da Corpus Query Expansion Map (ADR-002).
+# Consumo pretendido: pytest parametrizado após o loader ler metadata/corpus-query-expansion-map/.
+#
+# Semântica sugerida nos testes:
+# - top_k: janela de ranking a considerar (ex.: 5 ou 7, alinhado ao EPIC-07).
+# - expect_any_of_ids: pelo menos um destes ids deve aparecer nos primeiros top_k resultados.
+# - expect_all_of_ids: todos devem aparecer nos primeiros top_k (opcional).
+# - expect_at_least_n_from_pool: pelo menos n ids distintos do conjunto pool devem aparecer nos top_k.
+# - expect_none_of_ids: nenhum destes ids deve aparecer nos primeiros top_k (ou top_n_exclude).
+# - current_file_path: omitir ou null se a tool ainda não suportar; quando suportado, passar ao search.
+# - xfail: marcar cenário como esperado falhar até curadoria/código estar completo.
+
+version: 1
+schema_note: "Contrato evolutivo; alinhar loader + testes ao estabilizar a API de busca."
+
+defaults:
+  top_k: 7
+  corpus_fixture_relative: "fixtures/instructions"
+
+scenarios:
+  - id: EXP-POLLY-01
+    query: "resilience httpclient"
+    current_file_path: "src/Api/ClienteHttp.cs"
+    top_k: 7
+    expect_any_of_ids:
+      - microservice-resilience-polly-timeouts-and-circuit-breaker
+
+  - id: EXP-POLLY-02
+    query: "como configurar retry com backoff e circuit breaker para API de pagamentos"
+    current_file_path: null
+    top_k: 7
+    expect_any_of_ids:
+      - microservice-resilience-polly-timeouts-and-circuit-breaker
+    expect_none_of_ids:
+      - dns-retry-pattern
+
+  - id: EXP-POLLY-03
+    query: "retry DNS polly"
+    current_file_path: null
+    top_k: 3
+    expect_top_1_id: dns-retry-pattern
+
+  - id: EXP-DI-01
+    query: "injecao de dependencia options"
+    current_file_path: "Program.cs"
+    top_k: 7
+    expect_any_of_ids:
+      - microservice-di-options-extensions
+      - microservice-configuration-production-readiness
+
+  - id: EXP-CACHE-01
+    query: "quando usar imemorycache ttl e invalidacao em API de consulta"
+    current_file_path: null
+    top_k: 7
+    expect_any_of_ids:
+      - microservice-caching-imemorycache-policy
+
+  - id: EXP-HTTP-01
+    query: "como fazer integracao externa"
+    current_file_path: null
+    top_k: 7
+    expect_any_of_ids:
+      - microservice-integration-httpclientfactory-contracts
+      - microservice-resilience-polly-timeouts-and-circuit-breaker
+
+  - id: EXP-TEST-01
+    query: "estrategia de testes dotnet"
+    current_file_path: "tests/Unit/ContaServicoTests.cs"
+    top_k: 7
+    expect_any_of_ids:
+      - microservice-testing-strategy-unit-integration-contract
+
+  - id: EXP-API-01
+    query: "como implementar paginacao filtro e ordenacao em colecoes sem quebrar contrato"
+    current_file_path: null
+    top_k: 7
+    expect_any_of_ids:
+      - microservice-api-collection-resources-pagination-filters
+      - microservice-api-openfinance-patterns
+
+  - id: EXP-API-02
+    query: "api 400 422 problem details"
+    current_file_path: "Api/Endpoints/ClienteEndpoints.cs"
+    top_k: 7
+    expect_any_of_ids:
+      - microservice-api-validation-and-error-contracts
+
+  - id: EXP-OBS-01
+    query: "me informe como a observabilidade deve ser implementada"
+    current_file_path: null
+    top_k: 7
+    expect_all_of_ids:
+      - microservice-opentelemetry-correlation-and-health
+      - microservice-configuration-production-readiness
+
+  - id: EXP-OBS-02
+    query: "como separar /health/live de /health/ready em servico .NET"
+    current_file_path: null
+    top_k: 7
+    expect_any_of_ids:
+      - microservice-configuration-production-readiness
+
+  - id: EXP-ARCH-01
+    query: "como o projeto deve ser estruturado"
+    current_file_path: null
+    top_k: 7
+    top_n_exclude: 3
+    expect_at_least_n_from_pool:
+      n: 2
+      ids:
+        - microservice-architecture-layering
+        - microservice-clean-architecture-guardrails
+        - microservice-domain-interfaces-models-repository
+    expect_none_of_ids_in_top_n:
+      n: 3
+      ids:
+        - instruction-authoring-standard
+        - assistant-workflow-bmad-planning-and-controlled-inference
+
+  - id: EXP-MSG-02
+    query: "mensageria rabbitmq amqp"
+    current_file_path: "Messaging/RabbitConsumer.cs"
+    top_k: 7
+    expect_any_of_ids:
+      - microservice-messaging-rabbitmq-publish-consume
+
+  - id: EXP-MSG-01
+    query: "mensageria publish consume"
+    current_file_path: null
+    top_k: 7
+    notes: "Após implementação de contexts: validar diagnóstico de ambiguidade ou ramo único; ajustar expectativas."
+    expect_behavior_document_only: true
+
+  - id: EXP-GAP-01
+    query: "fix-protocol heartbeat session"
+    current_file_path: null
+    top_k: 7
+    xfail: true
+    notes: "Gap de curadoria se ramo fix sem instruction no corpus; corrigir YAML ou manter xfail."

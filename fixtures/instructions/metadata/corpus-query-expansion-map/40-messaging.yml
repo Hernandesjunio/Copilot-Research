@@ -40,3 +40,50 @@ terms:
           - fix
           - session
           - heartbeat
+
+  # source: microservice-messaging-rabbitmq-publish-consume
+  rabbitmq-idempotency-dlq-outbox:
+    applies_to:
+      - "**/*.cs"
+    aliases:
+      - rabbitmq
+      - amqp
+      - dead-letter
+      - dlq
+    strong_terms:
+      - ack
+      - nack
+      - requeue
+      - poison-message
+      - messageId
+      - outbox
+      - BasicPublish
+      - BasicConsume
+    weak_terms:
+      - BasicQos
+      - traceparent
+      - consumer
+      - exchange
+      - queue
+    expansion_mode: normal
+
+  # source: microservice-saga-process-manager-and-compensation
+  saga-process-manager-compensation:
+    applies_to:
+      - "**/*.cs"
+    aliases:
+      - saga
+      - process-manager
+      - orchestration
+    strong_terms:
+      - eventual-consistency
+      - compensation
+      - correlationId
+      - idempotency
+      - outbox
+      - state-machine
+    weak_terms:
+      - timeout
+      - retry
+      - cancelafter
+    expansion_mode: normal

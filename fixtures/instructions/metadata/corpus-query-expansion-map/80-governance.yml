@@ -1,0 +1,28 @@
+version: 1
+namespace: governance
+description: "Expansões relacionadas a governança, processo, planejamento e comportamento assistido por IA."
+
+terms:
+  # source: assistant-workflow-bmad-planning-and-controlled-inference
+  bmad-spec-driven-controlled-inference:
+    applies_to:
+      - "**/*.md"
+    aliases:
+      - bmad
+      - spec-driven
+      - controlled-inference
+      - meta-governance
+    strong_terms:
+      - Background
+      - Mission
+      - Approach
+      - Delivery
+      - acceptance-criteria
+      - risks
+      - dependencies
+      - hypotheses
+    weak_terms:
+      - legacy
+      - confidence-level
+      - "BMAD"
+    expansion_mode: normal

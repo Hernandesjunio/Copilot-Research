@@ -1,0 +1,30 @@
+version: 1
+namespace: data
+description: "Expansões relacionadas a acesso a dados, SQL, transações e performance de queries."
+
+terms:
+  # source: microservice-data-access-and-sql-security
+  sql-parameterization-timeouts-transactions:
+    applies_to:
+      - "**/*.cs"
+    aliases:
+      - sql-security
+      - data-access
+      - dapper
+      - efcore
+    strong_terms:
+      - sql-injection
+      - parameterization
+      - CommandDefinition
+      - commandTimeout
+      - IDbConnection
+      - DbContext
+      - AsNoTracking
+      - "OFFSET"
+      - "FETCH"
+    weak_terms:
+      - "SELECT *"
+      - n-plus-one
+      - ExecuteUpdate
+      - ExecuteDelete
+    expansion_mode: normal

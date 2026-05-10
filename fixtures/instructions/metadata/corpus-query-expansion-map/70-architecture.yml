@@ -1,0 +1,92 @@
+version: 1
+namespace: architecture
+description: "Expansões relacionadas a arquitetura, camadas, clean architecture e princípios de design."
+
+terms:
+  # source: microservice-architecture-layering
+  microservice-layering-api-domain-interfaces-repository:
+    applies_to:
+      - "**/*.cs"
+    aliases:
+      - layering
+      - clean-architecture
+      - "Api"
+      - "Dominio"
+    strong_terms:
+      - dependency-inversion
+      - interfaces
+      - repository
+      - dto
+      - "Api"
+      - "Dominio"
+      - "Interfaces"
+      - "Modelo"
+      - "Repositorio"
+    weak_terms:
+      - AddApiExtensions
+      - AddDomainExtensions
+      - AddRepositoryExtensions
+    expansion_mode: normal
+
+  # source: microservice-clean-architecture-guardrails
+  clean-architecture-guardrails-observability-security-testing:
+    applies_to:
+      - "**/*.cs"
+    aliases:
+      - guardrails
+      - clean-architecture
+    strong_terms:
+      - dependencies-inward
+      - observability
+      - resilience
+      - security
+      - testing
+      - health-checks
+      - opentelemetry
+    weak_terms:
+      - idempotency
+      - CancellationToken
+    expansion_mode: normal
+
+  # source: microservice-design-principles-solid-performance-types
+  solid-generics-and-type-performance:
+    applies_to:
+      - "**/*.cs"
+    aliases:
+      - solid
+      - cohesion
+      - generics
+      - performance
+    strong_terms:
+      - KISS
+      - YAGNI
+      - DRY
+      - boxing
+      - readonly-struct
+      - Span
+      - ArrayPool
+    weak_terms:
+      - reflection
+      - composition
+    expansion_mode: normal
+
+  # source: microservice-domain-interfaces-models-repository
+  domain-interfaces-modelo-repositorio-boundaries:
+    applies_to:
+      - "**/*.cs"
+    aliases:
+      - domain
+      - interfaces
+      - models
+      - repository
+    strong_terms:
+      - CancellationToken
+      - "RequisicaoIntegracao"
+      - "RespostaRequisicaoIntegracao"
+      - IDbConnectionFactory
+      - Dapper
+      - Table-Storage
+    weak_terms:
+      - anti-corruption-layer
+      - gateway
+    expansion_mode: normal

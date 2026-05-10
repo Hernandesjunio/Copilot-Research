@@ -4,6 +4,7 @@
 **Data**: 2026-05-09  
 **Revisão V1.1**: 2026-05-10  
 **Revisão V1.2 (especificação operacional)**: 2026-05-10  
+**Revisão V1.3 (plano de testes de regressão)**: 2026-05-10  
 **Contexto**: MCP `corporate_instructions_mcp` — mecanismo de busca de instructions  
 **Revisão agendada**: após validação experimental da V1
 
@@ -166,7 +167,7 @@ Merge automático amplia expansão além do esperado, reduz precisão e dificult
 ### 4.3 Risco principal
 
 Expansão aumentar recall e piorar precisão se `weak_terms` forem usados de forma muito ampla.  
-**Mitigação**: testes `must-not-expand` para termos contextuais e critérios de aceite explícitos na seção 22 do plano.
+**Mitigação**: testes `must-not-expand` para termos contextuais e critérios de aceite explícitos no [plano de testes de regressão §5.1](#51-plano-de-testes-de-regressão) e no ficheiro [`queries-expansion-map.yaml`](../corpus-query-expansion-map/queries-expansion-map.yaml).
 
 ### 4.4 Consequências específicas do refinamento V1.1
 
@@ -200,6 +201,17 @@ A decisão será considerada validada quando:
 
 Se os critérios 1–10 não forem atingidos após validação experimental, reavaliar se o problema está no mapa (curadoria) ou no modelo (arquitetura).
 
+### 5.1 Plano de testes de regressão
+
+A implementação da Corpus Query Expansion Map deve ser validada com cenários **reais** sobre o corpus de desenvolvimento (`fixtures/instructions`) antes de generalizar.
+
+| Artefacto | Caminho |
+|-----------|---------|
+| Plano de testes (narrativa, checklist normativo, tabelas por domínio) | [`planning/corpus-query-expansion-map/TEST-PLAN-v1-expansion-map.md`](../corpus-query-expansion-map/TEST-PLAN-v1-expansion-map.md) |
+| Cenários parametrizáveis para automação (`pytest`) | [`planning/corpus-query-expansion-map/queries-expansion-map.yaml`](../corpus-query-expansion-map/queries-expansion-map.yaml) |
+
+Os cenários incluem expectativas positivas (ids que devem aparecer no top-K), negativos (`must-not`, ex.: retry HTTP genérico não deve ranquear `dns-retry-pattern`), composição (arquitetura sem meta-governança no top-3), e um caso marcado `xfail` para lacunas de curadoria até correção do mapa.
+
 ---
 
 ## 6. Referências
@@ -207,4 +219,6 @@ Se os critérios 1–10 não forem atingidos após validação experimental, rea
 - Plano V1: `plano-final-corpus-query-expansion-map-v1-sem-bm25.md`
 - ADR-001: Escolha de Storage Vetorial (FAISS) — decisão ortogonal, não relacionada
 - Análise do dicionário de sinônimos: `research/nucleo-pesquisa/analise-tools/analise-dicionario-sinonimos.md`
-- Épico relacionado: `planning/bmad/epicos/` (EPIC-06 ou superior, gap analysis)
+- Épico relacionado: `planning/bmad/epicos/` (EPIC-10 — Corpus Query Expansion Map; ver também EPIC-07 para ranking)
+- Plano de testes ADR-002: [`planning/corpus-query-expansion-map/TEST-PLAN-v1-expansion-map.md`](../corpus-query-expansion-map/TEST-PLAN-v1-expansion-map.md)
+- YAML de cenários: [`planning/corpus-query-expansion-map/queries-expansion-map.yaml`](../corpus-query-expansion-map/queries-expansion-map.yaml)

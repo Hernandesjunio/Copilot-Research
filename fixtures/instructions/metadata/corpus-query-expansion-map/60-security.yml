@@ -1,0 +1,72 @@
+version: 1
+namespace: security
+description: "Expansões relacionadas a segurança, autenticação, autorização, segredos e auditoria."
+
+terms:
+  # source: example-security-baseline
+  secrets-and-sensitive-data-baseline:
+    aliases:
+      - secrets
+      - credentials
+      - connection-strings
+      - sensitive-data
+    strong_terms:
+      - "do not commit"
+      - token
+      - password
+      - "connection string"
+      - Authorization
+      - rotation
+    weak_terms:
+      - pii
+      - compliance
+      - keyvault
+    expansion_mode: normal
+
+  # source: microservice-auth-jwt-bearer-and-authorization
+  jwt-bearer-token-validation-and-policies:
+    applies_to:
+      - "**/*.cs"
+    aliases:
+      - jwt
+      - bearer
+      - authentication
+      - authorization
+      - claims
+    strong_terms:
+      - AddAuthentication
+      - AddJwtBearer
+      - TokenValidationParameters
+      - ValidateIssuer
+      - ValidateAudience
+      - ValidateIssuerSigningKey
+      - ValidateLifetime
+      - ClockSkew
+      - AddAuthorization
+      - AuthorizationPolicy
+    weak_terms:
+      - "401"
+      - "403"
+      - WWW-Authenticate
+    expansion_mode: normal
+
+  # source: microservice-authorization-resource-scope-and-audit
+  resource-scope-authorization-and-audit:
+    applies_to:
+      - "**/*.cs"
+    aliases:
+      - resource-scope
+      - ownership
+      - audit
+      - "resource owner"
+    strong_terms:
+      - IAuthorizationHandler
+      - IAuthorizationRequirement
+      - AuthorizationHandlerContext
+      - UserContext
+      - CorrelationId
+    weak_terms:
+      - "created by"
+      - "updated by"
+      - TraceId
+    expansion_mode: normal
