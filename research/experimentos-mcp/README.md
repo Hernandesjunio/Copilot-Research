@@ -30,6 +30,8 @@ Experimento guiado por fases com foco em MCP como compositor de contexto: [`2026
 
 Arquivo de tentativa (cenários complexos A/B/C; não atingiu critério de aceite e foi arquivado em 2026-05-04): [`2026-05-04-tentativa-montagem-contexto-mcp/README.md`](2026-05-04-tentativa-montagem-contexto-mcp/README.md).
 
+Comparativo **MCP (plano de expansão manual)** vs **busca semântica no `fixtures/instructions`**: [`2026-05-11-mcp-query-expansion-bateria-manual-vs-busca-semantica/README.md`](2026-05-11-mcp-query-expansion-bateria-manual-vs-busca-semantica/README.md) — relatório em [`experimento.md`](2026-05-11-mcp-query-expansion-bateria-manual-vs-busca-semantica/experimento.md).
+
 ## Ligações
 
 - Análises técnicas datadas (índice): [`../analises/README.md`](../analises/README.md)
