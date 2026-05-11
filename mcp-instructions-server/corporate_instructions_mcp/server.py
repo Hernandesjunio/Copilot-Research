@@ -704,7 +704,7 @@ def list_instructions_index(
 
 @mcp.tool()
 def search_instructions(
-    query: str,
+    query: str = "",
     tags: str | None = None,
     max_results: int = 10,
     include_diagnostics: bool = False,
@@ -728,6 +728,7 @@ def search_instructions(
     for offline ranking evaluation (expected instruction id).
     """
     call_start = time.perf_counter()
+    query = query if isinstance(query, str) else str(query)
     current_file_path_provided = current_file_path is not None
     normalized_current_file_path, current_file_path_ignored_reason = _normalize_current_file_path_input(
         current_file_path
@@ -1057,7 +1058,18 @@ def search_instructions(
                 payload={
                     "results": [],
                     "composed_context": "",
-                    "note": "Provide a non-empty query or use tags= to filter by comma-separated tags.",
+                    "note": "Provide a non-empty query or use metadata filters (e.g., tags/kind/priority/scope).",
+                    "suggested_next_call": {
+                        "tool": "search_instructions",
+                        "args": {"query": "mensageria outbox idempotência dlq retry"},
+                    },
+                    "suggested_next_calls": [
+                        {"tool": "list_instructions_index", "args": {"include_facets": True}},
+                        {
+                            "tool": "search_instructions",
+                            "args": {"query": "retry DNS polly", "max_results": 3, "include_diagnostics": True},
+                        },
+                    ],
                 },
             )
         ranked = []
@@ -1297,7 +1309,7 @@ def search_instructions(
 
 @mcp.tool()
 def get_instructions_batch(
-    ids: str,
+    ids: str = "",
     max_chars_per_instruction: int = 8000,
     section_contains: str | None = None,
     include_headings: bool = True,
@@ -1309,6 +1321,7 @@ def get_instructions_batch(
     Each returned item includes a frontmatter object (parsed YAML header, JSON-safe).
     """
     call_start = time.perf_counter()
+    ids = ids if isinstance(ids, str) else str(ids)
     cfg = _cfg()
     args_summary = telemetry.get_batch_args_summary(ids, max_chars_per_instruction)
     try:
@@ -1327,7 +1340,7 @@ def get_instructions_batch(
             error_code="BATCH_EMPTY_IDS",
             message="Provide at least one instruction id.",
             details={"ids": ids},
-            suggested_next_call={"tool": "search_instructions", "args": {"query": "architecture patterns"}},
+            suggested_next_call={"tool": "list_instructions_index", "args": {"limit": 10}},
         )
         _emit_tool_completed(
             "get_instructions_batch.completed",
