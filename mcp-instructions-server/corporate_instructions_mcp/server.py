@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+from collections import Counter
 import json
 import logging
 import os
@@ -19,6 +20,8 @@ from corporate_instructions_mcp.applicability import (
     APPLICABILITY_STATES,
     build_compliance_row,
     decide_applicability,
+    match_scope,
+    normalize_path,
     parse_workspace_evidence,
 )
 from corporate_instructions_mcp.config import RuntimeConfig, load_runtime_config
@@ -87,6 +90,8 @@ _SERVER_UNOBSERVABLE_METRICS = [
 ]
 
 log = logging.getLogger(__name__)
+_LIST_FACET_TOP_N = 50
+_KIND_SORT_ORDER = {"policy": 0, "reference": 1}
 
 
 def _json_safe_frontmatter(meta: dict[str, Any]) -> dict[str, Any]:
@@ -220,6 +225,18 @@ def _parse_bool(value: object | None) -> bool | None:
         if normalized in {"0", "false", "no", "off"}:
             return False
     return None
+
+
+def _normalize_current_file_path_input(value: str | None) -> tuple[str | None, str | None]:
+    if value is None:
+        return None, "not_provided"
+    raw = value.strip()
+    if not raw:
+        return None, "empty"
+    normalized = normalize_path(raw)
+    if normalized in {"", ".", "/"}:
+        return None, "syntactically_unusable"
+    return normalized, None
 
 
 def _normalize_list_filter(raw: str | None) -> set[str] | None:
@@ -374,20 +391,108 @@ def _metadata_filter_match(
     return True
 
 
-@mcp.tool()
-def list_instructions_index() -> str:
-    """Use when you need an overview of all available organizational instruction documents (ids, titles, tags).
+def _frontmatter_string(meta: dict[str, Any], key: str) -> str | None:
+    raw = meta.get(key)
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    return text or None
 
-    Returns lightweight metadata for every indexed .md file under INSTRUCTIONS_ROOT. Restart the server or
-    set INSTRUCTIONS_ROOT to a new path to refresh. JSON array of objects.
+
+def _build_catalog_item(
+    rec: InstructionRecord,
+    *,
+    scope_match: bool | None = None,
+    include_match_reason: bool = False,
+    include_summary: bool = True,
+) -> dict[str, Any]:
+    summary = _frontmatter_string(rec.raw_frontmatter, "summary")
+    item: dict[str, Any] = {
+        "id": rec.id,
+        "path": rec.rel_path,
+        "title": rec.title,
+        "tags": rec.tags,
+        "scope": rec.scope,
+        "priority": rec.priority,
+        "kind": rec.kind,
+        "status": _frontmatter_string(rec.raw_frontmatter, "status"),
+        "owner": _frontmatter_string(rec.raw_frontmatter, "owner"),
+        "workspace_evidence_required": _workspace_evidence_required(rec.raw_frontmatter),
+        "content_sha256": rec.content_hash,
+    }
+    if include_summary:
+        item["summary"] = summary if summary else summarize_body(rec.body)
+    if include_match_reason and scope_match is not None:
+        if scope_match:
+            item["match_reason"] = "scope matched current_file_path"
+        else:
+            item["match_reason"] = "included despite scope mismatch because include_non_matching_global=true"
+    return item
+
+
+def _facet_counts(values: list[str], *, top_n: int = _LIST_FACET_TOP_N) -> tuple[dict[str, int], bool]:
+    counter = Counter(v for v in values if v)
+    ordered = sorted(counter.items(), key=lambda pair: (-pair[1], pair[0]))
+    truncated = len(ordered) > top_n
+    return dict(ordered[:top_n]), truncated
+
+
+@mcp.tool()
+def list_instructions_index(
+    tags: str | None = None,
+    tags_mode: str = "any",
+    kind: str | None = None,
+    scope: str | None = None,
+    priority: str | None = None,
+    status: str | None = "active",
+    owner: str | None = None,
+    workspace_evidence_required: bool | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    include_facets: bool = False,
+    include_diagnostics: bool = False,
+    current_file_path: str | None = None,
+    include_non_matching_global: bool = False,
+) -> str:
+    """Use this tool to inspect and filter the metadata catalog of available instruction documents.
+
+    This tool is for catalog discovery and metadata filtering only. It does not search instruction content
+    and does not expand query terms.
+
+    Prefer search_instructions when the task has a specific intent, topic, technology, error, implementation
+    goal, or natural-language query.
+
+    Use filters such as tags, kind, scope, priority, status, owner, or current_file_path whenever possible
+    to avoid listing unrelated instructions. Use pagination for large catalogs.
     """
     call_start = time.perf_counter()
+    tag_filter = _parse_tags(tags)
+    tags_mode_normalized = "all" if str(tags_mode).strip().lower() == "all" else "any"
+    kind_filter = _normalize_list_filter(kind)
+    priority_filter = _normalize_list_filter(priority)
+    scope_filter = normalize_text(scope) if scope else None
+    status_filter = _normalize_list_filter(status)
+    owner_filter = _normalize_list_filter(owner)
+    evidence_filter = _parse_bool(workspace_evidence_required)
+    page_limit = _clamp_int(limit, default=50, lo=0, hi=200)
+    page_offset = _clamp_int(offset, default=0, lo=0, hi=1_000_000)
+    normalized_current_file_path = normalize_path(current_file_path) if current_file_path else None
+
+    if page_limit == 0 and not include_facets:
+        return _format_error(
+            error_code="LIST_INVALID_LIMIT",
+            message="limit=0 is only allowed when include_facets=true.",
+            details={"limit": limit, "include_facets": include_facets},
+            suggested_next_call={"tool": "list_instructions_index", "args": {"include_facets": True, "limit": 0}},
+        )
+
     try:
         idx, index_meta, _ = _ensure_index()
     except Exception as exc:
         return json.dumps(
             {
                 "ok": False,
+                "index_status": "error",
                 "status": "error",
                 "index_health": {
                     "loaded": False,
@@ -396,8 +501,12 @@ def list_instructions_index() -> str:
                     "documents_with_warnings": 0,
                     "loaded_at_utc": None,
                 },
-                "instructions": [],
-                "count": 0,
+                "items": [],
+                "total_indexed": 0,
+                "total_matched": 0,
+                "limit": page_limit,
+                "offset": page_offset,
+                "has_more": False,
                 "by_tag": {},
                 "corpus_version": "",
                 "warnings": [],
@@ -407,60 +516,164 @@ def list_instructions_index() -> str:
             },
             ensure_ascii=False,
         )
-    out = []
+
+    records = list(idx.values())
+    total_indexed = len(records)
+    filtered: list[tuple[InstructionRecord, bool]] = []
     by_tag: dict[str, list[str]] = {}
     kind_counts: dict[str, int] = {}
-    for rec in sorted(idx.values(), key=lambda r: r.rel_path):
-        out.append(
-            {
-                "id": rec.id,
-                "path": rec.rel_path,
-                "title": rec.title,
-                "tags": rec.tags,
-                "scope": rec.scope,
-                "priority": rec.priority,
-                "kind": rec.kind,
-                "content_sha256": rec.content_hash,
-            }
-        )
+    for rec in records:
+        rec_tags = {tag.lower() for tag in rec.tags}
+        if tags_mode_normalized == "all":
+            if tag_filter and not tag_filter.issubset(rec_tags):
+                continue
+        elif tag_filter and not (tag_filter & rec_tags):
+            continue
+        if kind_filter and normalize_text(rec.kind or "") not in kind_filter:
+            continue
+        if priority_filter and normalize_text(rec.priority or "") not in priority_filter:
+            continue
+        if scope_filter and normalize_text(rec.scope or "") != scope_filter:
+            continue
+        if status_filter and normalize_text(_frontmatter_string(rec.raw_frontmatter, "status") or "") not in status_filter:
+            continue
+        if owner_filter and normalize_text(_frontmatter_string(rec.raw_frontmatter, "owner") or "") not in owner_filter:
+            continue
+        if evidence_filter is not None and _workspace_evidence_required(rec.raw_frontmatter) != evidence_filter:
+            continue
+        scope_match = True
+        if normalized_current_file_path:
+            scope_match, _ = match_scope(rec.scope, normalized_current_file_path)
+            if not scope_match and not include_non_matching_global:
+                continue
+        filtered.append((rec, scope_match))
         k = rec.kind or "unknown"
         kind_counts[k] = kind_counts.get(k, 0) + 1
         for tag in rec.tags:
             by_tag.setdefault(tag, []).append(rec.id)
+
+    filtered.sort(
+        key=lambda item: (
+            0 if (normalized_current_file_path and item[1]) else 1 if normalized_current_file_path else 0,
+            -PRIORITY_RANK.get(item[0].priority, 0),
+            _KIND_SORT_ORDER.get(normalize_text(item[0].kind or ""), 99),
+            normalize_text(item[0].kind or ""),
+            item[0].id,
+            item[0].rel_path,
+        )
+    )
+
+    total_matched = len(filtered)
+    page_slice = filtered[page_offset : page_offset + page_limit] if page_limit > 0 else []
+    items = [
+        _build_catalog_item(
+            rec,
+            scope_match=scope_match,
+            include_match_reason=bool(normalized_current_file_path),
+            include_summary=True,
+        )
+        for rec, scope_match in page_slice
+    ]
+
     by_tag = {tag: sorted(ids) for tag, ids in sorted(by_tag.items())}
+    has_more = (page_offset + len(items)) < total_matched
+
+    facets: dict[str, Any] | None = None
+    if include_facets:
+        kinds = Counter((rec.kind or "unknown") for rec, _ in filtered)
+        priorities = Counter((rec.priority or "unknown") for rec, _ in filtered)
+        statuses = Counter((_frontmatter_string(rec.raw_frontmatter, "status") or "unknown") for rec, _ in filtered)
+        scopes, scopes_truncated = _facet_counts([str(rec.scope or "none") for rec, _ in filtered])
+        tags_values: list[str] = []
+        for rec, _ in filtered:
+            tags_values.extend(rec.tags)
+        tags_counts, tags_truncated = _facet_counts(tags_values)
+        facets = {
+            "kind": dict(sorted(kinds.items(), key=lambda pair: (-pair[1], pair[0]))),
+            "priority": dict(sorted(priorities.items(), key=lambda pair: (-pair[1], pair[0]))),
+            "status": dict(sorted(statuses.items(), key=lambda pair: (-pair[1], pair[0]))),
+            "scope": scopes,
+            "tags": tags_counts,
+            "truncated": {
+                "scope": scopes_truncated,
+                "tags": tags_truncated,
+            },
+        }
+
     index_warnings = list(_index_warnings)
-    status = "partial" if index_warnings else "ok"
+    index_status = "partial" if index_warnings else "ok"
+    diagnostics: dict[str, Any] | None = None
+    if include_diagnostics:
+        scope_matches = sum(1 for _, scope_match in filtered if scope_match)
+        scope_mismatches = total_matched - scope_matches
+        diagnostics = {
+            "applied_filters": {
+                "tags": sorted(tag_filter) if tag_filter else None,
+                "tags_mode": tags_mode_normalized,
+                "kind": sorted(kind_filter) if kind_filter else None,
+                "scope": scope_filter,
+                "priority": sorted(priority_filter) if priority_filter else None,
+                "status": sorted(status_filter) if status_filter else None,
+                "owner": sorted(owner_filter) if owner_filter else None,
+                "workspace_evidence_required": evidence_filter,
+                "current_file_path": normalized_current_file_path,
+                "include_non_matching_global": bool(include_non_matching_global),
+            },
+            "pagination": {
+                "total_indexed": total_indexed,
+                "total_matched": total_matched,
+                "returned": len(items),
+                "limit": page_limit,
+                "offset": page_offset,
+                "has_more": has_more,
+            },
+            "scope_match": {
+                "matched": scope_matches if normalized_current_file_path else None,
+                "unmatched": scope_mismatches if normalized_current_file_path else None,
+            },
+        }
+
     raw = json.dumps(
         {
-            "status": status,
+            "index_status": index_status,
+            "status": index_status,
             "index_health": {
                 "loaded": True,
-                "documents_total": index_meta.get("corpus_file_count", len(out)),
-                "documents_usable": len(out),
+                "documents_total": index_meta.get("corpus_file_count", total_indexed),
+                "documents_usable": total_indexed,
                 "documents_with_warnings": len(index_warnings),
                 "loaded_at_utc": _index_loaded_at_utc,
             },
-            "instructions": out,
-            "count": len(out),
+            "items": items,
+            "total_indexed": total_indexed,
+            "total_matched": total_matched,
+            "limit": page_limit,
+            "offset": page_offset,
+            "has_more": has_more,
             "by_tag": by_tag,
             "corpus_version": index_meta.get("corpus_version"),
             "corpus_file_count": index_meta.get("corpus_file_count"),
             "warnings": index_warnings,
             "errors": [],
+            **({"facets": facets} if facets is not None else {}),
+            **({"diagnostics": diagnostics} if diagnostics is not None else {}),
         },
         ensure_ascii=False,
     )
     duration_ms = int((time.perf_counter() - call_start) * 1000)
     payload = {
-        "unique_instruction_ids_count": len(out),
-        "instructions_consulted_count": len(out),
+        "unique_instruction_ids_count": total_matched,
+        "instructions_consulted_count": total_indexed,
+        "total_indexed": total_indexed,
+        "total_matched": total_matched,
+        "returned_page_size": len(items),
         "instructions_by_kind": kind_counts,
         "instructions_by_tag": {t: len(ids) for t, ids in by_tag.items()},
         "by_tag_count": len(by_tag),
         "response_chars": len(raw),
         "response_bytes": len(raw.encode("utf-8", errors="replace")),
-        "calls_with_non_empty_result": 1 if out else 0,
-        "empty_result_rate": 0.0 if out else 1.0,
+        "calls_with_non_empty_result": 1 if items else 0,
+        "empty_result_rate": 0.0 if items else 1.0,
         **index_meta,
         "metrics_not_measurable_server_side": _SERVER_UNOBSERVABLE_METRICS,
     }
@@ -468,7 +681,22 @@ def list_instructions_index() -> str:
         "list_instructions_index.completed",
         duration_ms,
         failure=False,
-        args_key_payload={},
+        args_key_payload={
+            "tags": tags,
+            "tags_mode": tags_mode_normalized,
+            "kind": kind,
+            "scope": scope,
+            "priority": priority,
+            "status": status,
+            "owner": owner,
+            "workspace_evidence_required": evidence_filter,
+            "limit": page_limit,
+            "offset": page_offset,
+            "include_facets": include_facets,
+            "include_diagnostics": include_diagnostics,
+            "current_file_path": normalized_current_file_path,
+            "include_non_matching_global": include_non_matching_global,
+        },
         payload=payload,
     )
     return raw
@@ -488,15 +716,22 @@ def search_instructions(
     telemetry_expected_instruction_id: str | None = None,
     queries: list[str] | None = None,
     max_results_per_query: int = 5,
+    current_file_path: str | None = None,
 ) -> str:
     """Use when the user asks about architecture, patterns, DNS, security, style, or any org-specific guideline.
 
     Full-text style search (keyword overlap) over the instruction corpus. Prefer calling this before
     proposing cross-cutting design. Parameters: query (natural language), optional comma-separated tags
-    filter, max_results (default 10, cap 20). Optional telemetry_expected_instruction_id for offline
-    ranking evaluation (expected instruction id).
+    filter, max_results (default 10, cap 20), and optional current_file_path when the task is tied to
+    a specific file. current_file_path is contextual evidence for declarative filters such as applies_to;
+    it does not make the server read the user's workspace. Optional telemetry_expected_instruction_id is
+    for offline ranking evaluation (expected instruction id).
     """
     call_start = time.perf_counter()
+    current_file_path_provided = current_file_path is not None
+    normalized_current_file_path, current_file_path_ignored_reason = _normalize_current_file_path_input(
+        current_file_path
+    )
     if isinstance(queries, list) and queries:
         cleaned_queries = [q.strip() for q in queries if isinstance(q, str) and q.strip()]
         if not cleaned_queries:
@@ -532,6 +767,7 @@ def search_instructions(
                     telemetry_expected_instruction_id=telemetry_expected_instruction_id,
                     queries=None,
                     max_results_per_query=per_query,
+                    current_file_path=current_file_path,
                 )
             )
             query_results = payload.get("results", [])
@@ -571,6 +807,20 @@ def search_instructions(
                     "top_references": top_references,
                     "coverage_gaps": coverage_gaps,
                 },
+                **(
+                    {
+                        "diagnostics": {
+                            "current_file_path": {
+                                "provided": current_file_path_provided,
+                                "normalized": normalized_current_file_path,
+                                "used_for_expansion": normalized_current_file_path is not None,
+                                "ignored_reason": current_file_path_ignored_reason,
+                            }
+                        }
+                    }
+                    if include_diagnostics
+                    else {}
+                ),
             },
             ensure_ascii=False,
         )
@@ -591,6 +841,7 @@ def search_instructions(
 
     cfg = _cfg()
     args_summary = telemetry.search_args_summary(query, tags, max_results)
+    args_summary["current_file_path_present"] = normalized_current_file_path is not None
     try:
         idx, index_meta, expansion_map = _ensure_index()
     except Exception as exc:
@@ -614,7 +865,15 @@ def search_instructions(
         lo=1,
         hi=cfg.search_max_results_cap,
     )
-    expanded_info = expand_query_with_metadata(tokens, expansion_map=expansion_map) if tokens else None
+    expanded_info = (
+        expand_query_with_metadata(
+            tokens,
+            expansion_map=expansion_map,
+            current_file_path=normalized_current_file_path,
+        )
+        if tokens
+        else None
+    )
 
     def _finish(
         *,
@@ -625,6 +884,17 @@ def search_instructions(
         results: list[dict[str, Any]],
         expanded_for_telemetry: dict[str, Any] | None,
     ) -> str:
+        if include_diagnostics:
+            diagnostics = payload.get("diagnostics")
+            if not isinstance(diagnostics, dict):
+                diagnostics = {}
+                payload["diagnostics"] = diagnostics
+            diagnostics["current_file_path"] = {
+                "provided": current_file_path_provided,
+                "normalized": normalized_current_file_path,
+                "used_for_expansion": normalized_current_file_path is not None,
+                "ignored_reason": current_file_path_ignored_reason,
+            }
         duration_ms = int((time.perf_counter() - call_start) * 1000)
         composed = payload.get("composed_context", "") or ""
         out_raw = json.dumps(payload, ensure_ascii=False)
@@ -1117,6 +1387,10 @@ def get_instructions_batch(
                 "scope": rec.scope,
                 "priority": rec.priority,
                 "kind": rec.kind,
+                "status": _frontmatter_string(rec.raw_frontmatter, "status"),
+                "owner": _frontmatter_string(rec.raw_frontmatter, "owner"),
+                "workspace_evidence_required": _workspace_evidence_required(rec.raw_frontmatter),
+                "summary": _frontmatter_string(rec.raw_frontmatter, "summary") or summarize_body(rec.body),
                 "content_sha256": rec.content_hash,
                 "truncated": truncated,
                 "content": body,

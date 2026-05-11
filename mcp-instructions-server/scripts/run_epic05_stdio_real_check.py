@@ -66,7 +66,10 @@ async def _run() -> dict[str, Any]:
 
         index_raw = _tool_text(await session.call_tool("list_instructions_index", {}))
         index_data = json.loads(index_raw)
-        _assert(index_data.get("status") in {"ok", "partial"}, "list_instructions_index status should be ok/partial.")
+        _assert(
+            index_data.get("index_status") in {"ok", "partial"},
+            "list_instructions_index index_status should be ok/partial.",
+        )
         _assert("index_health" in index_data, "list_instructions_index must include index_health.")
         _assert("warnings" in index_data and "errors" in index_data, "list_instructions_index must include warnings/errors.")
         summary["checks"].append(
@@ -74,8 +77,8 @@ async def _run() -> dict[str, Any]:
                 "name": "list_instructions_index_health",
                 "ok": True,
                 "details": {
-                    "status": index_data.get("status"),
-                    "count": index_data.get("count"),
+                    "index_status": index_data.get("index_status"),
+                    "total_indexed": index_data.get("total_indexed"),
                     "warnings": len(index_data.get("warnings", [])),
                 },
             }

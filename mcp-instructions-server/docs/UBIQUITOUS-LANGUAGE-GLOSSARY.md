@@ -224,7 +224,7 @@ filtered according to batch arguments.
 | `tags_mode` | filter | filter | not used |
 | `kind` | filter + returned | filter + returned | returned |
 | `scope` | filter + returned | filter + returned | returned |
-| `current_file_path` | optional filter | recommended future/common filter | not used |
+| `current_file_path` | optional filter | optional contextual input for declarative applicability filters | not used |
 | `priority` | filter + returned | filter + returned | returned |
 | `status` | filter + returned | recommended shared filter/return when exposed | may be derived from `frontmatter` or promoted to canonical field |
 | `owner` | filter + returned | recommended shared filter/return when exposed | may be derived from `frontmatter` or promoted to canonical field |

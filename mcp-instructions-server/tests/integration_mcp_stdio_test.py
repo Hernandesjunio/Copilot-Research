@@ -87,23 +87,30 @@ def test_mcp_stdio_list_search_get_instruction() -> None:
 
             raw = _tool_text(await session.call_tool("list_instructions_index", {}))
             index = json.loads(raw)
-            assert index["count"] >= 1, f"no .md indexed under {corpus}"
+            assert index["total_indexed"] >= 1, f"no .md indexed under {corpus}"
             assert "by_tag" in index
-            ids = {x["id"] for x in index["instructions"]}
+            ids = {x["id"] for x in index["items"]}
 
             if use_fixture_expectations:
-                assert index["count"] >= 3
+                assert index["total_indexed"] >= 3
                 expected_ids = {"dns-retry-pattern", "example-security-baseline", "csharp-async-style"}
                 assert expected_ids.issubset(ids)
 
             raw = _tool_text(
                 await session.call_tool(
                     "search_instructions",
-                    {"query": "retry DNS polly", "max_results": 3},
+                    {
+                        "query": "retry DNS polly",
+                        "max_results": 3,
+                        "current_file_path": r"Src\Api\Foo.cs",
+                        "include_diagnostics": True,
+                    },
                 )
             )
             search = json.loads(raw)
             assert "composed_context" in search
+            assert search["diagnostics"]["current_file_path"]["normalized"] == "src/api/foo.cs"
+            assert search["diagnostics"]["current_file_path"]["used_for_expansion"] is True
             if use_fixture_expectations:
                 assert search["results"]
                 assert search["results"][0]["id"] == "dns-retry-pattern"
@@ -111,7 +118,7 @@ def test_mcp_stdio_list_search_get_instruction() -> None:
             fetch_id = (
                 "dns-retry-pattern"
                 if use_fixture_expectations and "dns-retry-pattern" in ids
-                else index["instructions"][0]["id"]
+                else index["items"][0]["id"]
             )
             batch_ids = ",".join(
                 [
@@ -157,7 +164,7 @@ def test_mcp_stdio_search_default_max_persistencia_sql_and_related_ids() -> None
 
             raw = _tool_text(await session.call_tool("list_instructions_index", {}))
             index = json.loads(raw)
-            assert index["count"] >= 3
+            assert index["total_indexed"] >= 3
             assert "by_tag" in index
 
             # M4: omit max_results → default 10

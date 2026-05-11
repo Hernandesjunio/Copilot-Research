@@ -154,9 +154,9 @@ def run_battery(root: Path, *, max_results: int = 5) -> dict[str, Any]:
     phase1_raw = srv.list_instructions_index()
     phase1 = json.loads(phase1_raw)
     p1_ok = (
-        phase1.get("status") == "ok"
+        phase1.get("index_status") == "ok"
         and (phase1.get("index_health") or {}).get("loaded") is True
-        and int(phase1.get("count") or 0) >= 1
+        and int(phase1.get("total_indexed") or 0) >= 1
         and isinstance(phase1.get("by_tag"), dict)
     )
 

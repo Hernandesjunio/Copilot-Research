@@ -13,7 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `get_instructions_batch`: docstring MCP simplificada (menos marcação) para reduzir ruído em clientes sensíveis à descrição da tool.
 - README e `docs/TESTS.md`: catálogo de tools e descrição dos testes alinhados ao novo fluxo de orquestração (`get_context_triggers`) e validação stdio.
 - `list_instructions_index`: resposta evoluída com `status` (`ok`/`partial`/`error`), `index_health`, `warnings` e `errors` (mudança aditiva, com compatibilidade para `ok/error_code` em falhas).
+- `list_instructions_index` evoluída in-place para catálogo filtrável/paginado (ADR-003): novos argumentos (`tags`, `tags_mode`, `kind`, `scope`, `priority`, `status`, `owner`, `workspace_evidence_required`, `limit`, `offset`, `include_facets`, `include_diagnostics`, `current_file_path`, `include_non_matching_global`) e novo envelope canónico com `index_status`, `total_indexed`, `total_matched`, `limit`, `offset`, `has_more`, `items`, `facets`/`diagnostics` opcionais; migração para clientes: substituir suposições de listagem completa (`count`/`instructions`) pelos campos de paginação e por `items`.
 - `search_instructions`: suporte opcional a `queries` (multi-query) com saída consolidada (`top_policies`, `top_references`, `coverage_gaps`), mantendo o fluxo single-query existente.
+- `search_instructions`: novo argumento opcional `current_file_path`, tratado como evidência contextual para filtros declarativos do pipeline de expansão (ex.: `applies_to`), com normalização sintática mínima, reutilização em multi-query e diagnóstico explícito quando `include_diagnostics=true`; sem leitura do workspace do utilizador.
 - `resolve_instruction_context`: novos campos aditivos de preparação de evidência (`selection_rationale`, `pending_evidence`, `required_workspace_signals`, `next_repo_evidence_actions`).
 
 ### Added
@@ -34,7 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Suíte TDD Red/Green/Refactor da nova tool: `tests/test_context_triggers.py` (contrato + regras), smoke (`test_new_composite_tools`) e integração stdio (`test_mcp_stdio_get_context_triggers_contract_output`).
 - `tests/test_epic05_tools.py` com 17 testes de aceite de P0 para `validate_applicability` e `build_compliance_matrix`.
 - Regressões smoke para P1/P2 (`resolve_instruction_context` com novos campos, `list_instructions_index` com estados/saúde, `search_instructions` multi-query).
+- Novos testes smoke e de integração stdio para `search_instructions.current_file_path` (propagação ao motor de expansão, normalização, diagnóstico e serialização MCP).
 - Integração stdio real atualizada para verificar `validate_applicability` e `build_compliance_matrix` no transporte MCP.
+- Nova suíte `tests/test_list_instructions_index_catalog.py` para filtros individuais/combinados, facets, regra `limit=0`, `current_file_path`, paginação e escala 100+.
 
 ## [0.3.0] - 2026-04-16
 

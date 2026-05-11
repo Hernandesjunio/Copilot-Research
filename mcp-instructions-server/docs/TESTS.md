@@ -48,7 +48,7 @@ Executa as tools com `INSTRUCTIONS_ROOT` no fixture; reinicia o índice em memó
 
 | Teste | O que valida |
 |-------|----------------|
-| `test_list_instructions_index_count` | Resposta JSON com `status/index_health/warnings/errors`, `count`, `by_tag`, e presença mínima de IDs conhecidos (incl. `dns-retry-pattern`, `example-security-baseline`, `csharp-async-style`). |
+| `test_list_instructions_index_count` | Resposta JSON com `index_status/index_health/warnings/errors`, `total_indexed/total_matched`, `items`, `by_tag`, e presença mínima de IDs conhecidos (incl. `dns-retry-pattern`, `example-security-baseline`, `csharp-async-style`). |
 | `test_search_instructions_finds_dns` | Busca por texto encontra `dns-retry-pattern` no topo e devolve `composed_context`. |
 | `test_search_results_have_related_ids_shape` | Cada resultado de busca inclui `related_ids` (lista de strings), sem o próprio `id`. |
 | `test_search_dns_top_result_related_ids_include_resilience_policy` | Para o hit DNS, `related_ids` contém `microservice-resilience-polly-timeouts-and-circuit-breaker` (partilha de tags com a policy Polly). |
@@ -62,11 +62,16 @@ Executa as tools com `INSTRUCTIONS_ROOT` no fixture; reinicia o índice em memó
 | `test_search_tags_only` | Query vazia com `tags=security` filtra e inclui `example-security-baseline`. |
 | `test_search_instructions_invalid_max_results_uses_default` | `max_results` inválido cai no default e ainda devolve resultados. |
 | `test_search_instructions_persistencia_sql_returns_data_access` | Expansão por sinónimos / domínio: `persistência SQL` ranqueia `microservice-data-access-and-sql-security`. |
+| `test_search_instructions_current_file_path_diagnostics` | `include_diagnostics` expõe o estado normalizado de `current_file_path` e se ele foi aproveitado para expansão contextual. |
+| `test_search_instructions_empty_current_file_path_is_ignored` | `current_file_path` vazio não quebra a busca e aparece como ignorado no diagnóstico. |
 | `test_search_instructions_multi_query_consolidated_output` | Modo `queries` devolve saída consolidada estável (`top_policies`, `top_references`, `coverage_gaps`). |
+| `test_search_instructions_passes_current_file_path_to_expansion` | `current_file_path` é normalizado e propagado ao motor de expansão no fluxo single-query. |
+| `test_search_instructions_multi_query_reuses_current_file_path` | O mesmo `current_file_path` é reutilizado no fluxo multi-query e exposto no diagnóstico agregado. |
 | `test_get_instructions_batch_returns_multiple_documents` | Vários IDs separados por vírgula; `found_count` e `missing_ids` coerentes. |
 | `test_get_instructions_batch_errors` | `ids` vazio → erro JSON; ID inexistente → `missing_ids` e `found_count` zero. |
 | `test_instructions_root_not_dir_raises` | `INSTRUCTIONS_ROOT` inexistente → payload com `status=error`, `ok=false` e `error_code=INDEX_LOAD_FAILED`. |
-| `test_list_instructions_index_status_partial_when_warnings_present` | Quando há ficheiro ignorado por tamanho, `status=partial` e `warnings` é preenchido. |
+| `test_list_instructions_index_status_partial_when_warnings_present` | Quando há ficheiro ignorado por tamanho, `index_status=partial` e `warnings` é preenchido. |
+| `test_list_instructions_index_catalog.py` | Cobertura dedicada da ADR-003/EPIC-11: filtros individuais (`kind`, `priority`, `status`, `scope`, `tags`, `owner`, `workspace_evidence_required`), filtros combinados, paginação (`limit`/`offset`/`has_more`), facets (`include_facets`, regra `limit=0`), `current_file_path` + `include_non_matching_global`, ausência de `query` na assinatura e escala com corpus sintético 100+. |
 | `test_resolve_instruction_context_exposes_p1_evidence_fields` | Campos P1 aditivos (`selection_rationale`, `pending_evidence`, `required_workspace_signals`, `next_repo_evidence_actions`). |
 
 ---
@@ -77,7 +82,7 @@ Valida o mesmo comportamento através do **transporte MCP real** (stdio), útil 
 
 | Teste | O que valida |
 |-------|----------------|
-| `test_mcp_stdio_list_search_get_instruction` | `list_tools` expõe pelo menos as tools base (`get_context_triggers`, `list_instructions_index`, `search_instructions`, `get_instructions_batch`, `validate_applicability`, `build_compliance_matrix`); valida também `list_instructions_index`, `search_instructions` (DNS) e `get_instructions_batch` com conteúdo não vazio. Com corpus alternativo, relaxa asserts que dependem de IDs fixos. |
+| `test_mcp_stdio_list_search_get_instruction` | `list_tools` expõe pelo menos as tools base (`get_context_triggers`, `list_instructions_index`, `search_instructions`, `get_instructions_batch`, `validate_applicability`, `build_compliance_matrix`); valida também `list_instructions_index`, `search_instructions` (DNS) com serialização de `current_file_path` no transporte stdio e `get_instructions_batch` com conteúdo não vazio. Com corpus alternativo, relaxa asserts que dependem de IDs fixos. |
 | `test_mcp_stdio_search_default_max_persistencia_sql_and_related_ids` | **Só com o fixture por omissão** (caso contrário `skip`): `search_instructions` sem `max_results` para `microservice` → 10 resultados; `persistência SQL` inclui `microservice-data-access-and-sql-security` e `composed_context` não vazio; busca DNS com `related_ids` e policy Polly listada. |
 | `test_mcp_stdio_get_context_triggers_contract_output` | Chama `get_context_triggers` via stdio com payload JSON, valida `schema_version`, `scenario`, `strategy` (`plan_only`) e `batch_required=true` para cenário transversal. |
 | `test_mcp_stdio_composite_tools_expose_actionable_outputs` | `resolve_instruction_context` com campos P1 + chamadas reais a `validate_applicability` e `build_compliance_matrix` via stdio. |

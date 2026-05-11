@@ -57,14 +57,15 @@ def test_list_instructions_index_count() -> None:
     from corporate_instructions_mcp.server import list_instructions_index
 
     data = json.loads(list_instructions_index())
-    assert data["status"] == "ok"
+    assert data["index_status"] == "ok"
     assert data["index_health"]["loaded"] is True
     assert isinstance(data["warnings"], list)
     assert isinstance(data["errors"], list)
-    assert data["count"] >= 3
+    assert data["total_indexed"] >= 3
+    assert data["total_matched"] >= 3
     assert "by_tag" in data
     assert isinstance(data["by_tag"], dict)
-    ids = {x["id"] for x in data["instructions"]}
+    ids = {x["id"] for x in data["items"]}
     assert {"dns-retry-pattern", "example-security-baseline", "csharp-async-style"}.issubset(ids)
 
 
@@ -186,6 +187,40 @@ def test_search_instructions_include_diagnostics() -> None:
     assert "results_only_from_expansion_count" in data["diagnostics"]
 
 
+def test_search_instructions_current_file_path_diagnostics() -> None:
+    from corporate_instructions_mcp.server import search_instructions
+
+    data = json.loads(
+        search_instructions(
+            query="retry DNS polly",
+            include_diagnostics=True,
+            current_file_path=r"Src\Api\Foo.cs",
+        )
+    )
+    current_file = data["diagnostics"]["current_file_path"]
+    assert current_file["provided"] is True
+    assert current_file["normalized"] == "src/api/foo.cs"
+    assert current_file["used_for_expansion"] is True
+    assert current_file["ignored_reason"] is None
+
+
+def test_search_instructions_empty_current_file_path_is_ignored() -> None:
+    from corporate_instructions_mcp.server import search_instructions
+
+    data = json.loads(
+        search_instructions(
+            query="retry DNS polly",
+            include_diagnostics=True,
+            current_file_path="   ",
+        )
+    )
+    current_file = data["diagnostics"]["current_file_path"]
+    assert current_file["provided"] is True
+    assert current_file["normalized"] is None
+    assert current_file["used_for_expansion"] is False
+    assert current_file["ignored_reason"] == "empty"
+
+
 def test_search_instructions_tags_mode_all() -> None:
     from corporate_instructions_mcp.server import search_instructions
 
@@ -254,6 +289,50 @@ def test_search_instructions_multi_query_consolidated_output() -> None:
     assert isinstance(consolidated["top_policies"], list)
     assert isinstance(consolidated["top_references"], list)
     assert isinstance(consolidated["coverage_gaps"], list)
+
+
+def test_search_instructions_passes_current_file_path_to_expansion(monkeypatch: pytest.MonkeyPatch) -> None:
+    import corporate_instructions_mcp.server as srv
+    from corporate_instructions_mcp.indexing import expand_query_with_metadata as original_expand
+
+    seen_paths: list[str | None] = []
+
+    def _wrapped_expand_query_with_metadata(tokens, expansion_map=None, current_file_path=None):
+        seen_paths.append(current_file_path)
+        return original_expand(tokens, expansion_map=expansion_map, current_file_path=current_file_path)
+
+    monkeypatch.setattr(srv, "expand_query_with_metadata", _wrapped_expand_query_with_metadata)
+
+    json.loads(srv.search_instructions(query="retry DNS polly", current_file_path=r"Src\Api\Foo.cs"))
+
+    assert seen_paths == ["src/api/foo.cs"]
+
+
+def test_search_instructions_multi_query_reuses_current_file_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    import corporate_instructions_mcp.server as srv
+    from corporate_instructions_mcp.indexing import expand_query_with_metadata as original_expand
+
+    seen_paths: list[str | None] = []
+
+    def _wrapped_expand_query_with_metadata(tokens, expansion_map=None, current_file_path=None):
+        seen_paths.append(current_file_path)
+        return original_expand(tokens, expansion_map=expansion_map, current_file_path=current_file_path)
+
+    monkeypatch.setattr(srv, "expand_query_with_metadata", _wrapped_expand_query_with_metadata)
+
+    data = json.loads(
+        srv.search_instructions(
+            query="",
+            queries=["retry DNS polly", "persistência SQL"],
+            current_file_path=r"Src\Api\Foo.cs",
+            include_diagnostics=True,
+        )
+    )
+
+    assert seen_paths == ["src/api/foo.cs", "src/api/foo.cs"]
+    current_file = data["diagnostics"]["current_file_path"]
+    assert current_file["normalized"] == "src/api/foo.cs"
+    assert current_file["used_for_expansion"] is True
 
 
 def test_new_composite_tools() -> None:
@@ -594,7 +673,7 @@ def test_instructions_root_not_dir_raises(monkeypatch: pytest.MonkeyPatch, tmp_p
 
     payload = json.loads(list_instructions_index())
     assert payload["ok"] is False
-    assert payload["status"] == "error"
+    assert payload["index_status"] == "error"
     assert payload["error_code"] == "INDEX_LOAD_FAILED"
 
 
@@ -620,6 +699,6 @@ Body.
     srv._index_root = None
 
     payload = json.loads(list_instructions_index())
-    assert payload["status"] == "partial"
+    assert payload["index_status"] == "partial"
     assert payload["index_health"]["documents_with_warnings"] >= 1
     assert payload["warnings"]

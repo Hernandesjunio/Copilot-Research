@@ -1,12 +1,13 @@
 # ADR-002: Corpus Query Expansion Map como camada de expansão de query
 
-**Status**: Aceito  
+**Status**: Implementado e validado por testes automatizados (`mcp-instructions-server/tests/`; ver §5 e parágrafo de encerramento).  
 **Data**: 2026-05-09  
 **Revisão V1.1**: 2026-05-10  
 **Revisão V1.2 (especificação operacional)**: 2026-05-10  
 **Revisão V1.3 (plano de testes de regressão)**: 2026-05-10  
+**Implementado e validado por testes em**: 2026-05-10  
 **Contexto**: MCP `corporate_instructions_mcp` — mecanismo de busca de instructions  
-**Revisão agendada**: após validação experimental da V1
+**Revisão futura (opcional)**: após alterações relevantes ao ranking (EPIC-07), ao schema do mapa, ou ao corpus servido em `INSTRUCTIONS_ROOT`
 
 ---
 
@@ -200,6 +201,8 @@ A decisão será considerada validada quando:
 10. Combinação termo × contexto em `applies_to` e regras de activação de contexto conforme §2.1 (combinação, ativação de contexto) reproduzíveis em testes.
 
 Se os critérios 1–10 não forem atingidos após validação experimental, reavaliar se o problema está no mapa (curadoria) ou no modelo (arquitetura).
+
+**Encerramento (2026-05-10):** a suíte `pytest` do servidor MCP em `mcp-instructions-server/tests/` passa na íntegra (220 testes executados nesta data, 1 marcado skipped esperado). Cobertura relevante inclui `test_epic10_corpus_query_expansion_map.py`, `test_corpus_expansion_map_merged.py`, `test_context_triggers.py`, `test_indexing.py` e integração com o corpus de exemplo em `fixtures/instructions/metadata/corpus-query-expansion-map/`. A decisão permanece válida; evoluções posteriores alinham-se a este documento ou exigem nova ADR se o modelo mudar.
 
 ### 5.1 Plano de testes de regressão
 
